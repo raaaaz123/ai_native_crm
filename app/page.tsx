@@ -1,103 +1,87 @@
-import Image from "next/image";
+import React from "react";
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Container, Section, FeatureCard, Stat, Testimonial } from '@/components/layout';
 
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <main>
+      {/* Hero */}
+      <Section className="bg-gradient-to-b from-white to-[--color-surface]">
+        <Container className="grid items-center gap-8 md:grid-cols-2">
+          <div>
+            <Badge>AI‑native customer engagement</Badge>
+            <h1 className="mt-4 text-4xl/tight sm:text-5xl/tight font-semibold text-[--color-foreground]">
+              Retain customers and grow LTV with Rexa Engage
+            </h1>
+            <p className="mt-4 text-base text_BLACK/70">
+              Unified suite for review collection, support desk, and embeddable support widgets — powered by native AI engines and agents.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <Link href="#demo">
+                <Button>Request demo</Button>
+              </Link>
+              <Link href="#docs">
+                <Button variant="outline">Explore docs</Button>
+              </Link>
+            </div>
+            <div className="mt-8 grid grid-cols-2 gap-4">
+              <Stat label="Avg. CSAT" value="4.9/5" />
+              <Stat label="Retention uplift" value="+18%" />
+            </div>
+          </div>
+          <div className="relative rounded-[var(--radius-xl)] border border-[--color-border] bg-[--color-card] p-6">
+            <div className="grid grid-cols-2 gap-4">
+              <FeatureCard title="Review collection" description="Automated, personalized review requests across channels with intelligent timing." />
+              <FeatureCard title="Support desk" description="AI‑assisted triage, summaries, and suggested replies for faster resolutions." />
+              <FeatureCard title="Support widget" description="Embeddable self‑service widget with native agents that run privately." />
+              <FeatureCard title="Analytics" description="Retention, sentiment, and revenue impact — in one dashboard." />
+            </div>
+          </div>
+        </Container>
+      </Section>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+      {/* Features */}
+      <Section id="features">
+        <Container>
+          <div className="mx-auto max-w-3xl text-center">
+            <h2 className="text-2xl sm:text-3xl font-semibold">Everything you need to engage and retain</h2>
+            <p className="mt-3 text-black/70">From collection to resolution, each tool is designed to work together with shared AI context.</p>
+          </div>
+          <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
+            <FeatureCard title="Multichannel reviews" description="Email, SMS, WhatsApp with intelligent pacing and personalization." />
+            <FeatureCard title="Agentic support" description="Native agents summarize, route, and propose next actions automatically." />
+            <FeatureCard title="Widget SDK" description="Drop‑in widget that respects privacy with on‑device inference options." />
+            <FeatureCard title="Knowledge sync" description="Auto‑index docs, tickets, and chats to keep answers aligned." />
+            <FeatureCard title="Workflow builder" description="Compose automations with prompts, tools, and human‑in‑the‑loop." />
+            <FeatureCard title="Insights" description="Track churn risks, sentiment shifts, and revenue influence." />
+          </div>
+        </Container>
+      </Section>
+
+      {/* Testimonials */}
+      <Section>
+        <Container className="grid gap-6 sm:grid-cols-3">
+          <Testimonial quote="Rexa Engage turned our support into a growth lever." author="Ava M." role="Head of Support, D2C Brand" />
+          <Testimonial quote="The review flows feel personal yet fully automated." author="Leo P." role="Growth Lead, SaaS" />
+          <Testimonial quote="Widget is private, fast, and actually helpful." author="Maya R." role="Product Manager" />
+        </Container>
+      </Section>
+
+      {/* CTA */}
+      <Section>
+        <Container className="rounded-[var(--radius-xl)] border border-[--color-border] bg-[--color-info-soft] p-8 text-center">
+          <h3 className="text-xl font-semibold">Ready to elevate retention?</h3>
+          <p className="mt-2 text-black/70">Request a demo to see AI agents drive measurable customer outcomes.</p>
+          <div className="mt-5 flex justify-center">
+            <Link href="#demo">
+              <Button>Request demo</Button>
+            </Link>
+          </div>
+        </Container>
+      </Section>
+    </main>
   );
 }

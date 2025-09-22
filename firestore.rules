@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read and write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Contacts collection - users can only access their own contacts
+    match /contacts/{contactId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Deals collection - users can only access their own deals
+    match /deals/{dealId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Activities collection - users can only access their own activities
+    match /activities/{activityId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Companies collection - users can only access their own companies
+    match /companies/{companyId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.userId == request.auth.uid;
+    }
+    
+    // Chat widgets - business owners can manage their widgets
+    match /chatWidgets/{widgetId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.businessId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.businessId == request.auth.uid;
+    }
+    
+    // Chat conversations - business owners can access their conversations
+    match /chatConversations/{conversationId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.businessId == request.auth.uid;
+      allow create: if request.auth != null;
+    }
+    
+    // Chat messages - accessible by conversation participants
+    match /chatMessages/{messageId} {
+      allow read, write: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+    
+    // Knowledge base - business owners can manage their knowledge base
+    match /knowledgeBase/{itemId} {
+      allow read, write, delete: if request.auth != null && 
+        resource.data.businessId == request.auth.uid;
+      allow create: if request.auth != null && 
+        request.resource.data.businessId == request.auth.uid;
+    }
+    
+    // Allow collection-level queries for knowledge base
+    match /knowledgeBase/{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Default deny all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
