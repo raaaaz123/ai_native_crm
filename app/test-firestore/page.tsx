@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../lib/auth-context';
 import { createReviewForm, getBusinessReviewForms } from '../lib/review-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function TestFirestorePage() {
-  const { user, userData, loading } = useAuth();
+  const { user, loading } = useAuth();
   const [testResult, setTestResult] = useState<string>('');
   const [testing, setTesting] = useState(false);
 

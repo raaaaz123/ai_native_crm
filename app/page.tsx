@@ -1,7 +1,7 @@
 import React from "react";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, MessageSquare, Zap, Shield, BarChart3, CheckCircle2, Sparkles, Users, Star } from 'lucide-react';
+import { ArrowRight, MessageSquare, Shield, BarChart3, CheckCircle2, Sparkles, Users, Star } from 'lucide-react';
 import Hero from './components/layout/Hero';
 
 export default function Home() {
@@ -106,7 +106,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-700 mb-8 leading-relaxed text-base">
-                "Rexa Engage turned our support into a growth lever. We've seen a <strong className="text-gray-900">30% increase</strong> in customer satisfaction since implementing it."
+                &ldquo;Rexa Engage turned our support into a growth lever. We&rsquo;ve seen a <strong className="text-gray-900">30% increase</strong> in customer satisfaction since implementing it.&rdquo;
               </p>
               <div className="flex items-center">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-400 to-indigo-500 mr-4 flex items-center justify-center text-white font-bold text-lg shadow-md">
@@ -130,7 +130,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-700 mb-8 leading-relaxed text-base">
-                "The review flows feel personal yet fully automated. Our customers love the experience and we've collected <strong className="text-gray-900">3x more reviews</strong>."
+                &ldquo;The review flows feel personal yet fully automated. Our customers love the experience and we&rsquo;ve collected <strong className="text-gray-900">3x more reviews</strong>.&rdquo;
               </p>
               <div className="flex items-center">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-purple-400 to-pink-500 mr-4 flex items-center justify-center text-white font-bold text-lg shadow-md">
@@ -154,7 +154,7 @@ export default function Home() {
                 </div>
               </div>
               <p className="text-gray-700 mb-8 leading-relaxed text-base">
-                "Widget is private, fast, and actually helpful. Our support tickets decreased by <strong className="text-gray-900">40%</strong> while customer satisfaction improved."
+                &ldquo;Widget is private, fast, and actually helpful. Our support tickets decreased by <strong className="text-gray-900">40%</strong> while customer satisfaction improved.&rdquo;
               </p>
               <div className="flex items-center">
                 <div className="h-12 w-12 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 mr-4 flex items-center justify-center text-white font-bold text-lg shadow-md">

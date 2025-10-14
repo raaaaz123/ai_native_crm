@@ -109,7 +109,7 @@ export async function createKnowledgeBaseItem(
     }
 
     // Create knowledge base item in Firestore
-    const docData: any = {
+    const docData: Record<string, unknown> = {
       businessId,
       widgetId,
       title: itemData.title,
@@ -264,7 +264,7 @@ export async function updateKnowledgeBaseItem(
   try {
     const itemRef = doc(db, 'knowledgeBase', itemId);
     
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: serverTimestamp()
     };
 
@@ -328,12 +328,12 @@ export async function deleteKnowledgeBaseItem(itemId: string): Promise<ApiRespon
 
     return {
       success: true,
-      data: undefined as any
+      data: undefined
     };
   } catch (error) {
     return {
       success: false,
-      data: undefined as any,
+      data: undefined,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }

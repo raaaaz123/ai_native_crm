@@ -1,14 +1,13 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { BrandLogo } from '../components/brand';
 
-
-export default function SignUpPage() {
+function SignUpPageContent() {
   const [step, setStep] = useState<'initial' | 'complete' | 'company'>('initial');
   const [formData, setFormData] = useState({
     email: '',
@@ -185,11 +184,6 @@ export default function SignUpPage() {
     }
   };
 
-  const handleSkipToCompanyChoice = () => {
-    console.log('⏭️ [Profile Completion] User chose to set up company later');
-    router.push('/dashboard');
-  };
-
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -298,7 +292,7 @@ export default function SignUpPage() {
                   disabled={loading}
                   suppressHydrationWarning
                 />
-                <p className="text-xs text-neutral-500 mt-1">Optional: Your company's website domain</p>
+                <p className="text-xs text-neutral-500 mt-1">Optional: Your company&apos;s website domain</p>
               </div>
 
               <Button
@@ -657,5 +651,20 @@ export default function SignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignUpPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-500 mx-auto mb-4"></div>
+          <p className="text-neutral-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SignUpPageContent />
+    </Suspense>
   );
 }

@@ -1,4 +1,5 @@
 import React from 'react';
+import Image from 'next/image';
 
 export function Container({ className = "", children }: React.PropsWithChildren<{ className?: string }>) {
   return (
@@ -105,21 +106,25 @@ export function Testimonial({
     <div className={`card-modern p-8 relative overflow-hidden group hover-lift ${className}`}>
       {/* Quote background decoration */}
       <div className="absolute top-4 right-4 text-6xl text-[--color-primary-50] font-serif leading-none select-none">
-        "
+        &ldquo;
       </div>
       
       <div className="relative z-10">
         <blockquote className="text-[--color-foreground] text-lg leading-relaxed mb-6 italic">
-          "{quote}"
+          &ldquo;{quote}&rdquo;
         </blockquote>
         
         <div className="flex items-center gap-4">
           {avatar ? (
-            <img 
-              src={avatar} 
-              alt={author}
-              className="w-12 h-12 rounded-full object-cover border-2 border-[--color-border]"
-            />
+            <div className="relative w-12 h-12">
+              <Image 
+                src={avatar} 
+                alt={author}
+                fill
+                className="rounded-full object-cover border-2 border-[--color-border]"
+                unoptimized
+              />
+            </div>
           ) : (
             <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[--color-primary-100] to-[--color-primary-200] flex items-center justify-center text-[--color-primary-600] font-semibold text-lg">
               {author.charAt(0)}

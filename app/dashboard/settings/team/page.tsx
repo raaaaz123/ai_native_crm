@@ -13,11 +13,9 @@ import {
   Users, 
   UserPlus, 
   Mail, 
-  MoreVertical, 
   Trash2, 
   Crown,
   Shield,
-  Eye,
   Edit,
   CheckCircle,
   XCircle,
@@ -57,7 +55,7 @@ export default function TeamManagementPage() {
   const [members, setMembers] = useState<CompanyMember[]>([]);
   const [invites, setInvites] = useState<CompanyInvite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<CompanyInvite[]>([]);
-  const [inviteCompanies, setInviteCompanies] = useState<Record<string, any>>({});
+  const [inviteCompanies, setInviteCompanies] = useState<Record<string, { id: string; name: string; description?: string; domain?: string }>>({});
   const [sentInvites, setSentInvites] = useState<CompanyInvite[]>([]);
   const [inviteStatusFilter, setInviteStatusFilter] = useState<'all' | 'pending' | 'accepted' | 'rejected' | 'revoked'>('pending');
   const [loadingSentInvites, setLoadingSentInvites] = useState(false);
@@ -128,6 +126,7 @@ export default function TeamManagementPage() {
         loadUserInvitations();
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyContext, user]);
 
   // Reload sent invites when filter changes
@@ -135,6 +134,7 @@ export default function TeamManagementPage() {
     if (companyContext?.company.id && canInviteUsers()) {
       loadSentInvites();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inviteStatusFilter, companyContext]);
 
   // Load user invitations when no company
@@ -149,7 +149,7 @@ export default function TeamManagementPage() {
         setReceivedInvites(result.data);
         
         // Fetch company details for each invite
-        const companies: Record<string, any> = {};
+        const companies: Record<string, { id: string; name: string; description?: string; domain?: string }> = {};
         for (const invite of result.data) {
           const companyResult = await getCompany(invite.companyId);
           if (companyResult.success && companyResult.data) {
@@ -590,14 +590,6 @@ export default function TeamManagementPage() {
     }
   };
 
-  const toggleEditInvitePermission = (permission: Permission) => {
-    setEditInvitePermissions(prev => 
-      prev.includes(permission)
-        ? prev.filter(p => p !== permission)
-        : [...prev, permission]
-    );
-  };
-
   const handleEditMemberFromInvite = async (invite: CompanyInvite) => {
     // Find the actual member by email
     const member = members.find(m => m.email === invite.email);
@@ -639,14 +631,6 @@ export default function TeamManagementPage() {
     } finally {
       setUpdatingMember(false);
     }
-  };
-
-  const toggleEditMemberPermission = (permission: Permission) => {
-    setEditMemberPermissions(prev => 
-      prev.includes(permission)
-        ? prev.filter(p => p !== permission)
-        : [...prev, permission]
-    );
   };
 
   const getStatusBadgeColor = (status: string, expiresAt?: number) => {
@@ -696,7 +680,7 @@ export default function TeamManagementPage() {
   };
 
   const getPermissionSetName = (permissions: Permission[]) => {
-    for (const [key, set] of Object.entries(PERMISSION_SETS)) {
+    for (const [, set] of Object.entries(PERMISSION_SETS)) {
       if (JSON.stringify(set.permissions.sort()) === JSON.stringify(permissions.sort())) {
         return set.name;
       }
@@ -721,7 +705,7 @@ export default function TeamManagementPage() {
       <Container>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-neutral-900 mb-2">Team Management</h1>
-          <p className="text-neutral-600">Choose how you'd like to get started with your team</p>
+          <p className="text-neutral-600">Choose how you&apos;d like to get started with your team</p>
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-blue-800 text-sm">
               <strong>New to the platform?</strong> You can either create your own company or join an existing one using an invitation.
@@ -795,7 +779,7 @@ export default function TeamManagementPage() {
                         placeholder="acme.com"
                         disabled={creatingCompany}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Optional: Your company's website domain</p>
+                      <p className="text-xs text-gray-500 mt-1">Optional: Your company&apos;s website domain</p>
                     </div>
 
                     <div className="flex space-x-3">
@@ -832,7 +816,7 @@ export default function TeamManagementPage() {
             </CardHeader>
             <CardContent>
               <p className="text-neutral-600 mb-6">
-                <strong>For team members:</strong> If you've been invited to join a company, your invitations will appear below.
+                <strong>For team members:</strong> If you&apos;ve been invited to join a company, your invitations will appear below.
               </p>
 
               {/* Received Invitations */}
@@ -1018,7 +1002,7 @@ export default function TeamManagementPage() {
           <div className="text-center py-12">
             <Shield className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-neutral-900 mb-2">Access Restricted</h3>
-            <p className="text-neutral-600">You don't have permission to manage team members.</p>
+            <p className="text-neutral-600">You don&apos;t have permission to manage team members.</p>
           </div>
         }
       >
@@ -1442,7 +1426,7 @@ export default function TeamManagementPage() {
               <select
                 value={getPermissionSetName(invitePermissions)}
                 onChange={(e) => {
-                  const selectedSet = Object.entries(PERMISSION_SETS).find(([_, set]) => set.name === e.target.value);
+                  const selectedSet = Object.entries(PERMISSION_SETS).find(([, set]) => set.name === e.target.value);
                   if (selectedSet) {
                     setInvitePermissions(selectedSet[1].permissions);
                   }

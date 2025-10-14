@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -36,7 +36,6 @@ import Link from 'next/link';
 import { 
   getBusinessWidgets, 
   createChatWidget, 
-  updateChatWidget, 
   deleteChatWidget, 
   type ChatWidget 
 } from '@/app/lib/chat-utils';
@@ -49,7 +48,7 @@ interface Widget extends ChatWidget {
 }
 
 export default function WidgetsPage() {
-  const { user, companyContext } = useAuth();
+  const { companyContext } = useAuth();
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +97,7 @@ export default function WidgetsPage() {
     if (companyContext?.company?.id) {
       loadWidgets();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyContext]);
 
   const loadWidgets = async () => {

@@ -25,7 +25,7 @@ export default function SignInPage() {
     try {
       setLoading(true);
       setError('');
-      const { user, isNewUser } = await signInWithGoogle();
+      const { isNewUser } = await signInWithGoogle();
       
       if (isNewUser) {
         router.push('/signup?step=complete');

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
 import { Badge } from '@/components/ui/badge';
-import { Users, Settings, Bell, Shield } from 'lucide-react';
+import { Users, Settings, Shield } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -93,7 +93,22 @@ export default function SettingsPage() {
   const getUserSince = () => {
     if (!userData?.createdAt) return 'Unknown';
     
-    const createdDate = new Date(userData.createdAt);
+    let createdDate: Date;
+    const createdAt = userData.createdAt;
+    
+    // Handle different timestamp formats
+    if (createdAt instanceof Date) {
+      createdDate = createdAt;
+    } else if (typeof createdAt === 'object' && 'toDate' in createdAt && typeof createdAt.toDate === 'function') {
+      createdDate = createdAt.toDate();
+    } else if (typeof createdAt === 'number') {
+      createdDate = new Date(createdAt);
+    } else if (typeof createdAt === 'string') {
+      createdDate = new Date(createdAt);
+    } else {
+      return 'Unknown';
+    }
+    
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - createdDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -106,10 +121,22 @@ export default function SettingsPage() {
   };
 
   // Format date for display
-  const formatDate = (date: any) => {
+  const formatDate = (date: unknown) => {
     if (!date) return 'Unknown';
     try {
-      return new Date(date).toLocaleDateString('en-US', {
+      let dateObj: Date;
+      
+      if (date instanceof Date) {
+        dateObj = date;
+      } else if (typeof date === 'object' && date !== null && 'toDate' in date && typeof date.toDate === 'function') {
+        dateObj = date.toDate();
+      } else if (typeof date === 'number' || typeof date === 'string') {
+        dateObj = new Date(date);
+      } else {
+        return 'Unknown';
+      }
+      
+      return dateObj.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -193,7 +220,7 @@ export default function SettingsPage() {
                   <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Company Found</h3>
                   <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
-                    You're not part of any company yet. Create a company or join an existing one to get started.
+                    You&apos;re not part of any company yet. Create a company or join an existing one to get started.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button 

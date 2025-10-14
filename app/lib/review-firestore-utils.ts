@@ -3,14 +3,12 @@ import {
   setDoc, 
   getDoc, 
   collection, 
-  addDoc, 
   updateDoc, 
   deleteDoc, 
   query, 
   where, 
   orderBy, 
   getDocs,
-  serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
@@ -18,15 +16,16 @@ import { ReviewForm, ReviewSubmission, ReviewField, ReviewFormSettings } from '.
 import { ensureUserMembership } from './ensure-membership';
 
 // Helper function to convert Firestore timestamps to JavaScript dates
-export const convertTimestamps = (data: any): any => {
+export const convertTimestamps = <T extends Record<string, unknown>>(data: T): T => {
   if (!data) return data;
   
   const converted = { ...data };
   
   // Convert Firestore timestamps to JavaScript dates
   Object.keys(converted).forEach(key => {
-    if (converted[key] instanceof Timestamp) {
-      converted[key] = converted[key].toDate().toISOString();
+    const value = converted[key];
+    if (value instanceof Timestamp) {
+      (converted as Record<string, unknown>)[key] = value.toDate().toISOString();
     }
   });
   
@@ -80,15 +79,16 @@ export const createReviewForm = async (businessId: string, formData: {
     return { success: true, data: form };
   } catch (error) {
     console.error('Error creating review form:', error);
+    const err = error as { code?: string; message?: string };
     console.error('Error details:', {
-      code: (error as any)?.code,
-      message: (error as any)?.message,
+      code: err.code,
+      message: err.message,
       businessId,
       formData
     });
     return { 
       success: false, 
-      error: `Failed to create review form: ${(error as any)?.message || 'Unknown error'}` 
+      error: `Failed to create review form: ${err.message || 'Unknown error'}` 
     };
   }
 };
@@ -144,14 +144,15 @@ export const getBusinessReviewForms = async (businessId: string): Promise<{ succ
     }
   } catch (error) {
     console.error('Error fetching review forms:', error);
+    const err = error as { code?: string; message?: string };
     console.error('Error details:', {
-      code: (error as any)?.code,
-      message: (error as any)?.message,
+      code: err.code,
+      message: err.message,
       businessId
     });
     return { 
       success: false, 
-      error: `Failed to fetch review forms: ${(error as any)?.message || 'Unknown error'}` 
+      error: `Failed to fetch review forms: ${err.message || 'Unknown error'}` 
     };
   }
 };
@@ -185,7 +186,11 @@ export const updateReviewForm = async (formId: string, updates: Partial<ReviewFo
     
     // Fetch updated form
     const formSnap = await getDoc(formRef);
-    const formData = convertTimestamps(formSnap.data()) as ReviewForm;
+    const data = formSnap.data();
+    if (!data) {
+      return { success: false, error: 'Failed to fetch updated form' };
+    }
+    const formData = convertTimestamps(data) as unknown as ReviewForm;
     
     return { success: true, data: formData };
   } catch (error) {
@@ -215,11 +220,11 @@ export const deleteReviewForm = async (formId: string): Promise<{ success: boole
 };
 
 // Review Submission Operations
-export const submitReviewForm = async (formId: string, responses: { fieldId: string; value: any }[], userInfo?: {
+export const submitReviewForm = async (formId: string, responses: { fieldId: string; value: string | number | boolean | string[] }[], userInfo?: {
   email?: string;
   name?: string;
   phone?: string;
-}, deviceInfo?: any): Promise<{ success: boolean; data?: { submissionId: string }; error?: string }> => {
+}, deviceInfo?: Record<string, unknown>): Promise<{ success: boolean; data?: { submissionId: string }; error?: string }> => {
   try {
     // First, get the form to validate it exists and is active
     const formResult = await getReviewForm(formId);
@@ -241,7 +246,13 @@ export const submitReviewForm = async (formId: string, responses: { fieldId: str
       submittedAt: new Date().toISOString(),
       userInfo: {
         ...userInfo,
-        device: deviceInfo,
+        device: deviceInfo as {
+          userAgent: string;
+          platform: string;
+          browser: string;
+          screenResolution: string;
+          timezone: string;
+        },
         location: {
           country: 'Unknown', // In production, get from IP geolocation
           region: 'Unknown',
@@ -309,7 +320,7 @@ export const getReviewFormSubmissions = async (formId: string): Promise<{ succes
   }
 };
 
-export const getReviewFormAnalytics = async (formId: string): Promise<{ success: boolean; data?: any; error?: string }> => {
+export const getReviewFormAnalytics = async (formId: string): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
   try {
     const formResult = await getReviewForm(formId);
     if (!formResult.success || !formResult.data) {
@@ -345,7 +356,7 @@ export const getReviewFormAnalytics = async (formId: string): Promise<{ success:
 
     // Field analytics
     const fieldAnalytics = form.fields.map(field => {
-      const fieldResponses: any[] = [];
+      const fieldResponses: (string | number | boolean | string[])[] = [];
       submissions.forEach(submission => {
         const response = submission.responses.find(r => r.fieldId === field.id);
         if (response) {
@@ -359,7 +370,7 @@ export const getReviewFormAnalytics = async (formId: string): Promise<{ success:
         fieldType: field.type,
         responseCount: fieldResponses.length,
         averageValue: field.type === 'rating' && fieldResponses.length > 0 
-          ? fieldResponses.reduce((sum: number, val: number) => sum + val, 0) / fieldResponses.length 
+          ? (fieldResponses as number[]).reduce((sum: number, val: number) => sum + val, 0) / fieldResponses.length 
           : null,
         commonResponses: []
       };

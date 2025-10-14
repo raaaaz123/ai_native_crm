@@ -10,30 +10,24 @@ import {
   createChatWidget, 
   getBusinessWidgets, 
   subscribeToConversations,
-  ChatWidget 
+  ChatWidget,
+  ChatConversation
 } from '../lib/chat-utils';
 import { 
   getBusinessReviewForms,
-  getReviewFormSubmissions,
-  getReviewFormAnalytics
+  getReviewFormSubmissions
 } from '../lib/review-utils';
 import { 
   ReviewForm,
-  ReviewSubmission,
-  ReviewAnalytics
+  ReviewSubmission
 } from '../lib/review-types';
 import { 
   MessageCircle, 
-  Copy, 
-  ExternalLink, 
   Plus,
-  Share2,
   Users,
   Star,
   TrendingUp,
   Clock,
-  Eye,
-  MessageSquare,
   BarChart3,
   ArrowUpRight,
   ArrowDownRight,
@@ -41,17 +35,16 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { user, userData, loading, companyContext } = useAuth();
+  const { user, loading, companyContext } = useAuth();
   const router = useRouter();
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
-  const [loadingWidgets, setLoadingWidgets] = useState(true);
+  const [, setLoadingWidgets] = useState(true);
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   
   // New state for analytics and data
   const [reviewForms, setReviewForms] = useState<ReviewForm[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<ReviewSubmission[]>([]);
-  const [recentConversations, setRecentConversations] = useState<any[]>([]);
-  const [analytics, setAnalytics] = useState<ReviewAnalytics | null>(null);
+  const [recentConversations, setRecentConversations] = useState<ChatConversation[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   
   // Dashboard metrics
@@ -182,11 +175,11 @@ export default function DashboardPage() {
         // Calculate review metrics
         const totalReviews = allSubmissions.length;
         const ratingSubmissions = allSubmissions.filter(sub => 
-          sub.responses.some((r: any) => r.fieldType === 'rating')
+          sub.responses.some((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating')
         );
         const averageRating = ratingSubmissions.length > 0 
           ? ratingSubmissions.reduce((sum, sub) => {
-              const ratingField = sub.responses.find((r: any) => r.fieldType === 'rating');
+              const ratingField = sub.responses.find((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating');
               return sum + (ratingField ? parseFloat(String(ratingField.value)) : 0);
             }, 0) / ratingSubmissions.length
           : 0;
@@ -241,6 +234,7 @@ export default function DashboardPage() {
         unsubscribeConversations();
       };
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, companyContext?.company?.id]);
 
   // Show company setup if no company context
@@ -326,23 +320,6 @@ export default function DashboardPage() {
     } finally {
       setCreating(false);
     }
-  };
-
-  const copyWidgetUrl = (widgetId: string) => {
-    const widgetUrl = `${window.location.origin}/widget/${widgetId}`;
-    navigator.clipboard.writeText(widgetUrl);
-    // You could add a toast notification here
-  };
-
-  const getEmbedCode = (widgetId: string): string => {
-    return `<script>
-  (function() {
-    var script = document.createElement('script');
-    script.src = '${window.location.origin}/widget-embed.js';
-    script.setAttribute('data-widget-id', '${widgetId}');
-    document.head.appendChild(script);
-  })();
-</script>`;
   };
 
   if (loading) {
@@ -587,7 +564,7 @@ export default function DashboardPage() {
                         <div className="flex items-center space-x-1">
                           <Star className="w-4 h-4 text-yellow-500 fill-current" />
                           <span className="text-sm font-medium">
-                            {submission.responses.find((r: any) => r.fieldType === 'rating')?.value || 'N/A'}
+                            {submission.responses.find((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating')?.value || 'N/A'}
                           </span>
                         </div>
                       </div>

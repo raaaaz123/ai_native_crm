@@ -16,8 +16,6 @@ import { db } from '../../../lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
-import Avatar from '../../../components/ui/avatar';
-import { getMessageAvatar } from '../../../lib/avatar-utils';
 import { 
   ArrowLeft, 
   Send, 

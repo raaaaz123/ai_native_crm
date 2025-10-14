@@ -7,8 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
 import { 
-  createReviewForm
+  createReviewForm,
+  CreateReviewFormData
 } from '../../../lib/review-utils';
+import { ReviewField, ReviewFormSettings } from '../../../lib/review-types';
 import ReviewFormBuilder from '../../../components/review/ReviewFormBuilder';
 import { 
   ArrowLeft,
@@ -21,13 +23,12 @@ export default function CreateReviewFormPage() {
   const { user, loading, companyContext } = useAuth();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
 
   const handleCreateForm = async (formData: {
     title: string;
     description: string;
-    fields: any[];
-    settings: any;
+    fields: ReviewField[];
+    settings: ReviewFormSettings;
   }) => {
     if (!user?.uid || !companyContext?.company?.id || creating) {
       console.log('Missing required data for form creation:', { 
@@ -42,7 +43,17 @@ export default function CreateReviewFormPage() {
     try {
       console.log('Creating review form with data:', formData);
       console.log('Using company ID:', companyContext.company.id);
-      const result = await createReviewForm(companyContext.company.id, formData);
+      
+      // Convert fields to Omit<ReviewField, 'id'>[] format
+      const createFormData: CreateReviewFormData = {
+        title: formData.title,
+        description: formData.description,
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        fields: formData.fields.map(({ id: _id, ...field }) => field) as Omit<ReviewField, 'id'>[],
+        settings: formData.settings
+      };
+      
+      const result = await createReviewForm(companyContext.company.id, createFormData);
       console.log('Review form creation result:', result);
       
       if (result.success) {

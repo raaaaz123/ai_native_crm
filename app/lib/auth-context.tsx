@@ -27,9 +27,9 @@ interface UserData {
   lastName?: string;
   company?: string;
   role?: string;
-  createdAt?: Date | any; // Allow serverTimestamp
-  lastLoginAt?: Date | any; // Allow serverTimestamp
-  updatedAt?: Date | any; // Allow serverTimestamp
+  createdAt?: Date | ReturnType<typeof serverTimestamp>;
+  lastLoginAt?: Date | ReturnType<typeof serverTimestamp>;
+  updatedAt?: Date | ReturnType<typeof serverTimestamp>;
 }
 
 interface AuthContextType {
@@ -232,10 +232,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { user, isNewUser };
     } catch (error) {
       console.error('❌ [Google Auth] Error during sign-in:', error);
+      const firebaseError = error as { code?: string; message?: string; stack?: string };
       console.error('❌ [Google Auth] Error details:', {
-        code: (error as any).code,
-        message: (error as any).message,
-        stack: (error as any).stack
+        code: firebaseError.code,
+        message: firebaseError.message,
+        stack: firebaseError.stack
       });
       throw error;
     }
@@ -340,10 +341,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('🎉 [Update User Data] User data update completed successfully');
     } catch (error) {
       console.error('❌ [Update User Data] Error updating user data:', error);
+      const firebaseError = error as { code?: string; message?: string; stack?: string };
       console.error('❌ [Update User Data] Error details:', {
-        code: (error as any).code,
-        message: (error as any).message,
-        stack: (error as any).stack
+        code: firebaseError.code,
+        message: firebaseError.message,
+        stack: firebaseError.stack
       });
       throw error;
     }

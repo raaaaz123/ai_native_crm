@@ -4,7 +4,7 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -16,7 +16,7 @@ export interface ChatRequest {
   conversation_id: string;
   widget_id: string;
   user_id?: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 }
 
 export interface ChatResponse {
@@ -63,12 +63,12 @@ export interface AIChatResponse {
   confidence: number;
   sources: Array<{
     content: string;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     title: string;
     type: string;
   }>;
   shouldFallbackToHuman: boolean;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 }
 
 export interface KnowledgeBaseItem {
@@ -83,7 +83,7 @@ export interface KnowledgeBaseItem {
   file_size?: number;
   processing_status: 'pending' | 'processing' | 'completed' | 'failed';
   embedding_id?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -94,7 +94,7 @@ export interface DocumentUploadRequest {
   document_type: 'text' | 'pdf' | 'docx' | 'html' | 'markdown' | 'website';
   file_name?: string;
   website_url?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface WebsiteScrapingRequest {
@@ -102,7 +102,7 @@ export interface WebsiteScrapingRequest {
   widget_id: string;
   title: string;
   max_pages?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface LLMConfig {
@@ -340,7 +340,7 @@ class ApiClient {
 
   async generateResponse(
     query: string,
-    context: any[],
+    context: unknown[],
     widgetId: string,
     llmConfig: LLMConfig
   ): Promise<ApiResponse> {

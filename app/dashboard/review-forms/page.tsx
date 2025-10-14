@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function ReviewFormsPage() {
-  const { user, userData, loading, companyContext } = useAuth();
+  const { user, loading, companyContext } = useAuth();
   const router = useRouter();
   
   // Review Forms State
@@ -29,12 +29,6 @@ export default function ReviewFormsPage() {
       router.push('/signin');
     }
   }, [user, loading, router]);
-
-  useEffect(() => {
-    if (user?.uid && companyContext?.company?.id) {
-      loadReviewForms();
-    }
-  }, [user?.uid, companyContext?.company?.id]);
 
   const loadReviewForms = async () => {
     if (!user?.uid || !companyContext?.company?.id) {
@@ -65,6 +59,13 @@ export default function ReviewFormsPage() {
       setLoadingReviewForms(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.uid && companyContext?.company?.id) {
+      loadReviewForms();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.uid, companyContext?.company?.id]);
 
 
   if (loading) {

@@ -34,6 +34,7 @@ export default function ReviewAnalyticsPage() {
     if (user && formId && companyContext?.company?.id) {
       loadData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, formId, router, companyContext?.company?.id]);
 
   const loadData = async () => {
@@ -113,7 +114,7 @@ export default function ReviewAnalyticsPage() {
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-neutral-900 mb-2">Form Not Found</h1>
-          <p className="text-neutral-600 mb-4">The review form you're looking for doesn't exist or has been removed.</p>
+          <p className="text-neutral-600 mb-4">The review form you&apos;re looking for doesn&apos;t exist or has been removed.</p>
           <Button onClick={() => router.push('/dashboard')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard

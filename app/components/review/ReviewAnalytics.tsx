@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,11 +31,9 @@ export default function ReviewAnalytics({
   loading,
   onRefresh
 }: ReviewAnalyticsProps) {
-  const [selectedTimeRange, setSelectedTimeRange] = useState('7d');
-
   const exportData = () => {
     const csvData = submissions.map(submission => {
-      const row: any = {
+      const row: Record<string, string | number> = {
         'Submission ID': submission.id,
         'Submitted At': new Date(submission.submittedAt).toLocaleString(),
         'Email': submission.userInfo.email || '',
@@ -54,7 +51,7 @@ export default function ReviewAnalytics({
       submission.responses.forEach(response => {
         row[`Response ${response.fieldId}`] = Array.isArray(response.value) 
           ? response.value.join(', ') 
-          : response.value;
+          : (typeof response.value === 'boolean' ? String(response.value) : response.value);
       });
 
       return row;
@@ -268,7 +265,7 @@ export default function ReviewAnalytics({
                       <p className="text-sm font-medium text-neutral-700">Common responses:</p>
                       {field.commonResponses.slice(0, 3).map((response, idx) => (
                         <div key={idx} className="flex items-center justify-between text-sm">
-                          <span className="text-neutral-600">"{response.value}"</span>
+                          <span className="text-neutral-600">&ldquo;{response.value}&rdquo;</span>
                           <span className="text-neutral-500">{response.count} times</span>
                         </div>
                       ))}

@@ -13,7 +13,7 @@ import type {
   ChatMessage,
   ChatConversation
 } from '../../lib/chat-utils';
-import { apiClient, ChatRequest, ChatResponse, AIChatRequest, AIChatResponse } from '../../lib/api-client';
+import { apiClient } from '../../lib/api-client';
 import { 
   MessageCircle, 
   Send,
@@ -21,7 +21,6 @@ import {
   User,
   Loader2,
   AlertCircle,
-  CheckCircle,
   History,
   ChevronLeft,
   Plus
@@ -68,7 +67,17 @@ export default function ChatWidget() {
 
   // AI Configuration
   const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [aiConfig, setAiConfig] = useState<{
+    enabled: boolean;
+    provider: string;
+    model: string;
+    temperature: number;
+    maxTokens: number;
+    confidenceThreshold: number;
+    maxRetrievalDocs: number;
+    ragEnabled: boolean;
+    fallbackToHuman: boolean;
+  } | null>(null);
 
   const loadWidget = useCallback(async () => {
     try {
@@ -77,8 +86,10 @@ export default function ChatWidget() {
         setWidget(result.data);
         
         // Check if contact form is required
-        const requireContactForm = (result.data as any).requireContactForm !== undefined 
-          ? (result.data as any).requireContactForm 
+        type ExtendedWidget = ChatWidget & { requireContactForm?: boolean; aiConfig?: { enabled: boolean; [key: string]: unknown } };
+        const extendedData = result.data as ExtendedWidget;
+        const requireContactForm = extendedData.requireContactForm !== undefined 
+          ? extendedData.requireContactForm 
           : true;
         
         if (!requireContactForm) {
@@ -97,17 +108,27 @@ export default function ChatWidget() {
           
           if (convResult.success) {
             setConversation(convResult.data);
-            const unsubscribe = subscribeToMessages(convResult.data.id, (messages) => {
+            subscribeToMessages(convResult.data.id, (messages) => {
               setMessages(messages);
             });
           }
         }
         
         // Check if AI is enabled for this widget
-        const aiConfig = (result.data as any).aiConfig;
+        const aiConfig = extendedData.aiConfig;
         if (aiConfig && aiConfig.enabled) {
           setAiEnabled(true);
-          setAiConfig(aiConfig);
+          setAiConfig({
+            enabled: aiConfig.enabled,
+            provider: aiConfig.provider || 'openrouter',
+            model: aiConfig.model || 'deepseek/deepseek-chat-v3.1:free',
+            temperature: aiConfig.temperature || 0.7,
+            maxTokens: aiConfig.maxTokens || 500,
+            confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
+            maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
+            ragEnabled: aiConfig.ragEnabled || false,
+            fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true
+          });
         } else {
           // Fallback: Enable AI with OpenRouter config if no AI config exists
           const defaultAiConfig = {
@@ -148,8 +169,9 @@ export default function ChatWidget() {
       const result = await apiClient.getUserChatHistory(widgetId, userInfo.email, 10);
       
       if (result.success && result.data) {
-        setChatHistory(result.data.data || []);
-        console.log(`✅ Loaded ${result.data.data?.length || 0} previous conversations for user`);
+        const responseData = result.data as { data?: Array<{ id: string; lastMessage: string; timestamp: string; messageCount: number; customerName: string; status: string }> };
+        setChatHistory(responseData.data || []);
+        console.log(`✅ Loaded ${responseData.data?.length || 0} previous conversations for user`);
       }
     } catch (err) {
       console.error('Error loading chat history:', err);
@@ -166,7 +188,19 @@ export default function ChatWidget() {
       const result = await apiClient.getConversationById(conversationId, userInfo.email);
       
       if (result.success && result.data) {
-        const convData = result.data.data;
+        const responseData = result.data as { 
+          data: { 
+            conversation: { status?: 'active' | 'closed' | 'pending' | 'resolved' | 'unsolved' | 'custom' }; 
+            messages: Array<{ 
+              id: string; 
+              text: string; 
+              sender: 'customer' | 'business'; 
+              timestamp: string; 
+              metadata?: Record<string, unknown> 
+            }> 
+          } 
+        };
+        const convData = responseData.data;
         
         // Set conversation data
         setConversation({
@@ -182,7 +216,7 @@ export default function ChatWidget() {
         });
         
         // Load messages
-        const loadedMessages: ChatMessage[] = convData.messages.map((msg: any) => ({
+        const loadedMessages: ChatMessage[] = convData.messages.map((msg) => ({
           id: msg.id,
           conversationId: conversationId,
           text: msg.text,
@@ -662,15 +696,15 @@ export default function ChatWidget() {
                         <p className="text-sm">{message.text}</p>
                         
                         {/* AI Response Metadata */}
-                        {message.metadata?.ai_generated && (
+                        {message.metadata?.ai_generated === true && (
                           <div className="mt-2 pt-2 border-t border-opacity-20 border-current">
                             <div className="flex items-center justify-between text-xs opacity-75">
                               <span>AI Response</span>
                               <div className="flex items-center space-x-2">
-                                {message.metadata.confidence && (
+                                {typeof message.metadata.confidence === 'number' && (
                                   <span>Confidence: {Math.round(message.metadata.confidence * 100)}%</span>
                                 )}
-                                {message.metadata.sources && message.metadata.sources.length > 0 && (
+                                {Array.isArray(message.metadata.sources) && message.metadata.sources.length > 0 && (
                                   <span>{message.metadata.sources.length} sources</span>
                                 )}
                               </div>

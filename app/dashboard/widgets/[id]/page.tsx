@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -23,9 +24,6 @@ import {
   Clock,
   Bot,
   Upload,
-  Image as ImageIcon,
-  Sparkles,
-  Volume2,
   Eye,
   X,
   Plus,
@@ -40,7 +38,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 export default function CustomizeWidgetPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, companyContext } = useAuth();
+  const { companyContext } = useAuth();
   const widgetId = params.id as string;
 
   const [widget, setWidget] = useState<ChatWidget | null>(null);
@@ -134,6 +132,7 @@ export default function CustomizeWidgetPage() {
 
   useEffect(() => {
     loadWidget();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widgetId, companyContext]);
 
   const loadWidget = async () => {
@@ -147,47 +146,51 @@ export default function CustomizeWidgetPage() {
         const foundWidget = result.data.find(w => w.id === widgetId);
         if (foundWidget) {
           setWidget(foundWidget);
+          // Type for extended widget properties
+          type ExtendedWidget = ChatWidget & Record<string, unknown>;
+          const extendedWidget = foundWidget as ExtendedWidget;
+          
           const data = {
             name: foundWidget.name,
             welcomeMessage: foundWidget.welcomeMessage,
             primaryColor: foundWidget.primaryColor,
-            secondaryColor: (foundWidget as any).secondaryColor || '#EFF6FF',
-            textColor: (foundWidget as any).textColor || '#FFFFFF',
+            secondaryColor: (extendedWidget.secondaryColor as string | undefined) || '#EFF6FF',
+            textColor: (extendedWidget.textColor as string | undefined) || '#FFFFFF',
             position: foundWidget.position as 'bottom-right' | 'bottom-left',
             buttonText: foundWidget.buttonText,
             placeholderText: foundWidget.placeholderText,
             offlineMessage: foundWidget.offlineMessage,
-            requireContactForm: (foundWidget as any).requireContactForm !== undefined ? (foundWidget as any).requireContactForm : true,
-            collectName: (foundWidget as any).collectName !== undefined ? (foundWidget as any).collectName : true,
+            requireContactForm: extendedWidget.requireContactForm !== undefined ? (extendedWidget.requireContactForm as boolean) : true,
+            collectName: extendedWidget.collectName !== undefined ? (extendedWidget.collectName as boolean) : true,
             collectEmail: foundWidget.collectEmail,
             collectPhone: foundWidget.collectPhone,
-            customFields: (foundWidget as any).customFields || [],
+            customFields: (extendedWidget.customFields as Array<{id: string, label: string, type: 'text' | 'email' | 'phone' | 'number', required: boolean, placeholder?: string}> | undefined) || [],
             autoReply: foundWidget.autoReply,
-            iconType: (foundWidget as any).iconType || 'default' as 'default' | 'custom',
-            customIcon: (foundWidget as any).customIcon || '',
-            widgetSize: (foundWidget as any).widgetSize || 'standard' as 'compact' | 'standard' | 'large',
-            borderRadius: (foundWidget as any).borderRadius || '16',
-            showBranding: (foundWidget as any).showBranding !== undefined ? (foundWidget as any).showBranding : true,
-            soundEnabled: (foundWidget as any).soundEnabled !== undefined ? (foundWidget as any).soundEnabled : true,
-            messageSound: (foundWidget as any).messageSound || 'default',
-            headerSubtitle: (foundWidget as any).headerSubtitle || "We're here to help!",
-            greetingDelay: (foundWidget as any).greetingDelay || 3,
-            quickReplies: (foundWidget as any).quickReplies || ['Get Support', 'Pricing', 'Contact Sales'],
+            iconType: (extendedWidget.iconType as 'default' | 'custom' | undefined) || 'default' as 'default' | 'custom',
+            customIcon: (extendedWidget.customIcon as string | undefined) || '',
+            widgetSize: (extendedWidget.widgetSize as 'compact' | 'standard' | 'large' | undefined) || 'standard' as 'compact' | 'standard' | 'large',
+            borderRadius: (extendedWidget.borderRadius as string | undefined) || '16',
+            showBranding: extendedWidget.showBranding !== undefined ? (extendedWidget.showBranding as boolean) : true,
+            soundEnabled: extendedWidget.soundEnabled !== undefined ? (extendedWidget.soundEnabled as boolean) : true,
+            messageSound: (extendedWidget.messageSound as string | undefined) || 'default',
+            headerSubtitle: (extendedWidget.headerSubtitle as string | undefined) || "We're here to help!",
+            greetingDelay: (extendedWidget.greetingDelay as number | undefined) || 3,
+            quickReplies: (extendedWidget.quickReplies as string[] | undefined) || ['Get Support', 'Pricing', 'Contact Sales'],
             // Chat Button Appearance
-            buttonStyle: (foundWidget as any).buttonStyle || 'rounded' as 'circular' | 'rounded' | 'square' | 'pill' | 'modern' | 'gradient',
-            buttonAnimation: (foundWidget as any).buttonAnimation || 'pulse' as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow',
-            buttonSize: (foundWidget as any).buttonSize || 'medium' as 'small' | 'medium' | 'large' | 'xl',
-            buttonShadow: (foundWidget as any).buttonShadow || 'medium' as 'none' | 'small' | 'medium' | 'large' | 'xlarge',
-            buttonHoverEffect: (foundWidget as any).buttonHoverEffect || 'scale' as 'none' | 'scale' | 'lift' | 'glow' | 'rotate',
-            buttonTooltip: (foundWidget as any).buttonTooltip || 'Chat with us',
-            showButtonTooltip: (foundWidget as any).showButtonTooltip !== undefined ? (foundWidget as any).showButtonTooltip : true,
-            showBadge: (foundWidget as any).showBadge || false,
-            badgeCount: (foundWidget as any).badgeCount || 0,
-            badgeColor: (foundWidget as any).badgeColor || '#EF4444',
-            badgePosition: (foundWidget as any).badgePosition || 'top-right' as 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left',
-            badgeAnimation: (foundWidget as any).badgeAnimation || 'pulse' as 'none' | 'pulse' | 'bounce' | 'ping',
-            showOnlineDot: (foundWidget as any).showOnlineDot !== undefined ? (foundWidget as any).showOnlineDot : true,
-            onlineDotColor: (foundWidget as any).onlineDotColor || '#10B981',
+            buttonStyle: (extendedWidget.buttonStyle as 'circular' | 'rounded' | 'square' | 'pill' | 'modern' | 'gradient' | undefined) || 'rounded' as 'circular' | 'rounded' | 'square' | 'pill' | 'modern' | 'gradient',
+            buttonAnimation: (extendedWidget.buttonAnimation as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow' | undefined) || 'pulse' as 'none' | 'pulse' | 'bounce' | 'shake' | 'glow',
+            buttonSize: (extendedWidget.buttonSize as 'small' | 'medium' | 'large' | 'xl' | undefined) || 'medium' as 'small' | 'medium' | 'large' | 'xl',
+            buttonShadow: (extendedWidget.buttonShadow as 'none' | 'small' | 'medium' | 'large' | 'xlarge' | undefined) || 'medium' as 'none' | 'small' | 'medium' | 'large' | 'xlarge',
+            buttonHoverEffect: (extendedWidget.buttonHoverEffect as 'none' | 'scale' | 'lift' | 'glow' | 'rotate' | undefined) || 'scale' as 'none' | 'scale' | 'lift' | 'glow' | 'rotate',
+            buttonTooltip: (extendedWidget.buttonTooltip as string | undefined) || 'Chat with us',
+            showButtonTooltip: extendedWidget.showButtonTooltip !== undefined ? (extendedWidget.showButtonTooltip as boolean) : true,
+            showBadge: (extendedWidget.showBadge as boolean | undefined) || false,
+            badgeCount: (extendedWidget.badgeCount as number | undefined) || 0,
+            badgeColor: (extendedWidget.badgeColor as string | undefined) || '#EF4444',
+            badgePosition: (extendedWidget.badgePosition as 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left' | undefined) || 'top-right' as 'top-right' | 'top-left' | 'bottom-right' | 'bottom-left',
+            badgeAnimation: (extendedWidget.badgeAnimation as 'none' | 'pulse' | 'bounce' | 'ping' | undefined) || 'pulse' as 'none' | 'pulse' | 'bounce' | 'ping',
+            showOnlineDot: extendedWidget.showOnlineDot !== undefined ? (extendedWidget.showOnlineDot as boolean) : true,
+            onlineDotColor: (extendedWidget.onlineDotColor as string | undefined) || '#10B981',
             businessHours: foundWidget.businessHours,
             aiConfig: {
               enabled: foundWidget.aiConfig?.enabled || false,
@@ -201,16 +204,16 @@ export default function CustomizeWidgetPage() {
               fallbackToHuman: foundWidget.aiConfig?.fallbackToHuman !== undefined ? foundWidget.aiConfig.fallbackToHuman : true
             },
             customerHandover: {
-              enabled: (foundWidget as any).customerHandover?.enabled !== undefined ? (foundWidget as any).customerHandover.enabled : true,
-              showHandoverButton: (foundWidget as any).customerHandover?.showHandoverButton !== undefined ? (foundWidget as any).customerHandover.showHandoverButton : true,
-              handoverButtonText: (foundWidget as any).customerHandover?.handoverButtonText || 'Talk to Human Agent',
-              handoverButtonPosition: (foundWidget as any).customerHandover?.handoverButtonPosition || 'bottom' as 'bottom' | 'top' | 'floating',
-              includeInQuickReplies: (foundWidget as any).customerHandover?.includeInQuickReplies !== undefined ? (foundWidget as any).customerHandover.includeInQuickReplies : true,
-              autoDetectKeywords: (foundWidget as any).customerHandover?.autoDetectKeywords !== undefined ? (foundWidget as any).customerHandover.autoDetectKeywords : true,
-              detectionKeywords: (foundWidget as any).customerHandover?.detectionKeywords || ['human', 'agent', 'representative', 'person', 'support agent', 'real person', 'talk to someone'],
-              handoverMessage: (foundWidget as any).customerHandover?.handoverMessage || "I'll connect you with a human agent right away. Please wait a moment.",
-              notificationToAgent: (foundWidget as any).customerHandover?.notificationToAgent !== undefined ? (foundWidget as any).customerHandover.notificationToAgent : true,
-              allowCustomerToSwitch: (foundWidget as any).customerHandover?.allowCustomerToSwitch !== undefined ? (foundWidget as any).customerHandover.allowCustomerToSwitch : true
+              enabled: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.enabled !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).enabled as boolean) : true,
+              showHandoverButton: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.showHandoverButton !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).showHandoverButton as boolean) : true,
+              handoverButtonText: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverButtonText as string | undefined) || 'Talk to Human Agent',
+              handoverButtonPosition: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverButtonPosition as 'bottom' | 'top' | 'floating' | undefined) || 'bottom' as 'bottom' | 'top' | 'floating',
+              includeInQuickReplies: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.includeInQuickReplies !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).includeInQuickReplies as boolean) : true,
+              autoDetectKeywords: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.autoDetectKeywords !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).autoDetectKeywords as boolean) : true,
+              detectionKeywords: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.detectionKeywords as string[] | undefined) || ['human', 'agent', 'representative', 'person', 'support agent', 'real person', 'talk to someone'],
+              handoverMessage: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverMessage as string | undefined) || "I'll connect you with a human agent right away. Please wait a moment.",
+              notificationToAgent: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.notificationToAgent !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).notificationToAgent as boolean) : true,
+              allowCustomerToSwitch: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.allowCustomerToSwitch !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).allowCustomerToSwitch as boolean) : true
             }
           };
           setFormData(data);
@@ -265,16 +268,16 @@ export default function CustomizeWidgetPage() {
     setHasChanges(false);
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | boolean | number | string[] | Array<{id: string, label: string, type: 'text' | 'email' | 'phone' | 'number', required: boolean, placeholder?: string}>) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
 
-  const handleNestedChange = (parent: string, field: string, value: any) => {
+  const handleNestedChange = (parent: string, field: string, value: string | boolean | number | string[]) => {
     setFormData(prev => ({
       ...prev,
       [parent]: {
-        ...(prev as any)[parent],
+        ...(prev[parent as keyof typeof prev] as Record<string, unknown>),
         [field]: value
       }
     }));
@@ -322,23 +325,6 @@ export default function CustomizeWidgetPage() {
     } finally {
       setUploadingImage(false);
     }
-  };
-
-  const handleQuickReplyChange = (index: number, value: string) => {
-    const newQuickReplies = [...formData.quickReplies];
-    newQuickReplies[index] = value;
-    handleInputChange('quickReplies', newQuickReplies);
-  };
-
-  const addQuickReply = () => {
-    if (formData.quickReplies.length < 5) {
-      handleInputChange('quickReplies', [...formData.quickReplies, '']);
-    }
-  };
-
-  const removeQuickReply = (index: number) => {
-    const newQuickReplies = formData.quickReplies.filter((_, i) => i !== index);
-    handleInputChange('quickReplies', newQuickReplies);
   };
 
   if (loading) {
@@ -770,7 +756,7 @@ export default function CustomizeWidgetPage() {
                   <div className="p-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200">
                     <p className="text-xs text-blue-900 font-medium mb-1">✏️ Quick Tip</p>
                     <p className="text-xs text-blue-700">
-                      Keep your welcome message friendly and clear. It's the first impression customers get when they open your chat widget.
+                      Keep your welcome message friendly and clear. It&apos;s the first impression customers get when they open your chat widget.
                     </p>
                   </div>
                 </CardContent>
@@ -846,9 +832,11 @@ export default function CustomizeWidgetPage() {
                         >
                           {formData.customIcon ? (
                             <div className="space-y-2">
-                              <img 
+                              <Image 
                                 src={formData.customIcon} 
                                 alt="Custom Icon" 
+                                width={64}
+                                height={64}
                                 className="w-16 h-16 object-cover rounded-lg mx-auto border-2 border-purple-300"
                               />
                               <p className="text-xs font-medium text-gray-700">Click to change</p>
@@ -935,9 +923,9 @@ export default function CustomizeWidgetPage() {
                     <div className="w-8 h-8 rounded-lg bg-pink-600 flex items-center justify-center">
                       <Palette className="w-4 h-4 text-white" />
                     </div>
-                    Appearance & Styling
+                    Appearance &amp; Styling
                   </CardTitle>
-                  <p className="text-xs text-gray-600 mt-1">Customize your widget's visual appearance</p>
+                  <p className="text-xs text-gray-600 mt-1">Customize your widget&apos;s visual appearance</p>
                 </CardHeader>
                 <CardContent className="p-5 space-y-5">
                   {/* Color Settings */}
@@ -1416,7 +1404,7 @@ export default function CustomizeWidgetPage() {
                       <div className="p-3 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">
                         <p className="text-xs text-indigo-900 font-medium mb-1">🎯 Pro Tip</p>
                         <p className="text-xs text-indigo-700">
-                          Enable RAG to use your knowledge base for more accurate responses. Human fallback ensures customers always get help when AI can't assist.
+                          Enable RAG to use your knowledge base for more accurate responses. Human fallback ensures customers always get help when AI can&apos;t assist.
                         </p>
                       </div>
                     </div>
@@ -1666,7 +1654,7 @@ export default function CustomizeWidgetPage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-500 mt-4">
-                  ⚠ Changes update in real-time. Don't forget to save!
+                  ⚠ Changes update in real-time. Don&apos;t forget to save!
                 </p>
               </CardContent>
             </Card>

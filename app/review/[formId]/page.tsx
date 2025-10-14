@@ -28,8 +28,7 @@ export default function ReviewFormPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [responses, setResponses] = useState<Record<string, any>>({});
+  const [responses, setResponses] = useState<Record<string, string | number | boolean | string[]>>({});
   const [userInfo, setUserInfo] = useState({
     name: '',
     email: '',
@@ -40,6 +39,7 @@ export default function ReviewFormPage() {
     if (formId) {
       loadForm();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId]);
 
   const loadForm = async () => {
@@ -58,7 +58,7 @@ export default function ReviewFormPage() {
     }
   };
 
-  const handleResponseChange = (fieldId: string, value: any) => {
+  const handleResponseChange = (fieldId: string, value: string | number | boolean | string[]) => {
     setResponses(prev => ({
       ...prev,
       [fieldId]: value
@@ -137,7 +137,7 @@ export default function ReviewFormPage() {
             </Label>
             <Input
               id={field.id}
-              value={value}
+              value={String(value)}
               onChange={(e) => handleResponseChange(field.id, e.target.value)}
               placeholder={field.placeholder}
               required={field.required}
@@ -155,7 +155,7 @@ export default function ReviewFormPage() {
             </Label>
             <Textarea
               id={field.id}
-              value={value}
+              value={String(value)}
               onChange={(e) => handleResponseChange(field.id, e.target.value)}
               placeholder={field.placeholder}
               rows={4}
@@ -175,7 +175,7 @@ export default function ReviewFormPage() {
             <Input
               id={field.id}
               type="email"
-              value={value}
+              value={String(value)}
               onChange={(e) => handleResponseChange(field.id, e.target.value)}
               placeholder={field.placeholder || 'your@email.com'}
               required={field.required}
@@ -193,7 +193,7 @@ export default function ReviewFormPage() {
             <Input
               id={field.id}
               type="tel"
-              value={value}
+              value={String(value)}
               onChange={(e) => handleResponseChange(field.id, e.target.value)}
               placeholder={field.placeholder || '+1 (555) 123-4567'}
               required={field.required}
@@ -211,7 +211,7 @@ export default function ReviewFormPage() {
             <Input
               id={field.id}
               type="date"
-              value={value}
+              value={String(value)}
               onChange={(e) => handleResponseChange(field.id, e.target.value)}
               required={field.required}
             />
@@ -221,7 +221,7 @@ export default function ReviewFormPage() {
       case 'rating':
         const minRating = field.minRating || 1;
         const maxRating = field.maxRating || 5;
-        const ratingValue = value || 0;
+        const ratingValue = typeof value === 'number' ? value : 0;
         
         return (
           <div key={field.id} className="space-y-4">
@@ -271,7 +271,7 @@ export default function ReviewFormPage() {
             </Label>
             <select
               id={field.id}
-              value={value}
+              value={String(value)}
               onChange={(e) => handleResponseChange(field.id, e.target.value)}
               required={field.required}
               className="w-full px-4 py-3 border border-neutral-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-lg bg-white shadow-sm"
@@ -287,7 +287,7 @@ export default function ReviewFormPage() {
         );
 
       case 'checkbox':
-        const checkboxValues = value || [];
+        const checkboxValues = Array.isArray(value) ? value : [];
         return (
           <div key={field.id} className="space-y-4">
             <Label className="text-neutral-800 font-semibold text-lg">
@@ -341,7 +341,7 @@ export default function ReviewFormPage() {
             <span className="text-2xl">⚠️</span>
           </div>
           <h1 className="text-3xl font-bold text-neutral-900 mb-4">Form Not Found</h1>
-          <p className="text-neutral-600 text-lg leading-relaxed mb-6">The review form you're looking for doesn't exist or has been removed.</p>
+          <p className="text-neutral-600 text-lg leading-relaxed mb-6">The review form you&apos;re looking for doesn&apos;t exist or has been removed.</p>
           <Button 
             onClick={() => router.push('/')}
             className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold px-6 py-3"
@@ -374,8 +374,13 @@ export default function ReviewFormPage() {
   }
 
   const sortedFields = form.fields.sort((a, b) => a.order - b.order);
+  // Calculate progress based on filled fields
+  const filledFieldsCount = sortedFields.filter(field => {
+    const value = responses[field.id];
+    return value !== undefined && value !== '' && value !== null;
+  }).length;
   const progress = form.settings.showProgress 
-    ? ((currentStep + 1) / sortedFields.length) * 100 
+    ? (filledFieldsCount / sortedFields.length) * 100 
     : 0;
 
   return (
@@ -462,7 +467,7 @@ export default function ReviewFormPage() {
 
             {/* Form Fields */}
             <div className="space-y-8">
-              {sortedFields.map((field, index) => (
+              {sortedFields.map((field) => (
                 <div key={field.id} className="bg-neutral-50/50 rounded-lg p-6 border border-neutral-200/50">
                   {renderField(field)}
                 </div>

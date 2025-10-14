@@ -10,8 +10,7 @@ import {
   orderBy, 
   deleteDoc,
   serverTimestamp,
-  writeBatch,
-  Timestamp
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { Company, CompanyMember, CompanyInvite, Permission, UserCompanyContext } from './company-types';
@@ -634,7 +633,7 @@ export async function updateInvite(
       return { success: false, error: `Cannot update ${inviteData.status} invitation` };
     }
 
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       updatedAt: serverTimestamp()
     };
 

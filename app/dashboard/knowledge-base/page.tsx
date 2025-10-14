@@ -14,8 +14,7 @@ import {
   FileText, 
   Upload, 
   Trash2, 
-  Edit, 
-  Eye,
+  Edit,
   Loader2,
   AlertCircle,
   CheckCircle,
@@ -25,8 +24,7 @@ import { getBusinessWidgets, type ChatWidget } from '@/app/lib/chat-utils';
 import { 
   getKnowledgeBaseItems, 
   createKnowledgeBaseItem, 
-  updateKnowledgeBaseItem, 
-  deleteKnowledgeBaseItem,
+  updateKnowledgeBaseItem,
   type KnowledgeBaseItem 
 } from '@/app/lib/knowledge-base-utils';
 
@@ -41,6 +39,16 @@ interface KnowledgeItem {
   type?: string;
   fileName?: string;
   fileSize?: number;
+  websiteUrl?: string;
+}
+
+interface ChunkData {
+  text: string;
+  source_url?: string;
+  source_title?: string;
+  quality_score?: number;
+  originalIndex?: number;
+  [key: string]: unknown;
 }
 
 
@@ -63,16 +71,22 @@ export default function KnowledgeBasePage() {
   const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
   const [selectedWidget, setSelectedWidget] = useState<string>('');
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
   const [showSecretButton, setShowSecretButton] = useState(false);
   const [cleanPineconeLoading, setCleanPineconeLoading] = useState(false);
-  const [crawledData, setCrawledData] = useState<any>(null);
+  const [crawledData, setCrawledData] = useState<{
+    url: string;
+    total_pages: number;
+    crawl_method: string;
+    total_word_count: number;
+    chunks: ChunkData[];
+    [key: string]: unknown;
+  } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [editableChunks, setEditableChunks] = useState<any[]>([]);
+  const [editableChunks, setEditableChunks] = useState<ChunkData[]>([]);
   const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
 
   const [formData, setFormData] = useState({
@@ -89,6 +103,7 @@ export default function KnowledgeBasePage() {
 
   useEffect(() => {
     loadWidgets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useEffect(() => {
@@ -97,6 +112,7 @@ export default function KnowledgeBasePage() {
     } else {
       setKnowledgeItems([]);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWidget]);
 
   const loadWidgets = async () => {
@@ -453,7 +469,7 @@ export default function KnowledgeBasePage() {
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
       const BATCH_SIZE = 50; // Process 50 chunks at a time
       const totalChunks = editableChunks.length;
-      let allStoredChunks: any[] = [];
+      let allStoredChunks: ChunkData[] = [];
       let totalSaved = 0;
       
       // Process in batches
@@ -1037,7 +1053,7 @@ export default function KnowledgeBasePage() {
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                     <p className="text-sm text-blue-800">
-                      <strong>💡 Tip:</strong> If you provide a website URL, we'll automatically try to find and use the sitemap for better coverage. You can also provide a direct sitemap.xml URL for faster crawling.
+                      <strong>💡 Tip:</strong> If you provide a website URL, we&apos;ll automatically try to find and use the sitemap for better coverage. You can also provide a direct sitemap.xml URL for faster crawling.
                     </p>
                   </div>
                 </div>
@@ -1168,9 +1184,9 @@ export default function KnowledgeBasePage() {
                   <div className="max-h-[600px] overflow-y-auto space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
                     {(() => {
                       // Group chunks by source URL
-                      const groupedChunks: { [key: string]: any[] } = {};
+                      const groupedChunks: { [key: string]: ChunkData[] } = {};
                       editableChunks.forEach((chunk, index) => {
-                        const url = chunk.source_url || crawledData.url;
+                        const url = String(chunk.source_url || crawledData.url);
                         if (!groupedChunks[url]) {
                           groupedChunks[url] = [];
                         }
@@ -1206,7 +1222,7 @@ export default function KnowledgeBasePage() {
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
                                     <span className="text-xs font-medium bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                                      #{chunk.originalIndex + 1}
+                                      #{(chunk.originalIndex ?? 0) + 1}
                                     </span>
                                     <span className="text-xs text-gray-600">
                                       {chunk.text.split(' ').length} words • {chunk.text.length} chars
@@ -1240,7 +1256,8 @@ export default function KnowledgeBasePage() {
                                   value={chunk.text}
                                   onChange={(e) => {
                                     const newChunks = [...editableChunks];
-                                    newChunks[chunk.originalIndex] = { ...newChunks[chunk.originalIndex], text: e.target.value };
+                                    const idx = chunk.originalIndex ?? 0;
+                                    newChunks[idx] = { ...newChunks[idx], text: e.target.value };
                                     setEditableChunks(newChunks);
                                   }}
                                   rows={5}
@@ -1408,10 +1425,10 @@ export default function KnowledgeBasePage() {
                       )}
                     </div>
                     
-                    {item.type === 'website' && (
+                    {item.type === 'website' && item.websiteUrl && (
                       <p className="text-sm text-blue-600 mb-2">
-                        <a href={(item as any).websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {(item as any).websiteUrl}
+                        <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                          {item.websiteUrl}
                         </a>
                       </p>
                     )}

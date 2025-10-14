@@ -4,8 +4,6 @@ import {
   getDoc, 
   collection, 
   addDoc, 
-  updateDoc, 
-  deleteDoc, 
   query, 
   where, 
   orderBy, 
@@ -14,7 +12,6 @@ import {
   serverTimestamp,
   Timestamp,
   startAfter,
-  endBefore,
   QueryDocumentSnapshot
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -26,15 +23,16 @@ import { db } from './firebase';
 // - Enhanced indexing capabilities
 
 // Helper function to convert Firestore timestamps to JavaScript dates
-export const convertTimestamps = (data: any): any => {
+export const convertTimestamps = <T extends Record<string, unknown>>(data: T): T => {
   if (!data) return data;
   
   const converted = { ...data };
   
   // Convert Firestore timestamps to JavaScript dates
   Object.keys(converted).forEach(key => {
-    if (converted[key] instanceof Timestamp) {
-      converted[key] = converted[key].toDate();
+    const value = converted[key];
+    if (value instanceof Timestamp) {
+      (converted as Record<string, unknown>)[key] = value.toDate();
     }
   });
   
@@ -42,7 +40,7 @@ export const convertTimestamps = (data: any): any => {
 };
 
 // User operations
-export const createUserDocument = async (userId: string, userData: any) => {
+export const createUserDocument = async (userId: string, userData: Record<string, unknown>) => {
   try {
     const userDoc = {
       ...userData,
@@ -59,7 +57,7 @@ export const createUserDocument = async (userId: string, userData: any) => {
   }
 };
 
-export const updateUserDocument = async (userId: string, updates: any) => {
+export const updateUserDocument = async (userId: string, updates: Record<string, unknown>) => {
   try {
     const updateData = {
       ...updates,
@@ -88,7 +86,7 @@ export const getUserDocument = async (userId: string) => {
 };
 
 // Contact operations
-export const createContact = async (userId: string, contactData: any) => {
+export const createContact = async (userId: string, contactData: Record<string, unknown>) => {
   try {
     const contact = {
       ...contactData,
@@ -127,7 +125,7 @@ export const getUserContacts = async (userId: string) => {
 };
 
 // Deal operations
-export const createDeal = async (userId: string, dealData: any) => {
+export const createDeal = async (userId: string, dealData: Record<string, unknown>) => {
   try {
     const deal = {
       ...dealData,
@@ -166,7 +164,7 @@ export const getUserDeals = async (userId: string) => {
 };
 
 // Activity operations
-export const createActivity = async (userId: string, activityData: any) => {
+export const createActivity = async (userId: string, activityData: Record<string, unknown>) => {
   try {
     const activity = {
       ...activityData,
@@ -308,7 +306,7 @@ export const searchContactsByCompany = async (
 };
 
 // Bulk operations (Enterprise edition handles larger documents better)
-export const createBulkContacts = async (userId: string, contacts: any[]) => {
+export const createBulkContacts = async (userId: string, contacts: Array<Record<string, unknown>>) => {
   try {
     const results = [];
     

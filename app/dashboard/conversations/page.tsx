@@ -14,26 +14,19 @@ import {
 } from '../../lib/chat-utils';
 import { apiClient, ChatRequest } from '../../lib/api-client';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import Avatar from '../../components/ui/avatar';
-import { getMessageAvatar } from '../../lib/avatar-utils';
 import {
   MessageCircle,
   Search,
   Clock,
   User,
   Mail,
-  Phone,
   Send,
   CheckCircle,
   Circle,
   ArrowLeft,
   ChevronDown,
-  Tag,
-  ChevronUp,
   ChevronRight,
   ChevronLeft,
   Bot,
@@ -164,8 +157,9 @@ export default function ConversationsPage() {
           setSelectedConversation(updatedConversations[0]);
         }
       });
-    } catch (error: any) {
-      if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+    } catch (error) {
+      const err = error as { code?: string; message?: string };
+      if (err.code === 'failed-precondition' || err.message?.includes('index')) {
         setIndexBuilding(true);
         setLoading(false);
       }
@@ -177,7 +171,7 @@ export default function ConversationsPage() {
         unsubscribe();
       }
     };
-  }, [user?.uid, companyContext?.company?.id, selectedConversation]);
+  }, [user?.uid, companyContext?.company?.id, companyContext?.company?.name, selectedConversation]);
 
   useEffect(() => {
     // Filter conversations based on search, status, and widget
@@ -1003,12 +997,12 @@ export default function ConversationsPage() {
                                 <p className="text-sm leading-relaxed">{message.text}</p>
                                 
                                 {/* AI Response Metadata */}
-                                {message.metadata?.ai_generated && (
+                                {message.metadata?.ai_generated === true && (
                                   <div className="mt-1.5 pt-1.5 border-t border-white/20">
                                     <div className="flex items-center gap-2 text-xs text-white/70">
                                       <Bot className="w-3 h-3" />
                                       <span>AI</span>
-                                      {message.metadata.confidence && (
+                                      {typeof message.metadata.confidence === 'number' && (
                                         <span className="text-white/60">
                                           • {Math.round(message.metadata.confidence * 100)}%
                                         </span>

@@ -1,6 +1,5 @@
 import { 
   collection, 
-  doc, 
   addDoc, 
   query, 
   where, 
@@ -97,7 +96,7 @@ export async function ensureUserMembership(userId: string): Promise<EnsureMember
 /**
  * Checks if a user exists in the companyMembers collection
  */
-export async function checkUserMembership(userId: string): Promise<{ exists: boolean; memberData?: any }> {
+export async function checkUserMembership(userId: string): Promise<{ exists: boolean; memberData?: Record<string, unknown> }> {
   try {
     const membersRef = collection(db, 'companyMembers');
     const memberQuery = query(membersRef, where('userId', '==', userId));

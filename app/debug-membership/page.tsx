@@ -1,12 +1,12 @@
 'use client';
 
 import { useAuth } from '@/app/lib/auth-context';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ensureUserMembership, checkUserMembership } from '@/app/lib/ensure-membership';
 
 export default function DebugMembershipPage() {
   const { user, companyContext } = useAuth();
-  const [membershipData, setMembershipData] = useState<any>(null);
+  const [membershipData, setMembershipData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,8 +31,8 @@ export default function DebugMembershipPage() {
           docId: result.memberData?.id
         });
       }
-    } catch (err: any) {
-      setError(`Error checking membership: ${err.message}`);
+    } catch (err) {
+      setError(`Error checking membership: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -68,8 +68,8 @@ export default function DebugMembershipPage() {
       } else {
         setError(result.error || 'Failed to ensure membership');
       }
-    } catch (err: any) {
-      setError(`Error adding user to company: ${err.message}`);
+    } catch (err) {
+      setError(`Error adding user to company: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -103,7 +103,7 @@ export default function DebugMembershipPage() {
 
           <button
             onClick={addUserToCompany}
-            disabled={loading || !user?.uid || membershipData?.exists}
+            disabled={loading || !user?.uid || (membershipData?.exists as boolean)}
             className="bg-green-500 text-white px-4 py-2 rounded disabled:opacity-50"
           >
             {loading ? 'Adding...' : 'Add to Company'}

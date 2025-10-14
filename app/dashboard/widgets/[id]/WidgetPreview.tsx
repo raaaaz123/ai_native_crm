@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   ChatWidget, 
   ChatConversation, 
@@ -10,10 +11,57 @@ import {
   subscribeToMessages 
 } from '@/app/lib/chat-utils';
 import { X, Send, MessageCircle, Minimize2, User, Bot, Loader2, History, ChevronLeft, Plus } from 'lucide-react';
-import { apiClient, AIChatRequest, AIChatResponse } from '@/app/lib/api-client';
+import { apiClient, AIChatRequest } from '@/app/lib/api-client';
+
+// Extended widget type with all custom properties
+type ExtendedWidget = Partial<ChatWidget> & {
+  id?: string;
+  businessId?: string;
+  textColor?: string;
+  iconType?: string;
+  customIcon?: string;
+  widgetSize?: string;
+  borderRadius?: string;
+  headerSubtitle?: string;
+  showBranding?: boolean;
+  quickReplies?: string[];
+  buttonStyle?: string;
+  buttonAnimation?: string;
+  buttonSize?: string;
+  buttonShadow?: string;
+  buttonHoverEffect?: string;
+  showButtonTooltip?: boolean;
+  buttonTooltip?: string;
+  showBadge?: boolean;
+  badgeCount?: number;
+  badgeColor?: string;
+  badgePosition?: string;
+  badgeAnimation?: string;
+  showOnlineDot?: boolean;
+  onlineDotColor?: string;
+  requireContactForm?: boolean;
+  collectName?: boolean;
+  customFields?: Array<{id: string, label: string, type: string, required: boolean, placeholder?: string}>;
+  aiConfig?: {
+    enabled: boolean;
+    [key: string]: unknown;
+  };
+  customerHandover?: {
+    enabled?: boolean;
+    showHandoverButton?: boolean;
+    handoverButtonPosition?: string;
+    handoverButtonText?: string;
+    includeInQuickReplies?: boolean;
+    autoDetectKeywords?: boolean;
+    detectionKeywords?: string[];
+    handoverMessage?: string;
+    allowCustomerToSwitch?: boolean;
+    [key: string]: unknown;
+  };
+};
 
 interface WidgetPreviewProps {
-  widget: Partial<ChatWidget>;
+  widget: ExtendedWidget;
   viewMode: 'desktop' | 'mobile';
 }
 
@@ -56,7 +104,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
   // Load user email from localStorage on mount
   useEffect(() => {
-    const widgetId = (widget as any).id || 'preview';
+    const widgetId = widget.id || 'preview';
     const storageKey = `widget_user_email_${widgetId}`;
     const storedEmail = localStorage.getItem(storageKey);
     
@@ -67,34 +115,34 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
       // Load chat history if we have stored email
       loadChatHistoryFromStorage(storedEmail);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [widget]);
 
   const primaryColor = widget.primaryColor || '#3B82F6';
-  const textColor = (widget as any).textColor || '#FFFFFF';
+  const textColor = widget.textColor || '#FFFFFF';
   const position = widget.position || 'bottom-right';
-  const iconType = (widget as any).iconType || 'default';
-  const customIcon = (widget as any).customIcon || '';
-  const widgetSize = (widget as any).widgetSize || 'standard';
-  const borderRadius = (widget as any).borderRadius || '16';
-  const headerSubtitle = (widget as any).headerSubtitle || "We're here to help!";
-  const showBranding = (widget as any).showBranding !== undefined ? (widget as any).showBranding : true;
-  const quickReplies = (widget as any).quickReplies || ['Get Support', 'Pricing', 'Contact Sales'];
+  const iconType = widget.iconType || 'default';
+  const customIcon = widget.customIcon || '';
+  const widgetSize = widget.widgetSize || 'standard';
+  const borderRadius = widget.borderRadius || '16';
+  const headerSubtitle = widget.headerSubtitle || "We're here to help!";
+  const showBranding = widget.showBranding !== undefined ? widget.showBranding : true;
+  const quickReplies = widget.quickReplies || ['Get Support', 'Pricing', 'Contact Sales'];
   
   // New styling options
-  const buttonStyle = (widget as any).buttonStyle || 'rounded';
-  const buttonAnimation = (widget as any).buttonAnimation || 'pulse';
-  const buttonSize = (widget as any).buttonSize || 'medium';
-  const buttonShadow = (widget as any).buttonShadow || 'medium';
-  const buttonHoverEffect = (widget as any).buttonHoverEffect || 'scale';
-  const showButtonTooltip = (widget as any).showButtonTooltip !== undefined ? (widget as any).showButtonTooltip : true;
-  const buttonTooltip = (widget as any).buttonTooltip || 'Chat with us';
-  const showBadge = (widget as any).showBadge || false;
-  const badgeCount = (widget as any).badgeCount || 0;
-  const badgeColor = (widget as any).badgeColor || '#EF4444';
-  const badgePosition = (widget as any).badgePosition || 'top-right';
-  const badgeAnimation = (widget as any).badgeAnimation || 'pulse';
-  const showOnlineDot = (widget as any).showOnlineDot !== undefined ? (widget as any).showOnlineDot : true;
-  const onlineDotColor = (widget as any).onlineDotColor || '#10B981';
+  const buttonStyle = widget.buttonStyle || 'rounded';
+  const buttonAnimation = widget.buttonAnimation || 'pulse';
+  const buttonSize = widget.buttonSize || 'medium';
+  const buttonHoverEffect = widget.buttonHoverEffect || 'scale';
+  const showButtonTooltip = widget.showButtonTooltip !== undefined ? widget.showButtonTooltip : true;
+  const buttonTooltip = widget.buttonTooltip || 'Chat with us';
+  const showBadge = widget.showBadge || false;
+  const badgeCount = widget.badgeCount || 0;
+  const badgeColor = widget.badgeColor || '#EF4444';
+  const badgePosition = widget.badgePosition || 'top-right';
+  const badgeAnimation = widget.badgeAnimation || 'pulse';
+  const showOnlineDot = widget.showOnlineDot !== undefined ? widget.showOnlineDot : true;
+  const onlineDotColor = widget.onlineDotColor || '#10B981';
   
   // Widget size dimensions
   const sizeMap = {
@@ -113,16 +161,6 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
     xl: '72px'
   };
   const buttonDimension = buttonSizeMap[buttonSize as keyof typeof buttonSizeMap] || buttonSizeMap.medium;
-
-  // Button shadow mapping
-  const shadowMap = {
-    none: 'shadow-none',
-    small: 'shadow-sm',
-    medium: 'shadow-xl',
-    large: 'shadow-2xl',
-    xlarge: 'shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)]'
-  };
-  const shadowClass = shadowMap[buttonShadow as keyof typeof shadowMap] || shadowMap.medium;
 
   // Button style mapping
   const getButtonStyle = () => {
@@ -199,14 +237,14 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
   // Load chat history from localStorage
   const loadChatHistoryFromStorage = (email: string) => {
-    const widgetId = (widget as any).id || 'preview';
+    const widgetId = widget.id || 'preview';
     const historyKey = `widget_chat_history_${widgetId}_${email}`;
     const storedHistory = localStorage.getItem(historyKey);
     
     if (storedHistory) {
       try {
         const parsedHistory = JSON.parse(storedHistory);
-        setChatHistory(parsedHistory.map((h: any) => ({
+        setChatHistory(parsedHistory.map((h: {id: string, lastMessage: string, timestamp: string | Date, messageCount: number}) => ({
           ...h,
           timestamp: new Date(h.timestamp)
         })));
@@ -241,7 +279,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const saveConversationToHistory = () => {
     if (!userEmail || messages.length === 0) return;
     
-    const widgetId = (widget as any).id || 'preview';
+    const widgetId = widget.id || 'preview';
     const historyKey = `widget_chat_history_${widgetId}_${userEmail}`;
     
     const newConversation = {
@@ -277,15 +315,15 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   useEffect(() => {
     if (isOpen && !conversation) {
       // Check if contact form is required
-      const requireContactForm = (widget as any).requireContactForm !== undefined ? (widget as any).requireContactForm : true;
+      const requireContactForm = widget.requireContactForm !== undefined ? widget.requireContactForm : true;
       
-      if (!requireContactForm && widget.id && (widget as any).businessId) {
+      if (!requireContactForm && widget.id && widget.businessId) {
         // Skip contact form, create anonymous conversation
         const createAnonymousConversation = async () => {
           const anonymousEmail = `anonymous_${Date.now()}@preview.widget`;
           
           const result = await createChatConversation(
-            (widget as any).businessId,
+            widget.businessId!,
             widget.id!,
             {
               customerName: 'Preview User',
@@ -319,13 +357,13 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!widget.id || !(widget as any).businessId) {
+    if (!widget.id || !widget.businessId) {
       console.error('Widget ID or businessId missing');
       return;
     }
     
     // Save email to localStorage
-    const widgetId = (widget as any).id || 'preview';
+    const widgetId = widget.id || 'preview';
     const storageKey = `widget_user_email_${widgetId}`;
     localStorage.setItem(storageKey, formData.email);
     setUserEmail(formData.email);
@@ -337,14 +375,14 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
     try {
       // Create real conversation in Firestore
       console.log('Creating conversation in preview...', {
-        businessId: (widget as any).businessId,
+        businessId: widget.businessId,
         widgetId: widget.id,
         customerName: formData.name,
         customerEmail: formData.email
       });
       
       const result = await createChatConversation(
-        (widget as any).businessId, 
+        widget.businessId, 
         widget.id, 
         {
           customerName: formData.name,
@@ -407,7 +445,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const handleHandoverRequest = async () => {
     if (!conversation) return;
     
-    const handoverConfig = (widget as any).customerHandover;
+    const handoverConfig = widget.customerHandover;
     const handoverMessage = handoverConfig?.handoverMessage || "I'll connect you with a human agent right away. Please wait a moment.";
     
     // Save handover message to Firestore
@@ -443,7 +481,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
   // Check if message contains handover keywords
   const detectHandoverKeywords = (message: string): boolean => {
-    const handoverConfig = (widget as any).customerHandover;
+    const handoverConfig = widget.customerHandover;
     
     if (!handoverConfig?.enabled || !handoverConfig?.autoDetectKeywords) {
       return false;
@@ -496,7 +534,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
       }
 
     // Check if AI is enabled
-    const aiConfig = (widget as any).aiConfig;
+    const aiConfig = widget.aiConfig;
     if (aiConfig && aiConfig.enabled) {
       setAiThinking(true);
       
@@ -505,8 +543,18 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
           message: messageText,
           widgetId: widget.id || '',
           conversationId: conversation.id,
-          aiConfig: aiConfig,
-          businessId: (widget as any).businessId || '',
+          aiConfig: {
+            enabled: aiConfig.enabled,
+            provider: aiConfig.provider || 'openrouter',
+            model: aiConfig.model || 'deepseek/deepseek-chat-v3.1:free',
+            temperature: aiConfig.temperature || 0.7,
+            maxTokens: aiConfig.maxTokens || 500,
+            confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
+            maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
+            ragEnabled: aiConfig.ragEnabled || false,
+            fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true
+          },
+          businessId: widget.businessId || '',
           customerName: formData.name || 'Preview User',
           customerEmail: formData.email || 'preview@example.com'
         };
@@ -665,7 +713,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
           title={showButtonTooltip ? buttonTooltip : ''}
         >
           {iconType === 'custom' && customIcon ? (
-            <img src={customIcon} alt="Chat" className="w-6 h-6" />
+            <Image src={customIcon} alt="Chat" width={24} height={24} className="w-6 h-6" unoptimized />
           ) : (
             <MessageCircle className="w-6 h-6 text-white" />
           )}
@@ -777,7 +825,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                 {/* Modern Widget Icon */}
                 <div className="flex-shrink-0 p-1.5 bg-white/20 rounded-full backdrop-blur-sm">
                   {iconType === 'custom' && customIcon ? (
-                    <img src={customIcon} alt="" className="w-4 h-4 rounded-full" />
+                    <Image src={customIcon} alt="" width={16} height={16} className="w-4 h-4 rounded-full" unoptimized />
                   ) : (
                     <MessageCircle className="w-4 h-4" />
                   )}
@@ -851,7 +899,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                         </div>
                         <button
                           onClick={() => {
-                            const widgetId = (widget as any).id || 'preview';
+                            const widgetId = widget.id || 'preview';
                             const storageKey = `widget_user_email_${widgetId}`;
                             localStorage.removeItem(storageKey);
                             setUserEmail('');
@@ -882,9 +930,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                           setShowChatHistory(false);
                           
                           // Create a new conversation in Firestore
-                          if (widget.id && (widget as any).businessId) {
+                          if (widget.id && widget.businessId) {
                             const result = await createChatConversation(
-                              (widget as any).businessId,
+                              widget.businessId,
                               widget.id,
                               {
                                 customerName: formData.name,
@@ -926,9 +974,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                             setShowChatHistory(false);
                             // In preview mode, chat history from localStorage doesn't have real conversation IDs
                             // So we just create a new conversation when clicking on history
-                            if (widget.id && (widget as any).businessId) {
+                            if (widget.id && widget.businessId) {
                               const result = await createChatConversation(
-                                (widget as any).businessId,
+                                widget.businessId,
                                 widget.id,
                                 {
                                   customerName: formData.name,
@@ -979,12 +1027,12 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                   Start a Conversation
                 </h2>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  We're here to help! Please provide your information to get started.
+                  We&apos;re here to help! Please provide your information to get started.
                 </p>
               </div>
               
               <div className="space-y-3">
-              {((widget as any).collectName !== false) && (
+              {(widget.collectName !== false) && (
                 <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-1">
                       Full Name *
@@ -1033,9 +1081,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               </div>
 
               {/* Custom Fields */}
-              {(widget as any).customFields && (widget as any).customFields.length > 0 && (
+              {widget.customFields && widget.customFields.length > 0 && (
                 <>
-                  {(widget as any).customFields.map((field: any, index: number) => (
+                  {widget.customFields.map((field, index: number) => (
                     <div key={field.id || index}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {field.label || `Field ${index + 1}`} {field.required && '*'}
@@ -1069,9 +1117,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
             ) : (
             <>
               {/* Handover Button - Top Position */}
-              {!showForm && (widget as any).customerHandover?.enabled && 
-               (widget as any).customerHandover?.showHandoverButton && 
-               (widget as any).customerHandover?.handoverButtonPosition === 'top' && 
+              {!showForm && widget.customerHandover?.enabled && 
+               widget.customerHandover?.showHandoverButton && 
+               widget.customerHandover?.handoverButtonPosition === 'top' && 
                !handoverRequested && (
                 <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50">
                   <button
@@ -1084,7 +1132,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                   >
                     <User className="w-3 h-3" />
                     <span className="truncate">
-                      {(widget as any).customerHandover?.handoverButtonText || 'Talk to Human Agent'}
+                      {widget.customerHandover?.handoverButtonText || 'Talk to Human Agent'}
                     </span>
                   </button>
                 </div>
@@ -1098,7 +1146,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                       <span className="text-sm font-medium text-emerald-900">Human Agent Mode</span>
                     </div>
-                    {(widget as any).customerHandover?.allowCustomerToSwitch && (
+                    {widget.customerHandover?.allowCustomerToSwitch && (
                       <button
                         onClick={async () => {
                           if (!conversation) return;
@@ -1129,9 +1177,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               {/* Modern Messages Area */}
               <div className="flex-1 p-4 overflow-y-auto space-y-3 relative bg-gradient-to-b from-gray-50/30 to-white/50">
                 {/* Handover Button - Floating Position */}
-                {!showForm && (widget as any).customerHandover?.enabled && 
-                 (widget as any).customerHandover?.showHandoverButton && 
-                 (widget as any).customerHandover?.handoverButtonPosition === 'floating' && 
+                {!showForm && widget.customerHandover?.enabled && 
+                 widget.customerHandover?.showHandoverButton && 
+                 widget.customerHandover?.handoverButtonPosition === 'floating' && 
                  !handoverRequested && (
                   <button
                     onClick={handleHandoverRequest}
@@ -1196,12 +1244,12 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                           <p className="text-sm whitespace-pre-wrap break-words leading-relaxed text-white font-medium">{msg.text}</p>
                       
                       {/* AI Response Metadata */}
-                      {msg.metadata?.ai_generated && (
+                      {msg.metadata?.ai_generated === true && (
                             <div className="mt-1.5 pt-1.5 border-t border-white/20">
                               <div className="flex items-center gap-2 text-xs text-white/70">
                                 <Bot className="w-3 h-3" />
                                 <span>AI</span>
-                              {msg.metadata.confidence && (
+                              {typeof msg.metadata.confidence === 'number' && (
                                   <span className="text-white/60">
                                     • {Math.round(msg.metadata.confidence * 100)}%
                                   </span>
@@ -1232,8 +1280,8 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                 {messages.length === 1 && quickReplies.filter((r: string) => r.trim()).length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     {/* Add handover option to quick replies if enabled */}
-                    {(widget as any).customerHandover?.enabled && 
-                     (widget as any).customerHandover?.includeInQuickReplies && 
+                    {widget.customerHandover?.enabled && 
+                     widget.customerHandover?.includeInQuickReplies && 
                      !handoverRequested && (
                       <button
                         onClick={handleHandoverRequest}
@@ -1263,7 +1311,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                           });
                           
                           // Use AI if enabled, otherwise fallback to auto-reply
-                          const aiConfig = (widget as any).aiConfig;
+                          const aiConfig = widget.aiConfig;
                           if (aiConfig && aiConfig.enabled) {
                             setAiThinking(true);
                             
@@ -1272,8 +1320,18 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                                 message: reply,
                                 widgetId: widget.id || '',
                                 conversationId: conversation.id,
-                                aiConfig: aiConfig,
-                                businessId: (widget as any).businessId || '',
+                                aiConfig: {
+                                  enabled: aiConfig.enabled,
+                                  provider: aiConfig.provider || 'openrouter',
+                                  model: aiConfig.model || 'deepseek/deepseek-chat-v3.1:free',
+                                  temperature: aiConfig.temperature || 0.7,
+                                  maxTokens: aiConfig.maxTokens || 500,
+                                  confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
+                                  maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
+                                  ragEnabled: aiConfig.ragEnabled || false,
+                                  fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true
+                                },
+                                businessId: widget.businessId || '',
                                 customerName: formData.name || 'Preview User',
                                 customerEmail: formData.email || 'preview@example.com'
                               };
@@ -1365,9 +1423,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               </div>
 
               {/* Handover Button - Bottom Position */}
-              {!showForm && (widget as any).customerHandover?.enabled && 
-               (widget as any).customerHandover?.showHandoverButton && 
-               (widget as any).customerHandover?.handoverButtonPosition === 'bottom' && 
+              {!showForm && widget.customerHandover?.enabled && 
+               widget.customerHandover?.showHandoverButton && 
+               widget.customerHandover?.handoverButtonPosition === 'bottom' && 
                !handoverRequested && (
                 <div className="px-3 pt-1.5 pb-1.5 border-t border-gray-100 bg-gray-50">
                   <button
@@ -1380,7 +1438,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                   >
                     <User className="w-3 h-3" />
                     <span className="truncate">
-                      {(widget as any).customerHandover?.handoverButtonText || 'Talk to Human Agent'}
+                      {widget.customerHandover?.handoverButtonText || 'Talk to Human Agent'}
                     </span>
                   </button>
                 </div>

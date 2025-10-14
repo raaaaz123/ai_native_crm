@@ -8,12 +8,10 @@ import {
   getDocs, 
   query, 
   where, 
-  orderBy, 
-  limit,
+  orderBy,
   onSnapshot,
   serverTimestamp,
-  increment,
-  Timestamp
+  increment
 } from 'firebase/firestore';
 import { db } from './firebase';
 
@@ -26,7 +24,7 @@ export interface ChatMessage {
   senderName: string;
   createdAt: number;
   readAt?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ChatConversation {
@@ -452,7 +450,7 @@ export async function sendMessage(
     text: string; 
     sender: 'customer' | 'business'; 
     senderName: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
   }
 ): Promise<ApiResponse<ChatMessage>> {
   try {
@@ -465,7 +463,7 @@ export async function sendMessage(
 
     // Update conversation
     const conversationRef = doc(db, 'chatConversations', conversationId);
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       lastMessage: messageData.text,
       lastMessageAt: serverTimestamp(),
       updatedAt: serverTimestamp()
@@ -574,7 +572,7 @@ export function subscribeToConversations(
     });
     
     callback(conversations);
-  }, (error: any) => {
+  }, (error: Error & { code?: string }) => {
     if (error.code === 'failed-precondition' || error.message?.includes('index')) {
       console.warn('⏳ Firestore index is building. This usually takes 2-5 minutes.');
       console.warn('   Conversations will load automatically once the index is ready.');
@@ -640,7 +638,7 @@ export async function updateConversationStatus(
 ): Promise<void> {
   try {
     const conversationRef = doc(db, 'chatConversations', conversationId);
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       status,
       updatedAt: serverTimestamp()
     };
@@ -701,7 +699,7 @@ export async function clearHandover(conversationId: string): Promise<void> {
 // Email notification function
 async function sendEmailNotification(
   conversationId: string,
-  messageData: { text: string; sender: 'customer' | 'business'; senderName: string; metadata?: Record<string, any> }
+  messageData: { text: string; sender: 'customer' | 'business'; senderName: string; metadata?: Record<string, unknown> }
 ): Promise<void> {
   try {
     // Get conversation details
@@ -712,7 +710,7 @@ async function sendEmailNotification(
     }
 
     const conversation = conversationDoc.data();
-    const { customerName, customerEmail, businessId } = conversation;
+    const { customerName, customerEmail } = conversation;
 
     // Get business details (you might need to fetch from users collection)
     // For now, we'll use a placeholder - you should fetch actual business email

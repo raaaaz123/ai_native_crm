@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Star, 
@@ -125,7 +125,7 @@ export default function ReviewFormsList({
 
                 {/* Field Types Preview */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {form.fields.slice(0, 5).map((field, index) => (
+                  {form.fields.slice(0, 5).map((field) => (
                     <div key={field.id} className="flex items-center gap-1 px-2 py-1 bg-neutral-100 rounded text-xs">
                       {getFieldTypeIcon(field.type)}
                       <span className="capitalize">{field.type}</span>

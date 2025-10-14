@@ -6,20 +6,20 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, CheckCircle2, MessageCircle, Globe, Sparkles, Zap, Shield, TrendingUp } from 'lucide-react';
 
 export default function Hero() {
-  const features = [
-    'engagement',
-    'support',
-    'automation',
-    'analytics',
-    'conversations',
-    'intelligence'
-  ];
-
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0);
   const [displayText, setDisplayText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    const features = [
+      'engagement',
+      'support',
+      'automation',
+      'analytics',
+      'conversations',
+      'intelligence'
+    ];
+    
     const currentFeature = features[currentFeatureIndex];
     
     const timeout = setTimeout(() => {
@@ -40,7 +40,7 @@ export default function Hero() {
     }, isDeleting ? 50 : 100); // Faster deletion, slower typing
 
     return () => clearTimeout(timeout);
-  }, [displayText, isDeleting, currentFeatureIndex, features]);
+  }, [displayText, isDeleting, currentFeatureIndex]);
   return (
     <section className="relative min-h-screen flex items-center bg-gradient-to-br from-white via-blue-50/20 to-indigo-50/30 overflow-hidden">
       <style jsx>{`

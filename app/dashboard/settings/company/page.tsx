@@ -137,7 +137,7 @@ export default function CompanyCreationPage() {
                   placeholder="acme.com"
                   disabled={loading}
                 />
-                <p className="text-xs text-neutral-500 mt-1">Optional: Your company's website domain</p>
+                <p className="text-xs text-neutral-500 mt-1">Optional: Your company&apos;s website domain</p>
               </div>
 
               <div className="flex space-x-4">

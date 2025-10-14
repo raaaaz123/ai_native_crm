@@ -25,7 +25,7 @@ import { Company, CompanyInvite } from '../../lib/company-types';
 export default function InviteAcceptancePage() {
   const params = useParams();
   const router = useRouter();
-  const { user, userData, companyContext, joinCompany } = useAuth();
+  const { user } = useAuth();
   const [invite, setInvite] = useState<CompanyInvite | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +39,7 @@ export default function InviteAcceptancePage() {
     if (token) {
       loadInviteData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
 
   const loadInviteData = async () => {
@@ -119,11 +120,6 @@ export default function InviteAcceptancePage() {
       const result = await acceptInvite(invite.id, user.uid, user.email);
       if (result.success) {
         setSuccess('Invitation accepted! Welcome to the team!');
-        
-        // Join the company in auth context
-        if (result.data && company) {
-          await joinCompany(company.id, company, result.data);
-        }
         
         // Redirect to dashboard after a short delay to allow context update
         setTimeout(() => {
@@ -230,7 +226,7 @@ export default function InviteAcceptancePage() {
             Team Invitation
           </h1>
           <p className="text-neutral-600">
-            You've been invited to join a team
+            You&apos;ve been invited to join a team
           </p>
         </div>
 
@@ -314,7 +310,7 @@ export default function InviteAcceptancePage() {
                     {invite?.email !== user.email && (
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p className="text-yellow-700 text-sm">
-                          This invitation is for {invite?.email}, but you're signed in as {user.email}.
+                          This invitation is for {invite?.email}, but you&apos;re signed in as {user.email}.
                         </p>
                       </div>
                     )}

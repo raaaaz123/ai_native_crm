@@ -52,7 +52,7 @@ export async function getReviewForm(
 
 export async function submitReviewForm(
   formId: string,
-  responses: { fieldId: string; value: any }[],
+  responses: { fieldId: string; value: string | number | boolean | string[] }[],
   userInfo?: {
     email?: string;
     name?: string;
@@ -78,7 +78,7 @@ export async function getReviewFormSubmissions(
 export async function getReviewFormAnalytics(
   formId: string
 ): Promise<ApiResponse<ReviewAnalytics>> {
-  return await getReviewFormAnalyticsFirestore(formId);
+  return await getReviewFormAnalyticsFirestore(formId) as ApiResponse<ReviewAnalytics>;
 }
 
 export async function updateReviewForm(

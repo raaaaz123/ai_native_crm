@@ -1,21 +1,17 @@
 "use client";
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   Search, 
-  Filter, 
   Download, 
-  Eye, 
   MapPin, 
   Monitor, 
   Mail, 
   Phone,
-  User,
-  Calendar,
   ChevronDown,
   ChevronUp,
   MessageSquare
@@ -68,7 +64,7 @@ export default function ReviewSubmissions({
 
   const exportData = () => {
     const csvData = sortedSubmissions.map(submission => {
-      const row: any = {
+      const row: Record<string, string | number> = {
         'Submission ID': submission.id,
         'Submitted At': new Date(submission.submittedAt).toLocaleString(),
         'Email': submission.userInfo.email || '',
@@ -90,7 +86,7 @@ export default function ReviewSubmissions({
         const fieldLabel = field?.label || `Field ${response.fieldId}`;
         row[fieldLabel] = Array.isArray(response.value) 
           ? response.value.join(', ') 
-          : response.value;
+          : (typeof response.value === 'boolean' ? String(response.value) : response.value);
       });
 
       return row;
@@ -118,7 +114,7 @@ export default function ReviewSubmissions({
     return response?.value || 'No response';
   };
 
-  const formatResponseValue = (value: any, fieldType: string) => {
+  const formatResponseValue = (value: string | number | boolean | string[], fieldType: string) => {
     if (Array.isArray(value)) {
       return value.join(', ');
     }

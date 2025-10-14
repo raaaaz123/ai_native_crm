@@ -45,7 +45,7 @@ export function generateAvatarUrl(config: AvatarConfig): string {
 }
 
 // Get avatar for message sender
-export function getMessageAvatar(sender: string, senderName: string, metadata?: any): string {
+export function getMessageAvatar(sender: string, senderName: string, metadata?: Record<string, unknown>): string {
   // Check if it's an AI-generated message
   if (metadata?.ai_generated) {
     return generateAvatarUrl({ type: 'ai' });
