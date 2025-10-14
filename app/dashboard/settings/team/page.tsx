@@ -1018,7 +1018,7 @@ export default function TeamManagementPage() {
           <div className="text-center py-12">
             <Shield className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-neutral-900 mb-2">Access Restricted</h3>
-            <p className="text-neutral-600">You don&apos;t have permission to manage team members.</p>
+            <p className="text-neutral-600">You don't have permission to manage team members.</p>
           </div>
         }
       >

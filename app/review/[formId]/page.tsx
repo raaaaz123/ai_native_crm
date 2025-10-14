@@ -341,7 +341,7 @@ export default function ReviewFormPage() {
             <span className="text-2xl">⚠️</span>
           </div>
           <h1 className="text-3xl font-bold text-neutral-900 mb-4">Form Not Found</h1>
-          <p className="text-neutral-600 text-lg leading-relaxed mb-6">The review form you&apos;re looking for doesn&apos;t exist or has been removed.</p>
+          <p className="text-neutral-600 text-lg leading-relaxed mb-6">The review form you're looking for doesn't exist or has been removed.</p>
           <Button 
             onClick={() => router.push('/')}
             className="bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold px-6 py-3"

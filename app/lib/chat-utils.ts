@@ -63,23 +63,10 @@ export interface ChatWidget {
   offlineMessage: string;
   collectEmail: boolean;
   collectPhone: boolean;
-  collectName?: boolean;
   autoReply: string;
   // Widget branding
   widgetIcon?: string; // AI icon name or custom
   logoUrl?: string; // Uploaded logo URL
-  headerSubtitle?: string;
-  iconType?: string;
-  customIcon?: string;
-  showBranding?: boolean;
-  borderRadius?: string;
-  requireContactForm?: boolean;
-  // Sound settings
-  soundEnabled?: boolean;
-  messageSound?: string;
-  // Greeting settings
-  greetingDelay?: number;
-  quickReplies?: string[];
   // Data collection settings
   enableDataCollection?: boolean;
   dataCollectionFields?: {
@@ -95,18 +82,6 @@ export interface ChatWidget {
   buttonSize?: 'small' | 'medium' | 'large' | 'xl';
   buttonAnimation?: 'bounce' | 'pulse' | 'shake' | 'glow' | 'none';
   showButtonText?: boolean;
-  // Advanced styling
-  fontFamily?: string;
-  fontSize?: string;
-  buttonShadow?: string;
-  widgetShadow?: string;
-  messageSpacing?: string;
-  avatarStyle?: string;
-  inputStyle?: string;
-  headerStyle?: string;
-  footerStyle?: string;
-  scrollbarStyle?: string;
-  onlineDotColor?: string;
   businessHours: {
     enabled: boolean;
     timezone: string;

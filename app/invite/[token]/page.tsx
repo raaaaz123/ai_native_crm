@@ -230,7 +230,7 @@ export default function InviteAcceptancePage() {
             Team Invitation
           </h1>
           <p className="text-neutral-600">
-            You&apos;ve been invited to join a team
+            You've been invited to join a team
           </p>
         </div>
 
@@ -314,7 +314,7 @@ export default function InviteAcceptancePage() {
                     {invite?.email !== user.email && (
                       <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p className="text-yellow-700 text-sm">
-                          This invitation is for {invite?.email}, but you&apos;re signed in as {user.email}.
+                          This invitation is for {invite?.email}, but you're signed in as {user.email}.
                         </p>
                       </div>
                     )}

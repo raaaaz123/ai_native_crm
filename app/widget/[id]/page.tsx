@@ -68,7 +68,7 @@ export default function ChatWidget() {
 
   // AI Configuration
   const [aiEnabled, setAiEnabled] = useState(false);
-  const [aiConfig, setAiConfig] = useState<ChatWidget['aiConfig'] | null>(null);
+  const [aiConfig, setAiConfig] = useState<any>(null);
 
   const loadWidget = useCallback(async () => {
     try {
@@ -77,8 +77,8 @@ export default function ChatWidget() {
         setWidget(result.data);
         
         // Check if contact form is required
-        const requireContactForm = result.data.requireContactForm !== undefined 
-          ? result.data.requireContactForm 
+        const requireContactForm = (result.data as any).requireContactForm !== undefined 
+          ? (result.data as any).requireContactForm 
           : true;
         
         if (!requireContactForm) {
@@ -104,7 +104,7 @@ export default function ChatWidget() {
         }
         
         // Check if AI is enabled for this widget
-        const aiConfig = result.data.aiConfig;
+        const aiConfig = (result.data as any).aiConfig;
         if (aiConfig && aiConfig.enabled) {
           setAiEnabled(true);
           setAiConfig(aiConfig);
@@ -182,7 +182,7 @@ export default function ChatWidget() {
         });
         
         // Load messages
-        const loadedMessages: ChatMessage[] = convData.messages.map((msg: ChatMessage) => ({
+        const loadedMessages: ChatMessage[] = convData.messages.map((msg: any) => ({
           id: msg.id,
           conversationId: conversationId,
           text: msg.text,

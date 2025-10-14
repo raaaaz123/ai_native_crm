@@ -56,7 +56,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
   // Load user email from localStorage on mount
   useEffect(() => {
-    const widgetId = widget.id || 'preview';
+    const widgetId = (widget as any).id || 'preview';
     const storageKey = `widget_user_email_${widgetId}`;
     const storedEmail = localStorage.getItem(storageKey);
     
@@ -70,31 +70,31 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   }, [widget]);
 
   const primaryColor = widget.primaryColor || '#3B82F6';
-  const textColor = widget.textColor || '#FFFFFF';
+  const textColor = (widget as any).textColor || '#FFFFFF';
   const position = widget.position || 'bottom-right';
-  const iconType = widget.iconType || 'default';
-  const customIcon = widget.customIcon || '';
-  const widgetSize = widget.widgetSize || 'standard';
-  const borderRadius = widget.borderRadius || '16';
-  const headerSubtitle = widget.headerSubtitle || "We&apos;re here to help!";
-  const showBranding = widget.showBranding !== undefined ? widget.showBranding : true;
-  const quickReplies = widget.quickReplies || ['Get Support', 'Pricing', 'Contact Sales'];
+  const iconType = (widget as any).iconType || 'default';
+  const customIcon = (widget as any).customIcon || '';
+  const widgetSize = (widget as any).widgetSize || 'standard';
+  const borderRadius = (widget as any).borderRadius || '16';
+  const headerSubtitle = (widget as any).headerSubtitle || "We're here to help!";
+  const showBranding = (widget as any).showBranding !== undefined ? (widget as any).showBranding : true;
+  const quickReplies = (widget as any).quickReplies || ['Get Support', 'Pricing', 'Contact Sales'];
   
   // New styling options
-  const buttonStyle = widget.buttonStyle || 'rounded';
-  const buttonAnimation = widget.buttonAnimation || 'pulse';
-  const buttonSize = widget.buttonSize || 'medium';
-  const buttonShadow = widget.buttonShadow || 'medium';
-  const buttonHoverEffect = widget.buttonHoverEffect || 'scale';
-  const showButtonTooltip = widget.showButtonTooltip !== undefined ? widget.showButtonTooltip : true;
-  const buttonTooltip = widget.buttonTooltip || 'Chat with us';
-  const showBadge = widget.showBadge || false;
-  const badgeCount = widget.badgeCount || 0;
-  const badgeColor = widget.badgeColor || '#EF4444';
-  const badgePosition = widget.badgePosition || 'top-right';
-  const badgeAnimation = widget.badgeAnimation || 'pulse';
-  const showOnlineDot = widget.showOnlineDot !== undefined ? widget.showOnlineDot : true;
-  const onlineDotColor = widget.onlineDotColor || '#10B981';
+  const buttonStyle = (widget as any).buttonStyle || 'rounded';
+  const buttonAnimation = (widget as any).buttonAnimation || 'pulse';
+  const buttonSize = (widget as any).buttonSize || 'medium';
+  const buttonShadow = (widget as any).buttonShadow || 'medium';
+  const buttonHoverEffect = (widget as any).buttonHoverEffect || 'scale';
+  const showButtonTooltip = (widget as any).showButtonTooltip !== undefined ? (widget as any).showButtonTooltip : true;
+  const buttonTooltip = (widget as any).buttonTooltip || 'Chat with us';
+  const showBadge = (widget as any).showBadge || false;
+  const badgeCount = (widget as any).badgeCount || 0;
+  const badgeColor = (widget as any).badgeColor || '#EF4444';
+  const badgePosition = (widget as any).badgePosition || 'top-right';
+  const badgeAnimation = (widget as any).badgeAnimation || 'pulse';
+  const showOnlineDot = (widget as any).showOnlineDot !== undefined ? (widget as any).showOnlineDot : true;
+  const onlineDotColor = (widget as any).onlineDotColor || '#10B981';
   
   // Widget size dimensions
   const sizeMap = {
@@ -199,7 +199,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
   // Load chat history from localStorage
   const loadChatHistoryFromStorage = (email: string) => {
-    const widgetId = widget.id || 'preview';
+    const widgetId = (widget as any).id || 'preview';
     const historyKey = `widget_chat_history_${widgetId}_${email}`;
     const storedHistory = localStorage.getItem(historyKey);
     
@@ -241,7 +241,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const saveConversationToHistory = () => {
     if (!userEmail || messages.length === 0) return;
     
-    const widgetId = widget.id || 'preview';
+    const widgetId = (widget as any).id || 'preview';
     const historyKey = `widget_chat_history_${widgetId}_${userEmail}`;
     
     const newConversation = {
@@ -277,15 +277,15 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   useEffect(() => {
     if (isOpen && !conversation) {
       // Check if contact form is required
-      const requireContactForm = widget.requireContactForm !== undefined ? widget.requireContactForm : true;
+      const requireContactForm = (widget as any).requireContactForm !== undefined ? (widget as any).requireContactForm : true;
       
-      if (!requireContactForm && widget.id && widget.businessId) {
+      if (!requireContactForm && widget.id && (widget as any).businessId) {
         // Skip contact form, create anonymous conversation
         const createAnonymousConversation = async () => {
           const anonymousEmail = `anonymous_${Date.now()}@preview.widget`;
           
           const result = await createChatConversation(
-            widget.businessId,
+            (widget as any).businessId,
             widget.id!,
             {
               customerName: 'Preview User',
@@ -319,13 +319,13 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!widget.id || !widget.businessId) {
+    if (!widget.id || !(widget as any).businessId) {
       console.error('Widget ID or businessId missing');
       return;
     }
     
     // Save email to localStorage
-    const widgetId = widget.id || 'preview';
+    const widgetId = (widget as any).id || 'preview';
     const storageKey = `widget_user_email_${widgetId}`;
     localStorage.setItem(storageKey, formData.email);
     setUserEmail(formData.email);
@@ -337,14 +337,14 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
     try {
       // Create real conversation in Firestore
       console.log('Creating conversation in preview...', {
-        businessId: widget.businessId,
+        businessId: (widget as any).businessId,
         widgetId: widget.id,
         customerName: formData.name,
         customerEmail: formData.email
       });
       
       const result = await createChatConversation(
-        widget.businessId, 
+        (widget as any).businessId, 
         widget.id, 
         {
           customerName: formData.name,
@@ -407,7 +407,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const handleHandoverRequest = async () => {
     if (!conversation) return;
     
-    const handoverConfig = widget.customerHandover;
+    const handoverConfig = (widget as any).customerHandover;
     const handoverMessage = handoverConfig?.handoverMessage || "I'll connect you with a human agent right away. Please wait a moment.";
     
     // Save handover message to Firestore
@@ -443,7 +443,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
   // Check if message contains handover keywords
   const detectHandoverKeywords = (message: string): boolean => {
-    const handoverConfig = widget.customerHandover;
+    const handoverConfig = (widget as any).customerHandover;
     
     if (!handoverConfig?.enabled || !handoverConfig?.autoDetectKeywords) {
       return false;
@@ -496,7 +496,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
       }
 
     // Check if AI is enabled
-    const aiConfig = widget.aiConfig;
+    const aiConfig = (widget as any).aiConfig;
     if (aiConfig && aiConfig.enabled) {
       setAiThinking(true);
       
@@ -506,7 +506,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
           widgetId: widget.id || '',
           conversationId: conversation.id,
           aiConfig: aiConfig,
-          businessId: widget.businessId || '',
+          businessId: (widget as any).businessId || '',
           customerName: formData.name || 'Preview User',
           customerEmail: formData.email || 'preview@example.com'
         };
@@ -851,7 +851,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                         </div>
                         <button
                           onClick={() => {
-                            const widgetId = widget.id || 'preview';
+                            const widgetId = (widget as any).id || 'preview';
                             const storageKey = `widget_user_email_${widgetId}`;
                             localStorage.removeItem(storageKey);
                             setUserEmail('');
@@ -882,9 +882,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                           setShowChatHistory(false);
                           
                           // Create a new conversation in Firestore
-                          if (widget.id && widget.businessId) {
+                          if (widget.id && (widget as any).businessId) {
                             const result = await createChatConversation(
-                              widget.businessId,
+                              (widget as any).businessId,
                               widget.id,
                               {
                                 customerName: formData.name,
@@ -926,9 +926,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                             setShowChatHistory(false);
                             // In preview mode, chat history from localStorage doesn't have real conversation IDs
                             // So we just create a new conversation when clicking on history
-                            if (widget.id && widget.businessId) {
+                            if (widget.id && (widget as any).businessId) {
                               const result = await createChatConversation(
-                                widget.businessId,
+                                (widget as any).businessId,
                                 widget.id,
                                 {
                                   customerName: formData.name,
@@ -979,12 +979,12 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                   Start a Conversation
                 </h2>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  We&apos;re here to help! Please provide your information to get started.
+                  We're here to help! Please provide your information to get started.
                 </p>
               </div>
               
               <div className="space-y-3">
-              {(widget.collectName !== false) && (
+              {((widget as any).collectName !== false) && (
                 <div>
                     <label className="block text-sm font-semibold text-gray-800 mb-1">
                       Full Name *
@@ -1033,9 +1033,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               </div>
 
               {/* Custom Fields */}
-              {widget.customFields && widget.customFields.length > 0 && (
+              {(widget as any).customFields && (widget as any).customFields.length > 0 && (
                 <>
-                  {widget.customFields.map((field: any, index: number) => (
+                  {(widget as any).customFields.map((field: any, index: number) => (
                     <div key={field.id || index}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         {field.label || `Field ${index + 1}`} {field.required && '*'}
@@ -1069,9 +1069,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
             ) : (
             <>
               {/* Handover Button - Top Position */}
-              {!showForm && widget.customerHandover?.enabled && 
-               widget.customerHandover?.showHandoverButton && 
-               widget.customerHandover?.handoverButtonPosition === 'top' && 
+              {!showForm && (widget as any).customerHandover?.enabled && 
+               (widget as any).customerHandover?.showHandoverButton && 
+               (widget as any).customerHandover?.handoverButtonPosition === 'top' && 
                !handoverRequested && (
                 <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50">
                   <button
@@ -1084,7 +1084,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                   >
                     <User className="w-3 h-3" />
                     <span className="truncate">
-                      {widget.customerHandover?.handoverButtonText || 'Talk to Human Agent'}
+                      {(widget as any).customerHandover?.handoverButtonText || 'Talk to Human Agent'}
                     </span>
                   </button>
                 </div>
@@ -1098,7 +1098,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                       <span className="text-sm font-medium text-emerald-900">Human Agent Mode</span>
                     </div>
-                    {widget.customerHandover?.allowCustomerToSwitch && (
+                    {(widget as any).customerHandover?.allowCustomerToSwitch && (
                       <button
                         onClick={async () => {
                           if (!conversation) return;
@@ -1112,7 +1112,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                           
                           // Send message to Firestore
                           await sendMessage(conversation.id, {
-                            text: "You&apos;re now back to AI mode. How can I help you?",
+                            text: "You're now back to AI mode. How can I help you?",
                             sender: 'business',
                             senderName: 'AI Assistant'
                           });
@@ -1129,9 +1129,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               {/* Modern Messages Area */}
               <div className="flex-1 p-4 overflow-y-auto space-y-3 relative bg-gradient-to-b from-gray-50/30 to-white/50">
                 {/* Handover Button - Floating Position */}
-                {!showForm && widget.customerHandover?.enabled && 
-                 widget.customerHandover?.showHandoverButton && 
-                 widget.customerHandover?.handoverButtonPosition === 'floating' && 
+                {!showForm && (widget as any).customerHandover?.enabled && 
+                 (widget as any).customerHandover?.showHandoverButton && 
+                 (widget as any).customerHandover?.handoverButtonPosition === 'floating' && 
                  !handoverRequested && (
                   <button
                     onClick={handleHandoverRequest}
@@ -1232,8 +1232,8 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                 {messages.length === 1 && quickReplies.filter((r: string) => r.trim()).length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     {/* Add handover option to quick replies if enabled */}
-                    {widget.customerHandover?.enabled && 
-                     widget.customerHandover?.includeInQuickReplies && 
+                    {(widget as any).customerHandover?.enabled && 
+                     (widget as any).customerHandover?.includeInQuickReplies && 
                      !handoverRequested && (
                       <button
                         onClick={handleHandoverRequest}
@@ -1263,7 +1263,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                           });
                           
                           // Use AI if enabled, otherwise fallback to auto-reply
-                          const aiConfig = widget.aiConfig;
+                          const aiConfig = (widget as any).aiConfig;
                           if (aiConfig && aiConfig.enabled) {
                             setAiThinking(true);
                             
@@ -1273,7 +1273,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                                 widgetId: widget.id || '',
                                 conversationId: conversation.id,
                                 aiConfig: aiConfig,
-                                businessId: widget.businessId || '',
+                                businessId: (widget as any).businessId || '',
                                 customerName: formData.name || 'Preview User',
                                 customerEmail: formData.email || 'preview@example.com'
                               };
@@ -1365,9 +1365,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               </div>
 
               {/* Handover Button - Bottom Position */}
-              {!showForm && widget.customerHandover?.enabled && 
-               widget.customerHandover?.showHandoverButton && 
-               widget.customerHandover?.handoverButtonPosition === 'bottom' && 
+              {!showForm && (widget as any).customerHandover?.enabled && 
+               (widget as any).customerHandover?.showHandoverButton && 
+               (widget as any).customerHandover?.handoverButtonPosition === 'bottom' && 
                !handoverRequested && (
                 <div className="px-3 pt-1.5 pb-1.5 border-t border-gray-100 bg-gray-50">
                   <button
@@ -1380,7 +1380,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                   >
                     <User className="w-3 h-3" />
                     <span className="truncate">
-                      {widget.customerHandover?.handoverButtonText || 'Talk to Human Agent'}
+                      {(widget as any).customerHandover?.handoverButtonText || 'Talk to Human Agent'}
                     </span>
                   </button>
                 </div>

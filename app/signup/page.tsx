@@ -298,7 +298,7 @@ export default function SignUpPage() {
                   disabled={loading}
                   suppressHydrationWarning
                 />
-                <p className="text-xs text-neutral-500 mt-1">Optional: Your company&apos;s website domain</p>
+                <p className="text-xs text-neutral-500 mt-1">Optional: Your company's website domain</p>
               </div>
 
               <Button

@@ -1,7 +1,7 @@
 // Debug script to check companyMembers collection
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+const { initializeApp } = require('firebase/app');
+const { getFirestore, collection, query, where, getDocs } = require('firebase/firestore');
+const { getAuth, onAuthStateChanged } = require('firebase/auth');
 
 const firebaseConfig = {
   apiKey: "AIzaSyBvJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJ",

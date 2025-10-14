@@ -105,12 +105,12 @@ export function Testimonial({
     <div className={`card-modern p-8 relative overflow-hidden group hover-lift ${className}`}>
       {/* Quote background decoration */}
       <div className="absolute top-4 right-4 text-6xl text-[--color-primary-50] font-serif leading-none select-none">
-        &quot;
+        "
       </div>
       
       <div className="relative z-10">
         <blockquote className="text-[--color-foreground] text-lg leading-relaxed mb-6 italic">
-          &quot;{quote}&quot;
+          "{quote}"
         </blockquote>
         
         <div className="flex items-center gap-4">

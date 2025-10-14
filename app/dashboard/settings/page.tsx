@@ -193,7 +193,7 @@ export default function SettingsPage() {
                   <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">No Company Found</h3>
                   <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
-                    You&apos;re not part of any company yet. Create a company or join an existing one to get started.
+                    You're not part of any company yet. Create a company or join an existing one to get started.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button 
