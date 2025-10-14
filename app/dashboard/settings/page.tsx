@@ -1,14 +1,19 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
+import { Badge } from '@/components/ui/badge';
+import { Users, Settings, Bell, Shield } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function SettingsPage() {
-  const { user, userData, updateUserData } = useAuth();
+  const router = useRouter();
+  const { user, userData, updateUserData, companyContext } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -118,18 +123,105 @@ export default function SettingsPage() {
 
   return (
     <Container>
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-neutral-900 mb-2">Settings</h1>
-            <p className="text-neutral-600">Manage your account settings and preferences</p>
+          <div className="mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">Settings</h1>
+            <p className="text-sm sm:text-base text-gray-600">Manage your account settings and preferences</p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Company Information */}
+          {companyContext ? (
+            <Card className="bg-gradient-to-br from-blue-50/50 to-indigo-100/30 border-2 border-blue-500/40 rounded-2xl shadow-sm mb-6">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  <span>Company Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">
+                      {companyContext.company.name}
+                    </h3>
+                    {companyContext.company.description && (
+                      <p className="text-sm text-gray-600 mb-4">{companyContext.company.description}</p>
+                    )}
+                    <div className="space-y-2.5">
+                      {companyContext.company.domain && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500">Domain:</span>
+                          <span className="text-sm font-medium text-gray-900">{companyContext.company.domain}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-500">Your Role:</span>
+                        <Badge className={companyContext.isAdmin ? 'bg-amber-100 text-amber-800 border border-amber-300' : 'bg-blue-100 text-blue-800 border border-blue-300'}>
+                          {companyContext.member.role}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-center gap-3">
+                    <Link href="/dashboard/settings/team" className="w-full">
+                      <Button variant="outline" className="w-full justify-start border-2 border-blue-500/40 hover:border-blue-600 hover:bg-blue-50">
+                        <Users className="w-4 h-4 mr-2" />
+                        Manage Team
+                      </Button>
+                    </Link>
+                    {companyContext.isAdmin && (
+                      <Link href="/dashboard/settings/company" className="w-full">
+                        <Button variant="outline" className="w-full justify-start border-2 border-blue-500/40 hover:border-blue-600 hover:bg-blue-50">
+                          <Settings className="w-4 h-4 mr-2" />
+                          Company Settings
+                        </Button>
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="bg-gradient-to-br from-gray-50/50 to-gray-100/30 border-2 border-gray-300/40 rounded-2xl shadow-sm mb-6">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                  <Shield className="w-5 h-5 text-gray-600" />
+                  <span>Company Setup</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Shield className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Company Found</h3>
+                  <p className="text-sm text-gray-600 mb-6 max-w-md mx-auto">
+                    You&apos;re not part of any company yet. Create a company or join an existing one to get started.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                    <Button 
+                      onClick={() => router.push('/dashboard/settings/company')}
+                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                    >
+                      Create Company
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => router.push('/dashboard/settings/team')}
+                      className="border-2 border-blue-500 hover:border-blue-600 hover:bg-blue-50"
+                    >
+                      Join Company
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Profile Information */}
             <div className="lg:col-span-2">
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <Card className="bg-gradient-to-br from-white to-gray-50/30 border-2 border-gray-200 rounded-2xl shadow-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     <span>Profile Information</span>
@@ -137,21 +229,21 @@ export default function SettingsPage() {
                 </CardHeader>
                 <CardContent>
                   {error && (
-                    <div className="mb-6 p-4 bg-status-error-50 border border-status-error-200 rounded-lg">
-                      <p className="text-status-error-700 text-sm">{error}</p>
+                    <div className="mb-4 p-3 bg-red-50 border-2 border-red-200 rounded-xl">
+                      <p className="text-red-700 text-sm font-medium">{error}</p>
                     </div>
                   )}
 
                   {success && (
-                    <div className="mb-6 p-4 bg-semantic-success-50 border border-semantic-success-200 rounded-lg">
-                      <p className="text-semantic-success-700 text-sm">{success}</p>
+                    <div className="mb-4 p-3 bg-green-50 border-2 border-green-200 rounded-xl">
+                      <p className="text-green-700 text-sm font-medium">{success}</p>
                     </div>
                   )}
 
-                  <form onSubmit={handleSave} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <form onSubmit={handleSave} className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label htmlFor="firstName" className="block text-sm font-medium text-neutral-700 mb-2">
+                        <label htmlFor="firstName" className="block text-sm font-semibold text-gray-700 mb-1.5">
                           First Name *
                         </label>
                         <input
@@ -159,13 +251,14 @@ export default function SettingsPage() {
                           type="text"
                           value={formData.firstName}
                           onChange={(e) => handleInputChange('firstName', e.target.value)}
-                          className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                          className="w-full px-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
                           placeholder="John"
                           disabled={loading}
+                          suppressHydrationWarning={true}
                         />
                       </div>
                       <div>
-                        <label htmlFor="lastName" className="block text-sm font-medium text-neutral-700 mb-2">
+                        <label htmlFor="lastName" className="block text-sm font-semibold text-gray-700 mb-1.5">
                           Last Name *
                         </label>
                         <input
@@ -173,15 +266,16 @@ export default function SettingsPage() {
                           type="text"
                           value={formData.lastName}
                           onChange={(e) => handleInputChange('lastName', e.target.value)}
-                          className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                          className="w-full px-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
                           placeholder="Doe"
                           disabled={loading}
+                          suppressHydrationWarning={true}
                         />
                       </div>
                     </div>
 
                     <div>
-                      <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
+                      <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-1.5">
                         Email Address
                       </label>
                       <input
@@ -189,14 +283,15 @@ export default function SettingsPage() {
                         type="email"
                         value={formData.email}
                         disabled
-                        className="w-full px-4 py-3 border border-neutral-200 rounded-lg bg-neutral-50 text-neutral-500 cursor-not-allowed"
+                        className="w-full px-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl bg-gray-50 text-gray-500 cursor-not-allowed"
                         placeholder="john@example.com"
+                        suppressHydrationWarning={true}
                       />
-                      <p className="text-xs text-neutral-500 mt-1">Email cannot be changed</p>
+                      <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
                     </div>
 
                     <div>
-                      <label htmlFor="company" className="block text-sm font-medium text-neutral-700 mb-2">
+                      <label htmlFor="company" className="block text-sm font-semibold text-gray-700 mb-1.5">
                         Company
                       </label>
                       <input
@@ -204,22 +299,24 @@ export default function SettingsPage() {
                         type="text"
                         value={formData.company}
                         onChange={(e) => handleInputChange('company', e.target.value)}
-                        className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                        className="w-full px-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
                         placeholder="Acme Inc."
                         disabled={loading}
+                        suppressHydrationWarning={true}
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="role" className="block text-sm font-medium text-neutral-700 mb-2">
+                      <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-1.5">
                         Role
                       </label>
                       <select
                         id="role"
                         value={formData.role}
                         onChange={(e) => handleInputChange('role', e.target.value)}
-                        className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                        className="w-full px-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
                         disabled={loading}
+                        suppressHydrationWarning={true}
                       >
                         <option value="">Select your role</option>
                         <option value="Sales Manager">Sales Manager</option>
@@ -231,11 +328,11 @@ export default function SettingsPage() {
                       </select>
                     </div>
 
-                    <div className="flex space-x-4">
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
                       <Button
                         type="submit"
                         disabled={loading}
-                        className="flex-1"
+                        className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2.5"
                       >
                         {loading ? 'Saving...' : 'Save Changes'}
                       </Button>
@@ -244,7 +341,7 @@ export default function SettingsPage() {
                         variant="outline"
                         onClick={handleReset}
                         disabled={loading}
-                        className="flex-1"
+                        className="flex-1 border-2 border-gray-300 hover:border-gray-400 hover:bg-gray-50 py-2.5"
                       >
                         Reset
                       </Button>
@@ -255,11 +352,11 @@ export default function SettingsPage() {
             </div>
 
             {/* Profile Preview */}
-            <div className="lg:col-span-1">
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <svg className="w-5 h-5 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="lg:col-span-1 space-y-4">
+              <Card className="bg-gradient-to-br from-purple-50/50 to-pink-100/30 border-2 border-purple-500/40 rounded-2xl shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                     </svg>
@@ -274,29 +371,29 @@ export default function SettingsPage() {
                         alt="Profile"
                         width={80}
                         height={80}
-                        className="w-20 h-20 rounded-full border-4 border-white shadow-lg mx-auto mb-4"
+                        className="w-20 h-20 rounded-full border-4 border-white shadow-lg mx-auto mb-3"
                       />
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-3 shadow-md">
                         {formData.firstName?.charAt(0) || formData.displayName?.charAt(0) || 'U'}
                       </div>
                     )}
                     
-                    <h3 className="text-lg font-semibold text-neutral-900 mb-1">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">
                       {formData.firstName && formData.lastName 
                         ? `${formData.firstName} ${formData.lastName}`
                         : formData.displayName || 'User'
                       }
                     </h3>
                     
-                    <p className="text-sm text-neutral-500 mb-2">{formData.email}</p>
+                    <p className="text-sm text-gray-600 mb-2">{formData.email}</p>
                     
                     {formData.company && (
-                      <p className="text-sm text-neutral-600 mb-1">{formData.company}</p>
+                      <p className="text-sm text-gray-700 font-medium mb-2">{formData.company}</p>
                     )}
                     
                     {formData.role && (
-                      <span className="inline-block px-3 py-1 bg-primary-100 text-primary-700 text-xs font-medium rounded-full">
+                      <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full border border-blue-300">
                         {formData.role}
                       </span>
                     )}
@@ -305,97 +402,71 @@ export default function SettingsPage() {
               </Card>
 
               {/* Account Information */}
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20 mt-6">
-                <CardHeader>
-                  <CardTitle className="text-sm">Account Information</CardTitle>
+              <Card className="bg-gradient-to-br from-green-50/50 to-emerald-100/30 border-2 border-green-500/40 rounded-2xl shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Account Information</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">User ID:</span>
-                    <span className="text-neutral-900 font-mono text-xs" title={user?.uid}>
+                <CardContent className="space-y-2.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">User ID:</span>
+                    <span className="text-gray-900 font-mono text-xs" title={user?.uid}>
                       {user?.uid?.slice(0, 8)}...
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Email:</span>
-                    <span className="text-neutral-900 text-xs" title={userData?.email}>
-                      {userData?.email || 'Not provided'}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Email Verified:</span>
-                    <span className={`text-xs font-medium ${user?.emailVerified ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Email Verified:</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${user?.emailVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                       {user?.emailVerified ? 'Yes' : 'No'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">User since:</span>
-                    <span className="text-neutral-900">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">User since:</span>
+                    <span className="text-gray-900 font-medium text-xs">
                       {getUserSince()}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Account created:</span>
-                    <span className="text-neutral-900 text-xs">
-                      {formatDate(userData?.createdAt)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Last login:</span>
-                    <span className="text-neutral-900 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Last login:</span>
+                    <span className="text-gray-900 text-xs">
                       {formatDate(userData?.lastLoginAt)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Last updated:</span>
-                    <span className="text-neutral-900 text-xs">
-                      {formatDate(userData?.updatedAt)}
-                    </span>
-                  </div>
-                  {userData?.photoURL && (
-                    <div className="flex justify-between">
-                      <span className="text-neutral-500">Profile photo:</span>
-                      <span className="text-neutral-900 text-xs truncate max-w-32" title={userData.photoURL}>
-                        Google Photo
-                      </span>
-                    </div>
-                  )}
                 </CardContent>
               </Card>
 
               {/* Additional User Details */}
-              <Card className="bg-white/80 backdrop-blur-sm border border-white/20 mt-6">
-                <CardHeader>
-                  <CardTitle className="text-sm">Profile Details</CardTitle>
+              <Card className="bg-gradient-to-br from-amber-50/50 to-orange-100/30 border-2 border-amber-500/40 rounded-2xl shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base font-semibold">Profile Details</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Display Name:</span>
-                    <span className="text-neutral-900 text-xs">
+                <CardContent className="space-y-2.5 text-sm">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Display Name:</span>
+                    <span className="text-gray-900 text-xs font-medium">
                       {userData?.displayName || 'Not set'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">First Name:</span>
-                    <span className="text-neutral-900 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">First Name:</span>
+                    <span className="text-gray-900 text-xs font-medium">
                       {userData?.firstName || 'Not set'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Last Name:</span>
-                    <span className="text-neutral-900 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Last Name:</span>
+                    <span className="text-gray-900 text-xs font-medium">
                       {userData?.lastName || 'Not set'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Company:</span>
-                    <span className="text-neutral-900 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Company:</span>
+                    <span className="text-gray-900 text-xs font-medium">
                       {userData?.company || 'Not set'}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-neutral-500">Role:</span>
-                    <span className="text-neutral-900 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Role:</span>
+                    <span className="text-gray-900 text-xs font-medium">
                       {userData?.role || 'Not set'}
                     </span>
                   </div>

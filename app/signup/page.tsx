@@ -9,7 +9,7 @@ import { BrandLogo } from '../components/brand';
 
 
 export default function SignUpPage() {
-  const [step, setStep] = useState<'initial' | 'complete'>('initial');
+  const [step, setStep] = useState<'initial' | 'complete' | 'company'>('initial');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -17,11 +17,14 @@ export default function SignUpPage() {
     firstName: '',
     lastName: '',
     company: '',
-    role: ''
+    role: '',
+    companyName: '',
+    companyDescription: '',
+    companyDomain: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signInWithGoogle, signUpWithEmail, updateUserData, user } = useAuth();
+  const { signInWithGoogle, signUpWithEmail, updateUserData, user, createCompany } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -170,6 +173,8 @@ export default function SignUpPage() {
       await updateUserData(profileData);
       
       console.log('✅ [Profile Completion] Profile updated successfully, redirecting to dashboard');
+      // Instead of forcing company creation, redirect to dashboard
+      // Users can create or join companies from the team management page
       router.push('/dashboard');
     } catch (error: unknown) {
       console.error('❌ [Profile Completion] Error updating profile:', error);
@@ -180,9 +185,136 @@ export default function SignUpPage() {
     }
   };
 
+  const handleSkipToCompanyChoice = () => {
+    console.log('⏭️ [Profile Completion] User chose to set up company later');
+    router.push('/dashboard');
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const handleCreateCompany = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.companyName) {
+      setError('Company name is required');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError('');
+      
+      console.log('🏢 [Company Creation] Creating company:', {
+        name: formData.companyName,
+        description: formData.companyDescription,
+        domain: formData.companyDomain
+      });
+      
+      await createCompany(
+        formData.companyName,
+        formData.companyDescription || undefined,
+        formData.companyDomain || undefined
+      );
+      
+      console.log('✅ [Company Creation] Company created successfully, redirecting to dashboard');
+      router.push('/dashboard');
+    } catch (error: unknown) {
+      console.error('❌ [Company Creation] Error creating company:', error);
+      setError((error as Error).message || 'Failed to create company');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (step === 'company') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <div className="flex justify-center mb-6">
+              <BrandLogo size="lg" />
+            </div>
+            <h1 className="text-3xl font-bold text-neutral-900 mb-2">
+              Create your company
+            </h1>
+            <p className="text-neutral-600">
+              Set up your company to start collaborating with your team
+            </p>
+          </div>
+
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+            {error && (
+              <div className="mb-6 p-4 bg-status-error-50 border border-status-error-200 rounded-lg">
+                <p className="text-status-error-700 text-sm">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleCreateCompany} className="space-y-4">
+              <div>
+                <label htmlFor="companyName" className="block text-sm font-medium text-neutral-700 mb-2">
+                  Company name *
+                </label>
+                <input
+                  id="companyName"
+                  type="text"
+                  value={formData.companyName}
+                  onChange={(e) => handleInputChange('companyName', e.target.value)}
+                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  placeholder="Acme Inc."
+                  disabled={loading}
+                  suppressHydrationWarning
+                />
+              </div>
+
+              <div>
+                <label htmlFor="companyDescription" className="block text-sm font-medium text-neutral-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  id="companyDescription"
+                  value={formData.companyDescription}
+                  onChange={(e) => handleInputChange('companyDescription', e.target.value)}
+                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  placeholder="Brief description of your company..."
+                  rows={3}
+                  disabled={loading}
+                  suppressHydrationWarning
+                />
+              </div>
+
+              <div>
+                <label htmlFor="companyDomain" className="block text-sm font-medium text-neutral-700 mb-2">
+                  Company domain
+                </label>
+                <input
+                  id="companyDomain"
+                  type="text"
+                  value={formData.companyDomain}
+                  onChange={(e) => handleInputChange('companyDomain', e.target.value)}
+                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  placeholder="acme.com"
+                  disabled={loading}
+                  suppressHydrationWarning
+                />
+                <p className="text-xs text-neutral-500 mt-1">Optional: Your company&apos;s website domain</p>
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                size="lg"
+                className="w-full mt-6"
+              >
+                {loading ? 'Creating company...' : 'Create Company'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (step === 'complete') {
     return (
@@ -221,6 +353,7 @@ export default function SignUpPage() {
                     className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                     placeholder="John"
                     disabled={loading}
+                    suppressHydrationWarning
                   />
                 </div>
                 <div>
@@ -235,6 +368,7 @@ export default function SignUpPage() {
                     className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                     placeholder="Doe"
                     disabled={loading}
+                    suppressHydrationWarning
                   />
                 </div>
               </div>
@@ -251,6 +385,7 @@ export default function SignUpPage() {
                   className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                   placeholder="Acme Inc."
                   disabled={loading}
+                  suppressHydrationWarning
                 />
               </div>
 
@@ -264,6 +399,7 @@ export default function SignUpPage() {
                   onChange={(e) => handleInputChange('role', e.target.value)}
                   className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                   disabled={loading}
+                  suppressHydrationWarning
                 >
                   <option value="">Select your role</option>
                   <option value="Sales Manager">Sales Manager</option>
@@ -275,14 +411,22 @@ export default function SignUpPage() {
                 </select>
               </div>
 
-              <Button
-                type="submit"
-                disabled={loading}
-                size="lg"
-                className="w-full mt-6"
-              >
-                {loading ? 'Completing...' : 'Complete Profile'}
-              </Button>
+              <div className="space-y-3 mt-6">
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  size="lg"
+                  className="w-full"
+                >
+                  {loading ? 'Completing profile...' : 'Complete Profile'}
+                </Button>
+                
+                <div className="text-center">
+                  <p className="text-sm text-neutral-600 mb-2">
+                    You can create or join a company later from your dashboard
+                  </p>
+                </div>
+              </div>
             </form>
           </div>
         </div>
@@ -363,6 +507,7 @@ export default function SignUpPage() {
                   className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                   placeholder="John"
                   disabled={loading}
+                  suppressHydrationWarning
                 />
               </div>
               <div>
@@ -377,6 +522,7 @@ export default function SignUpPage() {
                   className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                   placeholder="Doe"
                   disabled={loading}
+                  suppressHydrationWarning
                 />
               </div>
             </div>
@@ -393,6 +539,7 @@ export default function SignUpPage() {
                 className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                 placeholder="john@example.com"
                 disabled={loading}
+                suppressHydrationWarning
               />
             </div>
 
@@ -408,6 +555,7 @@ export default function SignUpPage() {
                 className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                 placeholder="Create a strong password"
                 disabled={loading}
+                suppressHydrationWarning
               />
             </div>
 
@@ -423,6 +571,7 @@ export default function SignUpPage() {
                 className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                 placeholder="Confirm your password"
                 disabled={loading}
+                suppressHydrationWarning
               />
             </div>
 
@@ -438,6 +587,7 @@ export default function SignUpPage() {
                 className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                 placeholder="Acme Inc."
                 disabled={loading}
+                suppressHydrationWarning
               />
             </div>
 
@@ -451,6 +601,7 @@ export default function SignUpPage() {
                 onChange={(e) => handleInputChange('role', e.target.value)}
                 className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
                 disabled={loading}
+                suppressHydrationWarning
               >
                 <option value="">Select your role</option>
                 <option value="Sales Manager">Sales Manager</option>
@@ -468,6 +619,7 @@ export default function SignUpPage() {
                 type="checkbox"
                 className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded mt-1"
                 required
+                suppressHydrationWarning
               />
               <label htmlFor="terms" className="ml-2 block text-sm text-neutral-700">
                 I agree to the{' '}

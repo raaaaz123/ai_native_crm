@@ -1,23 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./lib/auth-context";
 import { LayoutWrapper } from "./components/layout/LayoutWrapper";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
   title: "Rexa Engage — AI‑Native Customer Engagement Platform",
   description:
-    "Retain customers and grow LTV with AI‑native review collection, support systems, and embeddable widgets powered by on‑device agents.",
+    "Instantly answer your visitors' questions with a personalized chatbot trained on your website content.",
+  icons: {
+    icon: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
@@ -26,8 +24,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[--color-background] text-[--color-foreground]`}>
+    <html lang="en" className="scroll-smooth">
+      <body className={`${inter.variable} font-sans antialiased bg-white text-gray-900`}>
         <AuthProvider>
           <LayoutWrapper>
             {children}

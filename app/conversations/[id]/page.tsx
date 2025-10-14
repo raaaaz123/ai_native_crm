@@ -186,7 +186,7 @@ export default function ChatPage() {
                     {conversation.customerName}
                   </h1>
                 </div>
-                <Badge className={getStatusColor(conversation.status)}>
+                <Badge className={getStatusColor(conversation.status as 'active' | 'closed')}>
                   {conversation.status}
                 </Badge>
               </div>

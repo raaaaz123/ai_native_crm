@@ -16,6 +16,8 @@ import { db } from '../../../lib/firebase';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import Avatar from '../../../components/ui/avatar';
+import { getMessageAvatar } from '../../../lib/avatar-utils';
 import { 
   ArrowLeft, 
   Send, 
@@ -32,6 +34,27 @@ export default function ChatPage() {
   const router = useRouter();
   const { user } = useAuth();
   const conversationId = params.id as string;
+
+  // Get initials from name
+  const getInitials = (name: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  // Get color from name (consistent color for each user)
+  const getColorFromName = (name: string) => {
+    if (!name) return '#6B7280';
+    const colors = [
+      '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', 
+      '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#84CC16'
+    ];
+    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return colors[hash % colors.length];
+  };
   
   const [conversation, setConversation] = useState<ChatConversation | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -115,22 +138,58 @@ export default function ChatPage() {
     }
   };
 
-  const formatMessageTime = (timestamp: Date | { toDate: () => Date } | null | undefined) => {
+  const formatMessageTime = (timestamp: Date | { toDate: () => Date } | number | null | undefined) => {
     if (!timestamp) return '';
-    const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-    return format(date, 'HH:mm');
+    try {
+      let date: Date;
+      if (timestamp instanceof Date) {
+        date = timestamp;
+      } else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'object' && 'toDate' in timestamp) {
+        date = timestamp.toDate();
+      } else {
+        return '';
+      }
+      
+      if (isNaN(date.getTime())) return '';
+      return format(date, 'HH:mm');
+    } catch (error) {
+      console.error('Error formatting message time:', error, timestamp);
+      return '';
+    }
   };
 
-  const formatMessageDate = (timestamp: Date | { toDate: () => Date } | null | undefined) => {
+  const formatMessageDate = (timestamp: Date | { toDate: () => Date } | number | null | undefined) => {
     if (!timestamp) return '';
-    const date = timestamp instanceof Date ? timestamp : timestamp.toDate();
-    return format(date, 'MMM dd, yyyy');
+    try {
+      let date: Date;
+      if (timestamp instanceof Date) {
+        date = timestamp;
+      } else if (typeof timestamp === 'number') {
+        date = new Date(timestamp);
+      } else if (typeof timestamp === 'object' && 'toDate' in timestamp) {
+        date = timestamp.toDate();
+      } else {
+        return '';
+      }
+      
+      if (isNaN(date.getTime())) return '';
+      return format(date, 'MMM dd, yyyy');
+    } catch (error) {
+      console.error('Error formatting message date:', error, timestamp);
+      return '';
+    }
   };
 
-  const getStatusColor = (status: 'active' | 'closed') => {
+  const getStatusColor = (status: ChatConversation['status']) => {
     switch (status) {
       case 'active': return 'bg-green-100 text-green-800';
       case 'closed': return 'bg-gray-100 text-gray-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'resolved': return 'bg-blue-100 text-blue-800';
+      case 'unsolved': return 'bg-red-100 text-red-800';
+      case 'custom': return 'bg-purple-100 text-purple-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -158,134 +217,170 @@ export default function ChatPage() {
 
   // Group messages by date
   const groupedMessages = messages.reduce((groups, message) => {
-    const date = formatMessageDate(new Date(message.createdAt));
-    if (!groups[date]) {
+    const date = formatMessageDate(message.createdAt);
+    if (date && !groups[date]) {
       groups[date] = [];
     }
-    groups[date].push(message);
+    if (date) {
+      groups[date].push(message);
+    }
     return groups;
   }, {} as Record<string, ChatMessage[]>);
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard/conversations">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-            </Link>
-            <div>
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-gray-500" />
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    {conversation.customerName}
-                  </h1>
+    <div className="flex flex-col h-screen bg-white">
+      {/* Clean Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <Link href="/dashboard/conversations">
+                <Button variant="ghost" size="sm" className="flex-shrink-0 hover:bg-gray-50 h-8 px-2">
+                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  <span className="text-xs">Back</span>
+                </Button>
+              </Link>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                    background: `${getColorFromName(conversation.customerName)}`
+                  }}>
+                    <span className="text-white text-xs font-semibold">
+                      {getInitials(conversation.customerName)}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <h1 className="text-sm font-semibold text-gray-900 truncate">
+                      {conversation.customerName}
+                    </h1>
+                    <div className="flex items-center gap-1.5 text-xs text-gray-600 truncate">
+                      <Mail className="h-3 w-3 flex-shrink-0" />
+                      <span className="truncate">{conversation.customerEmail}</span>
+                    </div>
+                  </div>
                 </div>
-                <Badge className={getStatusColor(conversation.status)}>
-                  {conversation.status}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                <Mail className="h-4 w-4" />
-                <span>{conversation.customerEmail}</span>
               </div>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant={conversation.status === 'active' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleStatusChange('active')}
-            >
-              Active
-            </Button>
-            <Button
-              variant={conversation.status === 'closed' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handleStatusChange('closed')}
-            >
-              Close
-            </Button>
+            
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <Badge className={`text-xs px-2 py-0.5 ${getStatusColor(conversation.status)}`}>
+                {conversation.status}
+              </Badge>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleStatusChange(conversation.status === 'active' ? 'closed' : 'active')}
+                className="text-xs h-7 px-3 border-gray-200 rounded-lg hover:bg-gray-50"
+              >
+                {conversation.status === 'active' ? 'Close' : 'Reopen'}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-6 py-4">
-        {Object.entries(groupedMessages).map(([date, dateMessages]) => (
-          <div key={date}>
-            <div className="flex justify-center my-4">
-              <span className="bg-gray-200 text-gray-600 text-xs px-3 py-1 rounded-full">
-                {date}
-              </span>
-            </div>
-            
-            {dateMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex mb-4 ${
-                  message.sender === 'business' ? 'justify-end' : 'justify-start'
-                }`}
-              >
+      <div className="flex-1 overflow-y-auto bg-gray-50/30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+            <div key={date}>
+              <div className="flex justify-center my-4">
+                <span className="bg-gray-100 text-gray-600 text-xs px-3 py-1 rounded-md">
+                  {date}
+                </span>
+              </div>
+              
+              {dateMessages.map((message) => (
                 <div
-                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                    message.sender === 'business'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-white text-gray-900 border border-gray-200'
+                  key={message.id}
+                  className={`flex items-end gap-2 mb-3 ${
+                    message.sender === 'business' ? 'justify-end' : 'justify-start'
                   }`}
                 >
-                  <p className="text-sm">{message.text}</p>
-                  <div className={`flex items-center justify-end gap-1 mt-1 text-xs ${
-                    message.sender === 'business' ? 'text-blue-100' : 'text-gray-500'
-                  }`}>
-                    <span>{formatMessageTime(new Date(message.createdAt))}</span>
-                    {message.sender === 'business' && (
-                      message.readAt ? (
-                        <CheckCircle className="h-3 w-3" />
-                      ) : (
-                        <Circle className="h-3 w-3" />
-                      )
-                    )}
-                  </div>
+                  {message.sender === 'business' ? (
+                    // Business message - right aligned
+                    <>
+                      <div
+                        className="max-w-[75%] sm:max-w-md lg:max-w-lg px-3 py-2 rounded-lg shadow-sm bg-blue-600 text-white" style={{
+                          borderRadius: '12px 12px 2px 12px'
+                        }}>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.text}</p>
+                        <div className="flex items-center justify-end gap-1 mt-1 text-xs text-white/60">
+                          <span>{formatMessageTime(message.createdAt)}</span>
+                          {message.readAt ? (
+                            <CheckCircle className="h-3 w-3" />
+                          ) : (
+                            <Circle className="h-3 w-3" />
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Business Avatar - Rightmost position */}
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200 bg-gray-700">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    // Customer message - left aligned
+                    <>
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                        background: `${getColorFromName(conversation.customerName)}`
+                      }}>
+                        <span className="text-white text-xs font-semibold">
+                          {getInitials(conversation.customerName)}
+                        </span>
+                      </div>
+                      
+                      <div
+                        className="max-w-[75%] sm:max-w-md lg:max-w-lg px-3 py-2 rounded-lg shadow-sm bg-white text-gray-900 border border-gray-200" style={{
+                          borderRadius: '12px 12px 12px 2px'
+                        }}>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.text}</p>
+                        <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500">
+                          <span>{formatMessageTime(message.createdAt)}</span>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
+              ))}
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
 
-      {/* Message Input */}
-      <div className="bg-white border-t border-gray-200 px-6 py-4">
-        <form onSubmit={handleSendMessage} className="flex gap-4">
-          <div className="flex-1">
-            <Textarea
-              value={newMessage}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewMessage(e.target.value)}
-              placeholder="Type your message..."
-              className="min-h-[60px] resize-none"
-              onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage(e);
-                }
-              }}
-            />
-          </div>
-          <Button 
-            type="submit" 
-            disabled={!newMessage.trim() || sending}
-            className="self-end"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
+      {/* Clean Message Input */}
+      <div className="bg-white border-t border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <div className="flex-1">
+              <Textarea
+                value={newMessage}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewMessage(e.target.value)}
+                placeholder="Type your message..."
+                className="min-h-[48px] resize-none bg-white border border-gray-200 focus:border-gray-900 focus:ring-1 focus:ring-gray-900 rounded-lg text-sm"
+                onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e);
+                  }
+                }}
+              />
+            </div>
+            <Button 
+              type="submit" 
+              disabled={!newMessage.trim() || sending}
+              className="self-end bg-gray-900 hover:bg-gray-800 text-white transition-all rounded-lg px-4 h-9"
+            >
+              {sending ? (
+                <div className="animate-spin rounded-full h-3.5 w-3.5 border-b border-white"></div>
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+            </Button>
+          </form>
+        </div>
       </div>
     </div>
   );

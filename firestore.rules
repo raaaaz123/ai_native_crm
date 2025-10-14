@@ -30,26 +30,16 @@ service cloud.firestore {
         request.resource.data.userId == request.auth.uid;
     }
     
-    // Companies collection - users can only access their own companies
-    match /companies/{companyId} {
-      allow read, write, delete: if request.auth != null && 
-        resource.data.userId == request.auth.uid;
-      allow create: if request.auth != null && 
-        request.resource.data.userId == request.auth.uid;
-    }
     
-    // Chat widgets - business owners can manage their widgets
+    // Chat widgets - allow authenticated users to access widgets
     match /chatWidgets/{widgetId} {
-      allow read, write, delete: if request.auth != null && 
-        resource.data.businessId == request.auth.uid;
-      allow create: if request.auth != null && 
-        request.resource.data.businessId == request.auth.uid;
+      allow read, write, delete: if request.auth != null;
+      allow create: if request.auth != null;
     }
     
-    // Chat conversations - business owners can access their conversations
+    // Chat conversations - allow authenticated users to access conversations
     match /chatConversations/{conversationId} {
-      allow read, write, delete: if request.auth != null && 
-        resource.data.businessId == request.auth.uid;
+      allow read, write, delete: if request.auth != null;
       allow create: if request.auth != null;
     }
     
@@ -59,16 +49,103 @@ service cloud.firestore {
       allow create: if request.auth != null;
     }
     
-    // Knowledge base - business owners can manage their knowledge base
+    // Knowledge base - allow authenticated users to access knowledge base
     match /knowledgeBase/{itemId} {
-      allow read, write, delete: if request.auth != null && 
-        resource.data.businessId == request.auth.uid;
-      allow create: if request.auth != null && 
-        request.resource.data.businessId == request.auth.uid;
+      allow read, write, delete: if request.auth != null;
+      allow create: if request.auth != null;
     }
     
     // Allow collection-level queries for knowledge base
     match /knowledgeBase/{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Scraped websites - allow authenticated users to access scraped data
+    match /scraped_websites/{itemId} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null;
+      allow create: if request.auth != null;
+    }
+    
+    // Allow collection-level queries for scraped websites
+    match /scraped_websites/{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Allow collection-level queries for review forms
+    match /reviewForms/{document=**} {
+      allow read: if true; // Allow public access for form submission
+    }
+    
+    // Allow collection-level queries for review submissions
+    match /reviewSubmissions/{document=**} {
+      allow read: if request.auth != null; // Only authenticated users can query submissions
+    }
+    
+    // Review forms - company members can manage their company's forms, public can read for submission
+    match /reviewForms/{formId} {
+      allow read: if true; // Allow public access to read forms for submission
+      allow write, delete: if request.auth != null && 
+        exists(/databases/$(database)/documents/companyMembers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/companyMembers/$(request.auth.uid)).data.companyId == resource.data.businessId;
+      allow create: if request.auth != null && 
+        exists(/databases/$(database)/documents/companyMembers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/companyMembers/$(request.auth.uid)).data.companyId == request.resource.data.businessId;
+    }
+    
+    // Review submissions - company members can access their company's form submissions
+    match /reviewSubmissions/{submissionId} {
+      allow read, write, delete: if request.auth != null && 
+        exists(/databases/$(database)/documents/companyMembers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/companyMembers/$(request.auth.uid)).data.companyId == resource.data.businessId;
+      allow create: if true; // Allow anyone to create submissions (for anonymous submissions)
+    }
+    
+    // Companies - company members can access their company
+    match /companies/{companyId} {
+      allow read: if request.auth != null;
+      allow write, delete: if request.auth != null && 
+        exists(/databases/$(database)/documents/companyMembers/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/companyMembers/$(request.auth.uid)).data.companyId == companyId;
+      allow create: if request.auth != null;
+    }
+    
+    // Company members - members can access their own membership, admins can manage all
+    match /companyMembers/{memberId} {
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         (exists(/databases/$(database)/documents/companyMembers/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/companyMembers/$(request.auth.uid)).data.role == 'admin'));
+      allow write, delete: if request.auth != null && 
+        (resource.data.userId == request.auth.uid ||
+         (exists(/databases/$(database)/documents/companyMembers/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/companyMembers/$(request.auth.uid)).data.role == 'admin'));
+      allow create: if request.auth != null;
+    }
+    
+    // Company invites - accessible by invited email and authenticated users
+    match /companyInvites/{inviteId} {
+      // Anyone with the email can read their own invitation
+      allow read: if request.auth != null && 
+        (resource.data.email == request.auth.token.email || request.auth != null);
+      
+      // Any authenticated user can update/delete (backend validation handles permissions)
+      // We rely on backend updateInvite() function to validate admin status
+      allow update: if request.auth != null && 
+        resource.data.status == 'pending'; // Can only update pending invitations
+      
+      allow delete: if request.auth != null;
+      
+      // Any authenticated user can create invitations (backend validates permissions)
+      allow create: if request.auth != null;
+    }
+    
+    // Allow collection-level queries for company-related collections
+    match /companyMembers/{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    match /companyInvites/{document=**} {
       allow read: if request.auth != null;
     }
     

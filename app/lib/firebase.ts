@@ -25,6 +25,10 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const googleProvider = new GoogleAuthProvider();
 
+// Configure Firestore for better connection handling
+// Note: db.settings() is deprecated in newer Firebase versions
+// Connection handling is now managed automatically by Firebase
+
 // Enterprise Firestore configuration
 // Note: Enterprise edition supports MongoDB compatibility and larger documents (up to 4 MiB)
 // The advanced query engine provides better performance for complex queries

@@ -22,7 +22,7 @@ import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 
 export default function ConversationsPage() {
-  const { user } = useAuth();
+  const { user, companyContext } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,16 +30,16 @@ export default function ConversationsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed'>('all');
 
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !companyContext?.company?.id) return;
 
-    // Subscribe to real-time conversations
-    const unsubscribe = subscribeToConversations(user.uid, (updatedConversations) => {
+    // Subscribe to real-time conversations using the company's businessId
+    const unsubscribe = subscribeToConversations(companyContext.company.id, (updatedConversations) => {
       setConversations(updatedConversations);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user?.uid]);
+  }, [user?.uid, companyContext?.company?.id]);
 
   useEffect(() => {
     // Filter conversations based on search and status

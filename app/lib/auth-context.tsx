@@ -11,6 +11,12 @@ import {
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
+import { UserCompanyContext } from './company-types';
+import { 
+  createCompany, 
+  getUserCompanyContext, 
+  acceptInvite 
+} from './company-firestore-utils';
 
 interface UserData {
   uid: string;
@@ -29,12 +35,16 @@ interface UserData {
 interface AuthContextType {
   user: User | null;
   userData: UserData | null;
+  companyContext: UserCompanyContext | null;
   loading: boolean;
   signInWithGoogle: () => Promise<{ user: User; isNewUser: boolean }>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
   signUpWithEmail: (email: string, password: string, additionalData?: Partial<UserData>) => Promise<User>;
   signOut: () => Promise<void>;
   updateUserData: (data: Partial<UserData>) => Promise<void>;
+  createCompany: (name: string, description?: string, domain?: string) => Promise<void>;
+  joinCompany: (inviteToken: string) => Promise<void>;
+  refreshCompanyContext: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -42,6 +52,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
+  const [companyContext, setCompanyContext] = useState<UserCompanyContext | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -97,12 +108,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('🔄 [Auth State] Setting user data state:', stateData);
             setUserData(stateData);
           }
+
+          // Load company context
+          console.log('🏢 [Auth State] Loading company context...');
+          const companyResult = await getUserCompanyContext(user.uid);
+          if (companyResult.success && companyResult.data) {
+            console.log('✅ [Auth State] Company context loaded:', companyResult.data);
+            setCompanyContext(companyResult.data);
+          } else {
+            console.log('ℹ️ [Auth State] No company context found:', companyResult.error);
+            setCompanyContext(null);
+          }
         } catch (error) {
           console.error('❌ [Auth State] Error fetching user data:', error);
         }
       } else {
         console.log('🔄 [Auth State] Clearing user data state');
         setUserData(null);
+        setCompanyContext(null);
       }
       
       console.log('🏁 [Auth State] Auth state processing completed');
@@ -326,15 +349,100 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const createCompanyHandler = async (name: string, description?: string, domain?: string) => {
+    if (!user) {
+      throw new Error('User must be logged in to create a company');
+    }
+
+    console.log('🏢 [Create Company] Creating company:', { name, description, domain });
+    
+    const result = await createCompany(name, user.uid, description, domain);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to create company');
+    }
+
+    // Reload company context
+    const companyResult = await getUserCompanyContext(user.uid);
+    if (companyResult.success && companyResult.data) {
+      setCompanyContext(companyResult.data);
+    }
+  };
+
+  const joinCompanyHandler = async (inviteToken: string) => {
+    if (!user || !user.email) {
+      throw new Error('User must be logged in to join a company');
+    }
+
+    console.log('🤝 [Join Company] Joining company with token:', inviteToken);
+    
+    // Find invite by token
+    const { getDocs, query, where, collection } = await import('firebase/firestore');
+    const inviteQuery = query(
+      collection(db, 'companyInvites'),
+      where('token', '==', inviteToken),
+      where('status', '==', 'pending')
+    );
+    
+    const inviteSnapshot = await getDocs(inviteQuery);
+    if (inviteSnapshot.empty) {
+      throw new Error('Invalid or expired invitation');
+    }
+
+    const inviteDoc = inviteSnapshot.docs[0];
+    const inviteData = inviteDoc.data();
+    
+    // Check if invite is still valid
+    if (inviteData.expiresAt < Date.now()) {
+      throw new Error('Invitation has expired');
+    }
+
+    if (inviteData.email !== user.email) {
+      throw new Error('Invitation email does not match your email');
+    }
+
+    const result = await acceptInvite(inviteDoc.id, user.uid, user.email);
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to accept invitation');
+    }
+
+    // Reload company context
+    const companyResult = await getUserCompanyContext(user.uid);
+    if (companyResult.success && companyResult.data) {
+      setCompanyContext(companyResult.data);
+    }
+  };
+
+  const refreshCompanyContext = async (): Promise<void> => {
+    if (!user) return;
+    
+    try {
+      console.log('🔄 [Refresh Company Context] Refreshing company context for user:', user.uid);
+      const companyResult = await getUserCompanyContext(user.uid);
+      if (companyResult.success && companyResult.data) {
+        console.log('✅ [Refresh Company Context] Company context refreshed:', companyResult.data);
+        setCompanyContext(companyResult.data);
+      } else {
+        console.log('ℹ️ [Refresh Company Context] No company context found:', companyResult.error);
+        setCompanyContext(null);
+      }
+    } catch (error) {
+      console.error('❌ [Refresh Company Context] Error refreshing company context:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     userData,
+    companyContext,
     loading,
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
     signOut,
-    updateUserData
+    updateUserData,
+    createCompany: createCompanyHandler,
+    joinCompany: joinCompanyHandler,
+    refreshCompanyContext
   };
 
   return (

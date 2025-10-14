@@ -25,10 +25,11 @@ export interface KnowledgeBaseItem {
   widgetId: string;
   title: string;
   content: string;
-  type: 'text' | 'pdf';
+  type: 'text' | 'pdf' | 'website';
   fileName?: string;
   fileUrl?: string;
   fileSize?: number;
+  websiteUrl?: string;
   createdAt: number;
   updatedAt: number;
 }
@@ -39,6 +40,48 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// Store knowledge base item in Pinecone for semantic search
+async function storeInPinecone(item: KnowledgeBaseItem): Promise<void> {
+  try {
+    const response = await fetch('http://localhost:8001/api/knowledge-base/store', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        id: item.id,
+        businessId: item.businessId,
+        widgetId: item.widgetId,
+        title: item.title,
+        content: item.content,
+        type: item.type,
+        fileName: item.fileName,
+        fileUrl: item.fileUrl,
+        fileSize: item.fileSize
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Pinecone API error: ${response.statusText}`);
+    }
+
+    const result = await response.json();
+    if (!result.success) {
+      throw new Error(`Pinecone storage failed: ${result.message}`);
+    }
+
+    console.log('Successfully stored in Pinecone:', result);
+    
+    // Show helpful message if using mock embeddings
+    if (result.note && result.note.includes('mock embeddings')) {
+      console.warn('⚠️ Using mock embeddings - Configure OpenAI API key for semantic search functionality');
+    }
+  } catch (error) {
+    console.error('Error storing in Pinecone:', error);
+    throw error;
+  }
+}
+
 // Create a new knowledge base item
 export async function createKnowledgeBaseItem(
   businessId: string,
@@ -46,8 +89,9 @@ export async function createKnowledgeBaseItem(
   itemData: {
     title: string;
     content: string;
-    type: 'text' | 'pdf';
+    type: 'text' | 'pdf' | 'website';
     file?: File;
+    websiteUrl?: string;
   }
 ): Promise<ApiResponse<KnowledgeBaseItem>> {
   try {
@@ -65,18 +109,27 @@ export async function createKnowledgeBaseItem(
     }
 
     // Create knowledge base item in Firestore
-    const docRef = await addDoc(collection(db, 'knowledgeBase'), {
+    const docData: any = {
       businessId,
       widgetId,
       title: itemData.title,
       content: itemData.content,
       type: itemData.type,
-      fileName,
-      fileUrl,
-      fileSize,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+
+    // Only add file-related fields if they exist
+    if (fileName) docData.fileName = fileName;
+    if (fileUrl) docData.fileUrl = fileUrl;
+    if (fileSize) docData.fileSize = fileSize;
+    
+    // Add website URL if it's a website type
+    if (itemData.type === 'website' && itemData.websiteUrl) {
+      docData.websiteUrl = itemData.websiteUrl;
+    }
+
+    const docRef = await addDoc(collection(db, 'knowledgeBase'), docData);
 
     const newItem: KnowledgeBaseItem = {
       id: docRef.id,
@@ -88,9 +141,18 @@ export async function createKnowledgeBaseItem(
       fileName,
       fileUrl,
       fileSize,
+      websiteUrl: itemData.websiteUrl,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
+
+    // Also store in Pinecone for semantic search
+    try {
+      await storeInPinecone(newItem);
+    } catch (pineconeError) {
+      console.warn('Failed to store in Pinecone:', pineconeError);
+      // Don't fail the whole operation if Pinecone fails
+    }
 
     return {
       success: true,
@@ -108,6 +170,7 @@ export async function createKnowledgeBaseItem(
 // Get knowledge base items for a specific widget
 export async function getKnowledgeBaseItems(widgetId: string): Promise<ApiResponse<KnowledgeBaseItem[]>> {
   try {
+    // Fetch traditional knowledge base items
     const q = query(
       collection(db, 'knowledgeBase'),
       where('widgetId', '==', widgetId),
@@ -125,9 +188,35 @@ export async function getKnowledgeBaseItems(widgetId: string): Promise<ApiRespon
       } as KnowledgeBaseItem;
     });
 
+    // Fetch scraped website data
+    const scrapedQuery = query(
+      collection(db, 'scraped_websites'),
+      where('widget_id', '==', widgetId),
+      orderBy('scraped_at', 'desc')
+    );
+    
+    const scrapedSnapshot = await getDocs(scrapedQuery);
+    const scrapedItems = scrapedSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        businessId: data.metadata?.business_id || '',
+        widgetId: data.widget_id,
+        title: data.title,
+        content: data.content || '',
+        type: 'website' as const,
+        websiteUrl: data.url,
+        createdAt: data.scraped_at?.toMillis() || Date.now(),
+        updatedAt: data.scraped_at?.toMillis() || Date.now()
+      } as KnowledgeBaseItem;
+    });
+
+    // Combine both types of items and sort by creation date
+    const allItems = [...items, ...scrapedItems].sort((a, b) => b.createdAt - a.createdAt);
+
     return {
       success: true,
-      data: items
+      data: allItems
     };
   } catch (error) {
     return {
@@ -245,6 +334,59 @@ export async function deleteKnowledgeBaseItem(itemId: string): Promise<ApiRespon
     return {
       success: false,
       data: undefined as any,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+// Create a website knowledge base item from backend scraping
+export async function createWebsiteKnowledgeBaseItem(
+  businessId: string,
+  widgetId: string,
+  itemData: {
+    title: string;
+    websiteUrl: string;
+    totalPages: number;
+    successfulPages: number;
+    totalWordCount: number;
+    chunksCreated: number;
+  }
+): Promise<ApiResponse<KnowledgeBaseItem>> {
+  try {
+    // Create knowledge base item in Firestore
+    const docData = {
+      businessId,
+      widgetId,
+      title: itemData.title,
+      content: `Website scraped from ${itemData.websiteUrl}. Total pages: ${itemData.totalPages}, Successful pages: ${itemData.successfulPages}, Word count: ${itemData.totalWordCount}, Chunks created: ${itemData.chunksCreated}`,
+      type: 'website' as const,
+      websiteUrl: itemData.websiteUrl,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'knowledgeBase'), docData);
+
+    const newItem: KnowledgeBaseItem = {
+      id: docRef.id,
+      businessId,
+      widgetId,
+      title: itemData.title,
+      content: docData.content,
+      type: 'website',
+      websiteUrl: itemData.websiteUrl,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    return {
+      success: true,
+      data: newItem
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: {} as KnowledgeBaseItem,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }

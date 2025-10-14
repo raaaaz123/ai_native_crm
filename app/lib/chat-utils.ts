@@ -3,6 +3,7 @@ import {
   doc, 
   addDoc, 
   updateDoc, 
+  deleteDoc,
   getDoc, 
   getDocs, 
   query, 
@@ -25,6 +26,7 @@ export interface ChatMessage {
   senderName: string;
   createdAt: number;
   readAt?: number;
+  metadata?: Record<string, any>;
 }
 
 export interface ChatConversation {
@@ -40,6 +42,12 @@ export interface ChatConversation {
   unreadCount: number;
   createdAt: number;
   updatedAt: number;
+  // Handover fields
+  handoverRequested?: boolean;
+  handoverRequestedAt?: number;
+  handoverMethod?: 'button' | 'keyword' | 'quick_reply' | 'manual';
+  handoverMode?: 'ai' | 'human';
+  handoverTakenAt?: number;
 }
 
 export interface ChatWidget {
@@ -48,13 +56,57 @@ export interface ChatWidget {
   name: string;
   welcomeMessage: string;
   primaryColor: string;
-  position: 'bottom-right' | 'bottom-left';
+  secondaryColor?: string;
+  position: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   buttonText: string;
   placeholderText: string;
   offlineMessage: string;
   collectEmail: boolean;
   collectPhone: boolean;
+  collectName?: boolean;
   autoReply: string;
+  // Widget branding
+  widgetIcon?: string; // AI icon name or custom
+  logoUrl?: string; // Uploaded logo URL
+  headerSubtitle?: string;
+  iconType?: string;
+  customIcon?: string;
+  showBranding?: boolean;
+  borderRadius?: string;
+  requireContactForm?: boolean;
+  // Sound settings
+  soundEnabled?: boolean;
+  messageSound?: string;
+  // Greeting settings
+  greetingDelay?: number;
+  quickReplies?: string[];
+  // Data collection settings
+  enableDataCollection?: boolean;
+  dataCollectionFields?: {
+    name: { enabled: boolean; required: boolean; label: string };
+    email: { enabled: boolean; required: boolean; label: string };
+    phone: { enabled: boolean; required: boolean; label: string };
+  };
+  // Widget size options
+  widgetSize?: 'compact' | 'standard' | 'large';
+  // Chat button customization
+  buttonStyle?: 'circular' | 'rounded' | 'square' | 'pill' | 'modern' | 'gradient';
+  buttonIcon?: string; // Icon name from lucide-react
+  buttonSize?: 'small' | 'medium' | 'large' | 'xl';
+  buttonAnimation?: 'bounce' | 'pulse' | 'shake' | 'glow' | 'none';
+  showButtonText?: boolean;
+  // Advanced styling
+  fontFamily?: string;
+  fontSize?: string;
+  buttonShadow?: string;
+  widgetShadow?: string;
+  messageSpacing?: string;
+  avatarStyle?: string;
+  inputStyle?: string;
+  headerStyle?: string;
+  footerStyle?: string;
+  scrollbarStyle?: string;
+  onlineDotColor?: string;
   businessHours: {
     enabled: boolean;
     timezone: string;
@@ -65,6 +117,17 @@ export interface ChatWidget {
     friday: { start: string; end: string; enabled: boolean };
     saturday: { start: string; end: string; enabled: boolean };
     sunday: { start: string; end: string; enabled: boolean };
+  };
+  aiConfig?: {
+    enabled: boolean;
+    provider?: string;
+    model?: string;
+    temperature?: number;
+    maxTokens?: number;
+    confidenceThreshold?: number;
+    maxRetrievalDocs?: number;
+    ragEnabled?: boolean;
+    fallbackToHuman?: boolean;
   };
   isActive: boolean;
   createdAt: number;
@@ -100,8 +163,12 @@ export async function createChatWidget(
       data: {
         id: doc.id,
         ...data,
-        createdAt: data?.createdAt?.toMillis() || Date.now(),
-        updatedAt: data?.updatedAt?.toMillis() || Date.now()
+        createdAt: data?.createdAt && typeof data.createdAt.toMillis === 'function' 
+          ? data.createdAt.toMillis() 
+          : (typeof data?.createdAt === 'number' ? data.createdAt : Date.now()),
+        updatedAt: data?.updatedAt && typeof data.updatedAt.toMillis === 'function' 
+          ? data.updatedAt.toMillis() 
+          : (typeof data?.updatedAt === 'number' ? data.updatedAt : Date.now())
       } as ChatWidget
     };
   } catch (error) {
@@ -132,8 +199,12 @@ export async function getChatWidget(widgetId: string): Promise<ApiResponse<ChatW
       data: {
         id: docSnap.id,
         ...data,
-        createdAt: data.createdAt?.toMillis() || Date.now(),
-        updatedAt: data.updatedAt?.toMillis() || Date.now()
+        createdAt: data.createdAt && typeof data.createdAt.toMillis === 'function' 
+          ? data.createdAt.toMillis() 
+          : (typeof data.createdAt === 'number' ? data.createdAt : Date.now()),
+        updatedAt: data.updatedAt && typeof data.updatedAt.toMillis === 'function' 
+          ? data.updatedAt.toMillis() 
+          : (typeof data.updatedAt === 'number' ? data.updatedAt : Date.now())
       } as ChatWidget
     };
   } catch (error) {
@@ -145,8 +216,70 @@ export async function getChatWidget(widgetId: string): Promise<ApiResponse<ChatW
   }
 }
 
+export async function updateChatWidget(
+  widgetId: string,
+  widgetData: Partial<ChatWidget>
+): Promise<ApiResponse<ChatWidget>> {
+  console.log('updateChatWidget: Starting update process');
+  console.log('updateChatWidget: Widget ID:', widgetId);
+  console.log('updateChatWidget: Widget data to update:', widgetData);
+  
+  try {
+    const docRef = doc(db, 'chatWidgets', widgetId);
+    console.log('updateChatWidget: Document reference created for collection chatWidgets');
+    
+    const updateData = {
+      ...widgetData,
+      updatedAt: serverTimestamp()
+    };
+    console.log('updateChatWidget: Prepared update data with serverTimestamp:', updateData);
+    
+    await updateDoc(docRef, updateData);
+    console.log('updateChatWidget: Document updated successfully in Firestore');
+
+    const docSnap = await getDoc(docRef);
+    console.log('updateChatWidget: Retrieved updated document');
+    console.log('updateChatWidget: Document exists:', docSnap.exists());
+    
+    const data = docSnap.data();
+    console.log('updateChatWidget: Document data:', data);
+    
+    const result = {
+      success: true,
+      data: {
+        id: docSnap.id,
+        ...data,
+        createdAt: data?.createdAt && typeof data.createdAt.toMillis === 'function' 
+          ? data.createdAt.toMillis() 
+          : (typeof data?.createdAt === 'number' ? data.createdAt : Date.now()),
+        updatedAt: data?.updatedAt && typeof data.updatedAt.toMillis === 'function' 
+          ? data.updatedAt.toMillis() 
+          : (typeof data?.updatedAt === 'number' ? data.updatedAt : Date.now())
+      } as ChatWidget
+    };
+    
+    console.log('updateChatWidget: Success - Returning result:', result);
+    return result;
+  } catch (error) {
+    console.error('updateChatWidget: Error occurred:', error);
+    console.error('updateChatWidget: Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      widgetId: widgetId,
+      widgetData: widgetData
+    });
+    
+    return {
+      success: false,
+      data: {} as ChatWidget,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
 export async function getBusinessWidgets(businessId: string): Promise<ApiResponse<ChatWidget[]>> {
   try {
+    console.log('getBusinessWidgets: Searching for businessId:', businessId);
     const q = query(
       collection(db, 'chatWidgets'),
       where('businessId', '==', businessId),
@@ -154,24 +287,71 @@ export async function getBusinessWidgets(businessId: string): Promise<ApiRespons
     );
     
     const querySnapshot = await getDocs(q);
+    console.log('getBusinessWidgets: Found', querySnapshot.docs.length, 'widgets');
+    
     const widgets = querySnapshot.docs.map(doc => {
       const data = doc.data();
+      console.log('getBusinessWidgets: Processing widget:', doc.id, data);
       return {
         id: doc.id,
         ...data,
-        createdAt: data.createdAt?.toMillis() || Date.now(),
-        updatedAt: data.updatedAt?.toMillis() || Date.now()
+        createdAt: data.createdAt && typeof data.createdAt.toMillis === 'function' 
+          ? data.createdAt.toMillis() 
+          : (typeof data.createdAt === 'number' ? data.createdAt : Date.now()),
+        updatedAt: data.updatedAt && typeof data.updatedAt.toMillis === 'function' 
+          ? data.updatedAt.toMillis() 
+          : (typeof data.updatedAt === 'number' ? data.updatedAt : Date.now())
       } as ChatWidget;
     });
 
+    console.log('getBusinessWidgets: Returning widgets:', widgets);
     return {
       success: true,
       data: widgets
     };
   } catch (error) {
+    console.error('Error fetching business widgets:', error);
+    
+    // Handle specific Firestore errors
+    if (error instanceof Error) {
+      if (error.message.includes('unavailable') || error.message.includes('connection')) {
+        return {
+          success: false,
+          data: [],
+          error: 'Connection failed. Please check your internet connection and try again.'
+        };
+      }
+      
+      if (error.message.includes('permission')) {
+        return {
+          success: false,
+          data: [],
+          error: 'Permission denied. Please check your account permissions.'
+        };
+      }
+    }
+    
     return {
       success: false,
       data: [],
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+export async function deleteChatWidget(widgetId: string): Promise<ApiResponse<boolean>> {
+  try {
+    const docRef = doc(db, 'chatWidgets', widgetId);
+    await deleteDoc(docRef);
+
+    return {
+      success: true,
+      data: true
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: false,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
@@ -184,6 +364,12 @@ export async function createChatConversation(
   customerData: { customerName: string; customerEmail: string }
 ): Promise<ApiResponse<ChatConversation>> {
   try {
+    console.log('💬 Creating new conversation...');
+    console.log('  Business ID:', businessId);
+    console.log('  Widget ID:', widgetId);
+    console.log('  Customer Name:', customerData.customerName);
+    console.log('  Customer Email:', customerData.customerEmail);
+    
     const docRef = await addDoc(collection(db, 'chatConversations'), {
       businessId,
       widgetId,
@@ -193,6 +379,8 @@ export async function createChatConversation(
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
+
+    console.log('  ✅ Conversation created with ID:', docRef.id);
 
     const docSnap = await getDoc(docRef);
     const data = docSnap.data();
@@ -207,6 +395,7 @@ export async function createChatConversation(
       } as ChatConversation
     };
   } catch (error) {
+    console.error('❌ Error creating conversation:', error);
     return {
       success: false,
       data: {} as ChatConversation,
@@ -284,7 +473,12 @@ export async function getConversation(conversationId: string): Promise<ApiRespon
 // Message functions
 export async function sendMessage(
   conversationId: string,
-  messageData: { text: string; sender: 'customer' | 'business'; senderName: string }
+  messageData: { 
+    text: string; 
+    sender: 'customer' | 'business'; 
+    senderName: string;
+    metadata?: Record<string, any>;
+  }
 ): Promise<ApiResponse<ChatMessage>> {
   try {
     // Add message
@@ -308,6 +502,14 @@ export async function sendMessage(
     }
 
     await updateDoc(conversationRef, updateData);
+
+    // Send email notification
+    try {
+      await sendEmailNotification(conversationId, messageData);
+    } catch (emailError) {
+      console.error('Failed to send email notification:', emailError);
+      // Don't fail the message send if email fails
+    }
 
     const messageDoc = await getDoc(messageRef);
     const data = messageDoc.data();
@@ -369,21 +571,53 @@ export function subscribeToConversations(
   const q = query(
     collection(db, 'chatConversations'),
     where('businessId', '==', businessId),
-    orderBy('updatedAt', 'desc')
+    orderBy('createdAt', 'desc')
   );
 
   return onSnapshot(q, (snapshot) => {
+    console.log(`📥 Loaded ${snapshot.docs.length} conversations for businessId: ${businessId}`);
+    
     const conversations = snapshot.docs.map(doc => {
       const data = doc.data();
-      return {
+      const conv = {
         id: doc.id,
         ...data,
         createdAt: data.createdAt?.toMillis() || Date.now(),
         updatedAt: data.updatedAt?.toMillis() || Date.now(),
         lastMessageAt: data.lastMessageAt?.toMillis()
       } as ChatConversation;
+      
+      console.log(`  - Conversation: ${conv.customerName} (${conv.id}), created: ${new Date(conv.createdAt).toLocaleString()}`);
+      return conv;
     });
+    
+    // Sort by lastMessageAt (most recent first), fallback to createdAt
+    conversations.sort((a, b) => {
+      const aTime = a.lastMessageAt || a.createdAt;
+      const bTime = b.lastMessageAt || b.createdAt;
+      return bTime - aTime;
+    });
+    
     callback(conversations);
+  }, (error: any) => {
+    if (error.code === 'failed-precondition' || error.message?.includes('index')) {
+      console.warn('⏳ Firestore index is building. This usually takes 2-5 minutes.');
+      console.warn('   Conversations will load automatically once the index is ready.');
+      console.warn('   You can check the status here: https://console.firebase.google.com/project/rexa-engage/firestore/indexes');
+      
+      // Retry after 10 seconds
+      setTimeout(() => {
+        console.log('🔄 Retrying conversation subscription...');
+        subscribeToConversations(businessId, callback);
+      }, 10000);
+    } else {
+      console.error('❌ Error subscribing to conversations:', error);
+      console.error('  Error code:', error.code);
+      console.error('  Error message:', error.message);
+    }
+    
+    // Return empty array on error
+    callback([]);
   });
 }
 
@@ -446,5 +680,107 @@ export async function updateConversationStatus(
     await updateDoc(conversationRef, updateData);
   } catch (error) {
     console.error('Error updating conversation status:', error);
+  }
+}
+
+// Request handover to human agent
+export async function requestHandover(
+  conversationId: string,
+  method: 'button' | 'keyword' | 'quick_reply' | 'manual'
+): Promise<void> {
+  try {
+    const conversationRef = doc(db, 'chatConversations', conversationId);
+    await updateDoc(conversationRef, {
+      handoverRequested: true,
+      handoverRequestedAt: serverTimestamp(),
+      handoverMethod: method,
+      handoverMode: 'human',
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`Handover requested for conversation ${conversationId} via ${method}`);
+  } catch (error) {
+    console.error('Error requesting handover:', error);
+    throw error;
+  }
+}
+
+// Clear handover request (when switching back to AI or when agent takes over)
+export async function clearHandover(conversationId: string): Promise<void> {
+  try {
+    const conversationRef = doc(db, 'chatConversations', conversationId);
+    await updateDoc(conversationRef, {
+      handoverRequested: false,
+      handoverMode: 'ai',
+      handoverTakenAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`Handover cleared for conversation ${conversationId}`);
+  } catch (error) {
+    console.error('Error clearing handover:', error);
+    throw error;
+  }
+}
+
+// Email notification function
+async function sendEmailNotification(
+  conversationId: string,
+  messageData: { text: string; sender: 'customer' | 'business'; senderName: string; metadata?: Record<string, any> }
+): Promise<void> {
+  try {
+    // Get conversation details
+    const conversationDoc = await getDoc(doc(db, 'chatConversations', conversationId));
+    if (!conversationDoc.exists()) {
+      console.error('Conversation not found for email notification');
+      return;
+    }
+
+    const conversation = conversationDoc.data();
+    const { customerName, customerEmail, businessId } = conversation;
+
+    // Get business details (you might need to fetch from users collection)
+    // For now, we'll use a placeholder - you should fetch actual business email
+    const businessEmail = 'support@rexahire.com'; // This should be fetched from business profile
+    const businessName = 'Business'; // This should be fetched from business profile
+
+    // Determine sender type for email template
+    let senderType: 'customer' | 'business' | 'ai' = messageData.sender;
+    if (messageData.metadata?.ai_generated) {
+      senderType = 'ai';
+    }
+
+    // Send email notification to backend
+    const emailPayload = {
+      conversationId,
+      message: messageData.text,
+      senderType,
+      senderName: messageData.senderName,
+      customerName,
+      customerEmail,
+      businessName,
+      businessEmail,
+      metadata: messageData.metadata
+    };
+
+    // Try to call backend email service, but don't fail if it's not available
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/email/send-notification`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailPayload)
+      });
+
+      if (!response.ok) {
+        console.error('Failed to send email notification:', await response.text());
+      }
+    } catch (fetchError) {
+      console.log('Email service not available, skipping email notification:', fetchError);
+      // Don't throw error - email is optional
+    }
+  } catch (error) {
+    console.error('Error sending email notification:', error);
   }
 }
