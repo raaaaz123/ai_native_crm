@@ -552,7 +552,10 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
             confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
             maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
             ragEnabled: aiConfig.ragEnabled || false,
-            fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true
+            fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
+            embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+            systemPrompt: aiConfig.systemPrompt || 'support',
+            customSystemPrompt: aiConfig.customSystemPrompt || ''
           },
           businessId: widget.businessId || '',
           customerName: formData.name || 'Preview User',
@@ -581,32 +584,18 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
           console.log('Backend decided to fallback?', responseData.shouldFallbackToHuman);
           console.log('=======================');
           
-          // Use the backend's decision on whether to fallback
-          if (!responseData.shouldFallbackToHuman) {
-            // Backend says confidence is high enough, save AI response to Firestore
-            await sendMessage(conversation.id, {
-                text: responseData.response, 
-              sender: 'business',
-              senderName: 'AI Assistant',
-                metadata: {
-                  ai_generated: true,
-                  confidence: responseData.confidence,
-                  sources: responseData.sources
-                }
-            });
-          } else {
-            // Confidence is too low, save fallback message to Firestore
-            await sendMessage(conversation.id, {
-                text: "I'm not confident enough to answer that question accurately. Let me connect you with a human agent who can provide you with the right information.", 
-              sender: 'business',
-              senderName: 'AI Assistant',
-                metadata: {
-                  ai_generated: true,
-                  fallback_message: true,
-                  confidence: responseData.confidence
-                }
-            });
-          }
+          // Always show the actual AI response (backend decides fallback logic)
+          await sendMessage(conversation.id, {
+              text: responseData.response, 
+            sender: 'business',
+            senderName: 'AI Assistant',
+              metadata: {
+                ai_generated: true,
+                confidence: responseData.confidence,
+                sources: responseData.sources,
+                shouldFallbackToHuman: responseData.shouldFallbackToHuman
+              }
+          });
         } else {
           // AI failed, save fallback message to Firestore
           await sendMessage(conversation.id, {
@@ -1329,7 +1318,10 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                                   confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
                                   maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
                                   ragEnabled: aiConfig.ragEnabled || false,
-                                  fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true
+                                  fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
+                                  embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+                                  systemPrompt: aiConfig.systemPrompt || 'support',
+                                  customSystemPrompt: aiConfig.customSystemPrompt || ''
                                 },
                                 businessId: widget.businessId || '',
                                 customerName: formData.name || 'Preview User',
@@ -1341,30 +1333,18 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                               if (aiResponse.success && aiResponse.data) {
                                 const responseData = aiResponse.data;
                                 
-                                // Use backend's decision on whether to fallback
-                                if (!responseData.shouldFallbackToHuman) {
-                                  await sendMessage(conversation.id, {
-                                      text: responseData.response, 
-                                    sender: 'business',
-                                    senderName: 'AI Assistant',
-                                      metadata: {
-                                        ai_generated: true,
-                                        confidence: responseData.confidence,
-                                        sources: responseData.sources
-                                      }
-                                  });
-                                } else {
-                                  await sendMessage(conversation.id, {
-                                      text: "I'm not confident enough to answer that question accurately. Let me connect you with a human agent.", 
-                                    sender: 'business',
-                                    senderName: 'AI Assistant',
-                                      metadata: {
-                                        ai_generated: true,
-                                        fallback_message: true,
-                                        confidence: responseData.confidence
-                                      }
-                                  });
-                                }
+                                // Always show the actual AI response
+                                await sendMessage(conversation.id, {
+                                    text: responseData.response, 
+                                  sender: 'business',
+                                  senderName: 'AI Assistant',
+                                    metadata: {
+                                      ai_generated: true,
+                                      confidence: responseData.confidence,
+                                      sources: responseData.sources,
+                                      shouldFallbackToHuman: responseData.shouldFallbackToHuman
+                                    }
+                                });
                               } else {
                                 await sendMessage(conversation.id, {
                                     text: widget.autoReply || 'Thanks for your message!', 

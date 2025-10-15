@@ -3,7 +3,7 @@ Health check and testing router
 """
 from fastapi import APIRouter, HTTPException
 
-from app.services.pinecone_service import pinecone_service
+from app.services.qdrant_service import qdrant_service
 from app.services.openrouter_service import openrouter_service
 
 router = APIRouter(tags=["health"])
@@ -13,8 +13,8 @@ router = APIRouter(tags=["health"])
 async def root():
     """Health check endpoint"""
     return {
-        "message": "Pinecone Knowledge Base API",
-        "version": "1.0.0",
+        "message": "Qdrant Knowledge Base API",
+        "version": "2.0.0",
         "status": "healthy"
     }
 
@@ -25,18 +25,18 @@ async def health_check():
     return {
         "status": "healthy",
         "services": {
-            "pinecone": "connected" if pinecone_service.pinecone_client else "disconnected",
-            "embeddings": "available" if pinecone_service.embeddings else "unavailable",
+            "qdrant": "connected" if qdrant_service.qdrant_client else "disconnected",
+            "embeddings": "available" if qdrant_service.embeddings else "unavailable",
             "openrouter": "available"
         }
     }
 
 
-@router.post("/api/test-pinecone")
-async def test_pinecone_connection():
-    """Test Pinecone connection by checking index stats"""
+@router.post("/api/test-qdrant")
+async def test_qdrant_connection():
+    """Test Qdrant connection by checking collection stats"""
     try:
-        result = pinecone_service.get_index_stats()
+        result = qdrant_service.get_collection_stats()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -44,9 +44,9 @@ async def test_pinecone_connection():
 
 @router.post("/api/test-store-dummy")
 async def test_store_dummy_data():
-    """Test storing dummy data in Pinecone with mock embeddings"""
+    """Test storing dummy data in Qdrant"""
     try:
-        result = pinecone_service.store_dummy_data()
+        result = qdrant_service.store_dummy_data()
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

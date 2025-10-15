@@ -8,7 +8,7 @@ import logging
 import time
 
 from app.services.scraping_service import scraper
-from app.services.pinecone_service import pinecone_service
+from app.services.qdrant_service import qdrant_service
 from app.services.firestore_service import firestore_service
 
 logger = logging.getLogger(__name__)
@@ -21,6 +21,7 @@ class WebsiteScrapingRequest(BaseModel):
     title: str
     max_pages: Optional[int] = 50
     metadata: Optional[Dict[str, Any]] = {}
+    embedding_model: str = "text-embedding-3-large"
 
     class Config:
         extra = "allow"
@@ -76,8 +77,11 @@ async def scrape_website(request: WebsiteScrapingRequest):
                     **request.metadata
                 }
                 
-                # Store in Pinecone
-                result = pinecone_service.store_knowledge_item({
+                # Set embedding model
+                qdrant_service.set_embedding_model(request.embedding_model)
+                
+                # Store in Qdrant
+                result = qdrant_service.store_knowledge_item({
                     'id': f"{request.widget_id}_{i}",
                     'businessId': request.metadata.get('business_id', ''),
                     'widgetId': request.widget_id,
@@ -193,7 +197,7 @@ async def get_scraping_status(widget_id: str):
     """Get scraping status for a widget"""
     try:
         # Query Pinecone for website content
-        results = pinecone_service.query_items(
+        results = qdrant_service.search_knowledge_base(
             query="",
             widget_id=widget_id,
             filter={"source_type": "website"},

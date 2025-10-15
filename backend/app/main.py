@@ -6,13 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import ALLOWED_ORIGINS, API_HOST, API_PORT
 from app.routers import health_router, knowledge_router, ai_router, review_router, email_router, scraping_router, firestore_router, crawler_router, faq_router
-from app.services.pinecone_service import pinecone_service
+from app.services.qdrant_service import qdrant_service
 
 # Create FastAPI app
 app = FastAPI(
-    title="Pinecone Knowledge Base API",
-    description="Modular API for storing knowledge base items in Pinecone",
-    version="1.0.0"
+    title="Qdrant Knowledge Base API",
+    description="Modular API for storing knowledge base items in Qdrant",
+    version="2.0.0"
 )
 
 # Add CORS middleware
@@ -40,8 +40,8 @@ app.include_router(faq_router.router, prefix="/api/knowledge-base", tags=["faq"]
 async def startup_event():
     """Initialize services on startup"""
     try:
-        # Pinecone service is already initialized when imported
-        print("🚀 Modular Pinecone Knowledge Base API started successfully")
+        # Qdrant service is already initialized when imported
+        print("🚀 Modular Qdrant Knowledge Base API started successfully")
     except Exception as e:
         print(f"❌ Startup error: {e}")
         raise

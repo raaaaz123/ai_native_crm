@@ -9,7 +9,7 @@ import logging
 import time
 
 from app.services.web_crawler import crawler
-from app.services.pinecone_service import pinecone_service
+from app.services.qdrant_service import qdrant_service
 from app.services.firestore_service import firestore_service
 
 logger = logging.getLogger(__name__)
@@ -25,6 +25,7 @@ class CrawlRequest(BaseModel):
     max_depth: Optional[int] = 3
     is_sitemap: Optional[bool] = False
     metadata: Optional[Dict[str, Any]] = {}
+    embedding_model: str = "text-embedding-3-large"
 
     class Config:
         extra = "allow"
@@ -176,8 +177,11 @@ async def save_chunks(request: SaveChunksRequest):
                 # Generate unique ID
                 vector_id = f"{request.widget_id}_{chunk.get('id', i)}_{int(time.time())}_{i}"
                 
-                # Store in Pinecone
-                result = pinecone_service.store_knowledge_item({
+                # Set embedding model
+                qdrant_service.set_embedding_model(request.embedding_model)
+                
+                # Store in Qdrant
+                result = qdrant_service.store_knowledge_item({
                     'id': vector_id,
                     'businessId': business_id,
                     'widgetId': request.widget_id,

@@ -3,7 +3,7 @@ AI and chat service for RAG pipeline using OpenRouter
 """
 import os
 from typing import List, Dict, Any
-from app.services.pinecone_service import pinecone_service
+from app.services.qdrant_service import qdrant_service
 from app.services.openrouter_service import openrouter_service
 from app.models import AIConfig, AIResponse
 
@@ -12,50 +12,62 @@ class AIService:
     def __init__(self):
         self.openrouter_service = openrouter_service
 
-    def get_rag_context(self, widget_id: str, business_id: str, query: str, max_docs: int = 5) -> List[Dict[str, Any]]:
-        """Get relevant context from Pinecone for RAG"""
+    def get_rag_context(self, widget_id: str, business_id: str, query: str, max_docs: int = 5, embedding_model: str = "text-embedding-3-large") -> List[Dict[str, Any]]:
+        """Get relevant context from Qdrant for RAG"""
         try:
-            if not pinecone_service.vectorstore:
-                print("⚠️ Vector store not initialized - cannot retrieve RAG context")
+            if not qdrant_service.qdrant_client:
+                print("⚠️ Qdrant client not initialized - cannot retrieve RAG context")
                 return []
             
-            # Use businessId if provided, otherwise try widgetId
-            search_filter = {"businessId": business_id} if business_id else {"widgetId": widget_id}
+            # Set the embedding model dynamically based on widget config
+            if embedding_model and embedding_model != qdrant_service.embedding_model:
+                print(f"🔄 Switching embedding model to: {embedding_model}")
+                qdrant_service.set_embedding_model(embedding_model)
+            
+            if not qdrant_service.embeddings:
+                print("⚠️ Embeddings not initialized - cannot retrieve RAG context")
+                return []
             
             print(f"\n🔍 RAG RETRIEVAL DEBUG:")
             print(f"   Widget ID: {widget_id}")
             print(f"   Business ID: {business_id}")
-            print(f"   Search Filter: {search_filter}")
             print(f"   Query: '{query}'")
             print(f"   Max Docs: {max_docs}")
+            print(f"   Embedding Model: {embedding_model}")
             
-            # Perform similarity search
-            results = pinecone_service.vectorstore.similarity_search_with_score(
-                query,
-                k=max_docs,
-                filter=search_filter
+            # Use Qdrant service search method
+            search_result = qdrant_service.search_knowledge_base(
+                query=query,
+                widget_id=widget_id,
+                limit=max_docs
             )
+            
+            if not search_result.get("success"):
+                print(f"❌ Search failed: {search_result.get('error')}")
+                return []
+            
+            results = search_result.get("results", [])
             
             print(f"\n📊 RAG RETRIEVAL RESULTS:")
             print(f"   Documents Found: {len(results)}")
             
             # Format results
             context_docs = []
-            for idx, (doc, score) in enumerate(results):
+            for idx, result in enumerate(results):
                 print(f"\n   Document {idx + 1}:")
-                print(f"      Score: {float(score):.4f}")
-                print(f"      Metadata: {doc.metadata}")
-                print(f"      Content Preview: {doc.page_content[:200]}...")
+                print(f"      Score: {result.get('score', 0):.4f}")
+                print(f"      Metadata: {result.get('metadata', {})}")
+                print(f"      Content Preview: {result.get('content', '')[:200]}...")
                 
                 context_docs.append({
-                    "content": doc.page_content,
-                    "metadata": doc.metadata,
-                    "score": float(score)
+                    "content": result.get("content", ""),
+                    "metadata": result.get("metadata", {}),
+                    "score": result.get("score", 0.0)
                 })
             
             if len(context_docs) == 0:
                 print("\n⚠️ WARNING: No documents found in knowledge base!")
-                print(f"   Make sure you have added knowledge base items for businessId: {business_id}")
+                print(f"   Make sure you have added knowledge base items for widgetId: {widget_id}")
             
             return context_docs
             
@@ -188,8 +200,9 @@ class AIService:
             print(f"   User Question: {message}")
             print(f"   RAG Config: maxDocs={ai_config.maxRetrievalDocs}, threshold={ai_config.confidenceThreshold}")
             
-            # Get relevant context from Pinecone
-            context_docs = self.get_rag_context(widget_id, business_id, message, ai_config.maxRetrievalDocs)
+            # Get relevant context from Qdrant (with dynamic embedding model)
+            embedding_model = getattr(ai_config, 'embeddingModel', 'text-embedding-3-large')
+            context_docs = self.get_rag_context(widget_id, business_id, message, ai_config.maxRetrievalDocs, embedding_model)
             
             # CRITICAL: Check if we got any context
             if len(context_docs) == 0:
@@ -197,14 +210,14 @@ class AIService:
 ❌ CRITICAL ERROR: NO KNOWLEDGE BASE CONTEXT RETRIEVED!
    
    This means:
-   1. No documents found in Pinecone for businessId: {business_id}
+   1. No documents found in Qdrant for widgetId: {widget_id}
    2. Knowledge base might be empty
    3. Similarity search returned no matches
    
    SOLUTION: 
    - Add knowledge base items via Dashboard → Knowledge Base
-   - Ensure items have businessId: {business_id}
-   - Verify Pinecone index has data
+   - Ensure items have widgetId: {widget_id}
+   - Verify Qdrant collection has data
    
    AI will respond with fallback message.
 """
@@ -233,13 +246,15 @@ class AIService:
                 print(f"   ⚠️ WARNING: No context available - AI will respond without knowledge base!")
             print(f"{'='*60}\n")
             
-            # Generate response with context
+            # Generate response with context and system prompt
             result = self.openrouter_service.generate_rag_response(
                 message=message,
                 context=context_text,
                 model=ai_config.model,
                 temperature=ai_config.temperature,
-                max_tokens=ai_config.maxTokens
+                max_tokens=ai_config.maxTokens,
+                system_prompt_type=getattr(ai_config, 'systemPrompt', 'support'),
+                custom_system_prompt=getattr(ai_config, 'customSystemPrompt', '')
             )
             
             if result["success"]:

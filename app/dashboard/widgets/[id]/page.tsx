@@ -109,7 +109,10 @@ export default function CustomizeWidgetPage() {
       confidenceThreshold: 0.5,
       maxRetrievalDocs: 5,
       ragEnabled: true,
-      fallbackToHuman: true
+      fallbackToHuman: true,
+      embeddingModel: 'text-embedding-3-large',
+      systemPrompt: 'support',
+      customSystemPrompt: ''
     },
     // Customer Handover Settings
     customerHandover: {
@@ -201,7 +204,10 @@ export default function CustomizeWidgetPage() {
               confidenceThreshold: foundWidget.aiConfig?.confidenceThreshold || 0.6,
               maxRetrievalDocs: foundWidget.aiConfig?.maxRetrievalDocs || 5,
               ragEnabled: foundWidget.aiConfig?.ragEnabled || false,
-              fallbackToHuman: foundWidget.aiConfig?.fallbackToHuman !== undefined ? foundWidget.aiConfig.fallbackToHuman : true
+              fallbackToHuman: foundWidget.aiConfig?.fallbackToHuman !== undefined ? foundWidget.aiConfig.fallbackToHuman : true,
+              embeddingModel: foundWidget.aiConfig?.embeddingModel || 'text-embedding-3-large',
+              systemPrompt: foundWidget.aiConfig?.systemPrompt || 'support',
+              customSystemPrompt: foundWidget.aiConfig?.customSystemPrompt || ''
             },
             customerHandover: {
               enabled: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.enabled !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).enabled as boolean) : true,
@@ -550,6 +556,50 @@ export default function CustomizeWidgetPage() {
                       className="text-sm bg-white border-2 border-gray-200 resize-none focus:border-green-500"
                     />
                     <p className="text-xs text-gray-600 mt-2">First message customers see when opening chat</p>
+                  </div>
+
+                  {/* AI Agent Type / System Prompt */}
+                  <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                    <Label htmlFor="systemPrompt" className="text-sm font-semibold text-gray-900 mb-3 block">
+                      🤖 AI Agent Type
+                    </Label>
+                    <Select
+                      value={formData.aiConfig.systemPrompt}
+                      onValueChange={(value) => handleNestedChange('aiConfig', 'systemPrompt', value)}
+                    >
+                      <SelectTrigger className="h-10 bg-white border-2 border-gray-200 focus:border-indigo-500">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="support">💬 Support Assistant - Help customers with questions & issues</SelectItem>
+                        <SelectItem value="sales">💰 Sales Assistant - Help with product info & purchasing</SelectItem>
+                        <SelectItem value="booking">📅 Booking Assistant - Schedule appointments & reservations</SelectItem>
+                        <SelectItem value="technical">🔧 Technical Support - Handle technical troubleshooting</SelectItem>
+                        <SelectItem value="general">🌟 General Assistant - Versatile helper for all queries</SelectItem>
+                        <SelectItem value="custom">✏️ Custom - Write your own system prompt</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    {formData.aiConfig.systemPrompt === 'custom' && (
+                      <div className="mt-3">
+                        <Label htmlFor="customSystemPrompt" className="text-xs font-medium text-gray-700 mb-2 block">
+                          Custom System Prompt
+                        </Label>
+                        <Textarea
+                          id="customSystemPrompt"
+                          value={formData.aiConfig.customSystemPrompt}
+                          onChange={(e) => handleNestedChange('aiConfig', 'customSystemPrompt', e.target.value)}
+                          placeholder="You are a helpful assistant that..."
+                          rows={4}
+                          className="text-sm bg-white border-2 border-gray-200 resize-none focus:border-indigo-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">Define how your AI agent should behave</p>
+                      </div>
+                    )}
+                    
+                    <p className="text-xs text-gray-600 mt-2">
+                      This defines your AI agent&apos;s personality and behavior. The agent will act according to this role.
+                    </p>
                   </div>
 
                   {/* Button & Placeholder Grid */}
@@ -1367,6 +1417,40 @@ export default function CustomizeWidgetPage() {
                         </div>
                       </div>
 
+                      {/* Embeddings Configuration */}
+                      <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">🔍 Embeddings Model (OpenAI)</h4>
+                        <div className="space-y-3">
+                          <div>
+                            <Label htmlFor="embeddingModel" className="text-xs font-medium text-gray-700 mb-2 block">Select Embedding Model</Label>
+                            <Select
+                              value={formData.aiConfig.embeddingModel}
+                              onValueChange={(value) => 
+                                handleNestedChange('aiConfig', 'embeddingModel', value)
+                              }
+                            >
+                              <SelectTrigger className="h-10 text-sm bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="text-embedding-3-large">⚡ Text Embedding 3 Large (3072d) - Best quality</SelectItem>
+                                <SelectItem value="text-embedding-3-small">💨 Text Embedding 3 Small (1536d) - Faster & cheaper</SelectItem>
+                                <SelectItem value="text-embedding-ada-002">📦 Ada 002 (1536d) - Legacy model</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <p className="text-xs text-gray-500 mt-2">
+                              Higher dimensions = better accuracy but higher cost
+                            </p>
+                          </div>
+                          
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p className="text-xs text-blue-800">
+                              <strong>💡 Tip:</strong> Use <strong>text-embedding-3-large</strong> for best quality or <strong>text-embedding-3-small</strong> for cost savings.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
                       {/* AI Features Grid */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {/* RAG/Knowledge Base */}
@@ -1404,7 +1488,7 @@ export default function CustomizeWidgetPage() {
                       <div className="p-3 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">
                         <p className="text-xs text-indigo-900 font-medium mb-1">🎯 Pro Tip</p>
                         <p className="text-xs text-indigo-700">
-                          Enable RAG to use your knowledge base for more accurate responses. Human fallback ensures customers always get help when AI can&apos;t assist.
+                          Enable RAG to use your knowledge base for more accurate AI responses. Choose the right embedding model based on your quality vs. cost needs. Human fallback ensures customers always get help when AI can&apos;t assist.
                         </p>
                       </div>
                     </div>

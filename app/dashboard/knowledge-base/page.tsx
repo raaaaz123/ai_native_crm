@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Database, 
   Plus, 
@@ -403,6 +404,12 @@ export default function KnowledgeBasePage() {
         return;
       }
 
+      // Get the widget's embedding model configuration
+      const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
+      const embeddingModel = selectedWidgetObj?.aiConfig?.embeddingModel || 'text-embedding-3-large';
+      
+      console.log(`📊 Using embedding model: ${embeddingModel} (from widget config)`);
+
       // Create knowledge base item
       const itemData = {
         title: formData.title,
@@ -410,6 +417,7 @@ export default function KnowledgeBasePage() {
         type: formData.type as 'text' | 'pdf' | 'website',
         fileName: fileName || undefined,
         fileSize: fileSize || undefined,
+        embeddingModel: embeddingModel
       };
 
       let result;
@@ -523,7 +531,7 @@ export default function KnowledgeBasePage() {
       
       // Final success
       setUploadStatus('success');
-      setUploadMessage(`✅ Successfully saved all ${totalSaved} chunks to Pinecone!`);
+      setUploadMessage(`✅ Successfully saved all ${totalSaved} chunks to Qdrant!`);
       setSaveProgress({ current: totalChunks, total: totalChunks });
       
       // Wait a moment to show completion
@@ -591,13 +599,13 @@ export default function KnowledgeBasePage() {
     try {
       setDeleteAllLoading(true);
       setUploadStatus('uploading');
-      setUploadMessage('Deleting all data from Pinecone and Firestore...');
+      setUploadMessage('Deleting all data from Qdrant and Firestore...');
 
       const businessId = companyContext.company.id;
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
 
-      // Delete from Pinecone
-      const pineconeResponse = await fetch(`${backendUrl}/api/knowledge-base/delete-all`, {
+      // Delete from Qdrant
+      const qdrantResponse = await fetch(`${backendUrl}/api/knowledge-base/delete-all`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -608,8 +616,8 @@ export default function KnowledgeBasePage() {
         }),
       });
 
-      if (!pineconeResponse.ok) {
-        throw new Error('Failed to delete data from Pinecone');
+      if (!qdrantResponse.ok) {
+        throw new Error('Failed to delete data from Qdrant');
       }
 
       // Delete from Firestore
@@ -628,11 +636,11 @@ export default function KnowledgeBasePage() {
         throw new Error('Failed to delete data from Firestore');
       }
 
-      const pineconeResult = await pineconeResponse.json();
+      const qdrantResult = await qdrantResponse.json();
       const firestoreResult = await firestoreResponse.json();
 
       setUploadStatus('success');
-      setUploadMessage(`Successfully deleted all data! Pinecone: ${pineconeResult.message}, Firestore: ${firestoreResult.message}`);
+      setUploadMessage(`Successfully deleted all data! Qdrant: ${qdrantResult.message}, Firestore: ${firestoreResult.message}`);
       
       // Reload knowledge items to show empty state
       await loadKnowledgeItems();
@@ -649,24 +657,24 @@ export default function KnowledgeBasePage() {
     }
   };
 
-  const handleCleanPinecone = async () => {
-    if (!confirm('⚠️ DANGER: This will delete ALL records from Pinecone index. This action cannot be undone!\n\nAre you absolutely sure?')) {
+  const handleCleanQdrant = async () => {
+    if (!confirm('⚠️ DANGER: This will delete ALL records from Qdrant collection. This action cannot be undone!\n\nAre you absolutely sure?')) {
       return;
     }
 
-    if (!confirm('🚨 FINAL WARNING: This will permanently delete ALL vectors from the entire Pinecone index!\n\nThis affects ALL users and ALL data. Continue?')) {
+    if (!confirm('🚨 FINAL WARNING: This will permanently delete ALL points from the entire Qdrant collection!\n\nThis affects ALL users and ALL data. Continue?')) {
       return;
     }
 
     try {
       setCleanPineconeLoading(true);
       setUploadStatus('uploading');
-      setUploadMessage('Cleaning entire Pinecone index...');
+      setUploadMessage('Cleaning entire Qdrant collection...');
 
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
 
-      // Call the clean Pinecone endpoint
-      const response = await fetch(`${backendUrl}/api/knowledge-base/clean-pinecone`, {
+      // Call the clean Qdrant endpoint
+      const response = await fetch(`${backendUrl}/api/knowledge-base/clean-qdrant`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -674,21 +682,21 @@ export default function KnowledgeBasePage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to clean Pinecone index');
+        throw new Error('Failed to clean Qdrant collection');
       }
 
       const result = await response.json();
 
       setUploadStatus('success');
-      setUploadMessage(`Successfully cleaned Pinecone index! ${result.message}`);
+      setUploadMessage(`Successfully cleaned Qdrant collection! ${result.message}`);
       
       // Reload knowledge items to show empty state
       await loadKnowledgeItems();
 
     } catch (error) {
-      console.error('Error cleaning Pinecone:', error);
+      console.error('Error cleaning Qdrant:', error);
       setUploadStatus('error');
-      setUploadMessage(`Error: ${error instanceof Error ? error.message : 'Failed to clean Pinecone index'}`);
+      setUploadMessage(`Error: ${error instanceof Error ? error.message : 'Failed to clean Qdrant collection'}`);
     } finally {
       setCleanPineconeLoading(false);
     }
@@ -755,18 +763,25 @@ export default function KnowledgeBasePage() {
           
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <select
+              <Select
                 value={selectedWidget}
-                onChange={(e) => setSelectedWidget(e.target.value)}
-                className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium transition-all duration-200 hover:border-blue-400"
+                onValueChange={setSelectedWidget}
               >
-                <option value="" className="text-gray-500">Choose a widget to manage knowledge base</option>
-                {widgets.map(widget => (
-                  <option key={widget.id} value={widget.id} className="text-gray-900">
-                    {widget.name} ({widget.id})
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full h-12 px-4 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium transition-all duration-200">
+                  <SelectValue placeholder="Choose a widget to manage knowledge base" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  {widgets.map(widget => (
+                    <SelectItem key={widget.id} value={widget.id} className="cursor-pointer hover:bg-blue-50">
+                      <div className="flex items-center gap-2">
+                        <Database className="w-4 h-4 text-blue-600" />
+                        <span className="font-medium">{widget.name}</span>
+                        <span className="text-xs text-gray-500">({widget.id})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             {selectedWidget && (
@@ -887,13 +902,13 @@ export default function KnowledgeBasePage() {
                 Delete All Data
               </Button>
 
-              {/* Secret Clean Pinecone Button */}
+              {/* Secret Clean Qdrant Button */}
               {showSecretButton && (
                 <Button
-                  onClick={handleCleanPinecone}
+                  onClick={handleCleanQdrant}
                   disabled={cleanPineconeLoading}
                   className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-11 animate-pulse"
-                  title="🚨 DANGER: Cleans entire Pinecone index - affects ALL users!"
+                  title="🚨 DANGER: Cleans entire Qdrant collection - affects ALL users!"
                 >
                   {cleanPineconeLoading ? (
                     <>
@@ -903,7 +918,7 @@ export default function KnowledgeBasePage() {
                   ) : (
                     <>
                       <Database className="w-5 h-5" />
-                      Clean Pinecone
+                      Clean Qdrant
                     </>
                   )}
                 </Button>
@@ -1500,7 +1515,7 @@ export default function KnowledgeBasePage() {
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3">
                   <p className="text-sm text-red-800 font-medium mb-1">This will permanently delete:</p>
                   <ul className="text-sm text-red-700 space-y-1">
-                    <li>• All articles and content from Pinecone</li>
+                    <li>• All articles and content from Qdrant</li>
                     <li>• All scraped website data from Firestore</li>
                     <li>• All knowledge chunks and metadata</li>
                     <li>• {knowledgeItems.length} current articles</li>

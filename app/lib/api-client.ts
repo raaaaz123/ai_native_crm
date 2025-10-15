@@ -45,6 +45,9 @@ export interface AIConfig {
   maxRetrievalDocs: number;
   ragEnabled: boolean;
   fallbackToHuman: boolean;
+  embeddingModel: string;
+  systemPrompt: string;
+  customSystemPrompt?: string;
 }
 
 export interface AIChatRequest {

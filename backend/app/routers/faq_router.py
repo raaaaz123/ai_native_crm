@@ -8,7 +8,7 @@ import logging
 import time
 import uuid
 
-from app.services.pinecone_service import pinecone_service
+from app.services.qdrant_service import qdrant_service
 from app.services.firestore_service import firestore_service
 
 logger = logging.getLogger(__name__)
@@ -23,6 +23,7 @@ class FAQRequest(BaseModel):
     answer: str
     type: str = "faq"
     metadata: Optional[Dict[str, Any]] = {}
+    embedding_model: str = "text-embedding-3-large"
 
     class Config:
         extra = "allow"
@@ -67,12 +68,15 @@ async def store_faq(request: FAQRequest):
         # Generate unique ID
         faq_id = f"faq_{request.widget_id}_{uuid.uuid4().hex[:12]}_{int(time.time())}"
         
-        logger.info(f"📝 Storing to Pinecone...")
+        logger.info(f"📝 Storing to Qdrant with embedding model: {request.embedding_model}")
         logger.info(f"   FAQ ID: {faq_id}")
         logger.info(f"   Content Length: {len(faq_content)} chars")
         
-        # Store in Pinecone
-        result = pinecone_service.store_knowledge_item({
+        # Set embedding model
+        qdrant_service.set_embedding_model(request.embedding_model)
+        
+        # Store in Qdrant
+        result = qdrant_service.store_knowledge_item({
             'id': faq_id,
             'businessId': business_id,
             'widgetId': request.widget_id,

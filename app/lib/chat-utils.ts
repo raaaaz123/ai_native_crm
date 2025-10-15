@@ -101,6 +101,9 @@ export interface ChatWidget {
     maxRetrievalDocs?: number;
     ragEnabled?: boolean;
     fallbackToHuman?: boolean;
+    embeddingModel?: string;
+    systemPrompt?: string;
+    customSystemPrompt?: string;
   };
   isActive: boolean;
   createdAt: number;

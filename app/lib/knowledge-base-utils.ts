@@ -40,10 +40,11 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
-// Store knowledge base item in Pinecone for semantic search
-async function storeInPinecone(item: KnowledgeBaseItem): Promise<void> {
+// Store knowledge base item in Qdrant for semantic search
+async function storeInQdrant(item: KnowledgeBaseItem, embeddingModel: string = 'text-embedding-3-large'): Promise<void> {
   try {
-    const response = await fetch('http://localhost:8001/api/knowledge-base/store', {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+    const response = await fetch(`${backendUrl}/api/knowledge-base/store?embedding_model=${encodeURIComponent(embeddingModel)}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,22 +63,18 @@ async function storeInPinecone(item: KnowledgeBaseItem): Promise<void> {
     });
 
     if (!response.ok) {
-      throw new Error(`Pinecone API error: ${response.statusText}`);
+      const errorText = await response.text();
+      throw new Error(`Qdrant API error: ${response.statusText} - ${errorText}`);
     }
 
     const result = await response.json();
     if (!result.success) {
-      throw new Error(`Pinecone storage failed: ${result.message}`);
+      throw new Error(`Qdrant storage failed: ${result.message || 'Unknown error'}`);
     }
 
-    console.log('Successfully stored in Pinecone:', result);
-    
-    // Show helpful message if using mock embeddings
-    if (result.note && result.note.includes('mock embeddings')) {
-      console.warn('⚠️ Using mock embeddings - Configure OpenAI API key for semantic search functionality');
-    }
+    console.log('✅ Successfully stored in Qdrant:', result);
   } catch (error) {
-    console.error('Error storing in Pinecone:', error);
+    console.error('❌ Error storing in Qdrant:', error);
     throw error;
   }
 }
@@ -92,6 +89,7 @@ export async function createKnowledgeBaseItem(
     type: 'text' | 'pdf' | 'website';
     file?: File;
     websiteUrl?: string;
+    embeddingModel?: string;
   }
 ): Promise<ApiResponse<KnowledgeBaseItem>> {
   try {
@@ -146,12 +144,16 @@ export async function createKnowledgeBaseItem(
       updatedAt: Date.now()
     };
 
-    // Also store in Pinecone for semantic search
+    // Also store in Qdrant for semantic search
     try {
-      await storeInPinecone(newItem);
-    } catch (pineconeError) {
-      console.warn('Failed to store in Pinecone:', pineconeError);
-      // Don't fail the whole operation if Pinecone fails
+      const embeddingModel = itemData.embeddingModel || 'text-embedding-3-large';
+      console.log('📤 Storing in Qdrant with model:', embeddingModel);
+      await storeInQdrant(newItem, embeddingModel);
+      console.log('✅ Qdrant storage successful');
+    } catch (qdrantError) {
+      console.error('❌ Failed to store in Qdrant:', qdrantError);
+      // Don't fail the whole operation if Qdrant fails
+      // Firestore storage is still successful
     }
 
     return {

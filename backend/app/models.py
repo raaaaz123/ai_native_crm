@@ -42,6 +42,8 @@ class AIConfig(BaseModel):
     maxRetrievalDocs: int = 5
     ragEnabled: bool = True
     fallbackToHuman: bool = True
+    embeddingModel: str = "text-embedding-3-large"  # OpenAI embedding models: text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002
+    systemPrompt: str = "support"  # System prompt preset: support, sales, booking, technical, custom
 
 
 class ChatRequest(BaseModel):

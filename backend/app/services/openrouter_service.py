@@ -97,19 +97,39 @@ class OpenRouterService:
                 "content": None
             }
 
+    def get_system_prompt_text(self, prompt_type: str, custom_prompt: str = "") -> str:
+        """Get system prompt text based on preset type"""
+        presets = {
+            "support": "You are a helpful customer support assistant. Your role is to assist customers with their questions, resolve issues, and provide excellent service. Be friendly, patient, and professional.",
+            "sales": "You are a sales assistant focused on helping customers find the right products or services. Highlight benefits, answer product questions, and guide customers toward making a purchase. Be enthusiastic and informative.",
+            "booking": "You are a booking and scheduling assistant. Help customers book appointments, check availability, and manage reservations. Be organized, clear about timing, and confirm all details.",
+            "technical": "You are a technical support specialist. Help customers troubleshoot technical issues, provide step-by-step solutions, and explain technical concepts clearly. Be precise and patient.",
+            "general": "You are a versatile AI assistant ready to help with any customer inquiry. Adapt your tone and approach based on the customer's needs. Be helpful, professional, and friendly."
+        }
+        
+        if prompt_type == "custom" and custom_prompt:
+            return custom_prompt
+        
+        return presets.get(prompt_type, presets["support"])
+
     def generate_rag_response(
         self, 
         message: str, 
         context: str,
         model: str = "deepseek/deepseek-chat-v3.1:free",
         temperature: float = 0.7,
-        max_tokens: int = 500
+        max_tokens: int = 500,
+        system_prompt_type: str = "support",
+        custom_system_prompt: str = ""
     ) -> Dict[str, Any]:
         """Generate AI response with RAG context using OpenRouter API"""
         try:
+            # Get base system prompt from preset
+            base_system_prompt = self.get_system_prompt_text(system_prompt_type, custom_system_prompt)
+            
             # Create ASSERTIVE system prompt for RAG
             if context and context.strip():
-                system_prompt = """You are a helpful customer support assistant. The KNOWLEDGE BASE below contains verified, accurate information about this business.
+                system_prompt = f"""{base_system_prompt}
 
 ===== KNOWLEDGE BASE (Verified Information) =====
 {context}
@@ -122,13 +142,16 @@ IMPORTANT:
 - Answer confidently and naturally based on what you read above
 - Do NOT say you're unsure if the answer is clearly in the KNOWLEDGE BASE
 - Be helpful and conversational
+- Stay in character according to your role
 
 User Question: {message}
 
-Answer (use the KNOWLEDGE BASE information):""".format(context=context, message=message)
+Answer (use the KNOWLEDGE BASE information):"""
             else:
                 # No context available - inform user
-                system_prompt = """You are a customer support assistant. You do not have access to the knowledge base right now.
+                system_prompt = f"""{base_system_prompt}
+
+You do not have access to the knowledge base right now.
 
 Respond to the user by saying: "I don't have access to my knowledge base at the moment. Let me connect you with a team member who can help you with that."
 

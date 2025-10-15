@@ -1,6 +1,8 @@
 # Modular Backend API
 
-This is a refactored, modular version of the Pinecone Knowledge Base API. The original monolithic `pinecone_backend.py` file has been broken down into organized modules for better maintainability and scalability.
+This is a refactored, modular version of the Qdrant Knowledge Base API. The backend uses **Qdrant** as the vector database with **ChromaDB** (free) embeddings.
+
+> **✅ Migrated from Pinecone to Qdrant** - See `QDRANT_MIGRATION.md` for details.
 
 ## 🏗️ Project Structure
 
@@ -13,7 +15,7 @@ backend/
 │   ├── models.py              # Pydantic models
 │   ├── services/              # Business logic services
 │   │   ├── __init__.py
-│   │   ├── pinecone_service.py    # Pinecone vector operations
+│   │   ├── qdrant_service.py      # Qdrant vector operations
 │   │   ├── ai_service.py          # AI/RAG operations
 │   │   └── review_service.py      # Review form operations
 │   └── routers/               # API route handlers
@@ -32,15 +34,21 @@ backend/
 
 ### 1. Install Dependencies
 ```bash
-pip install -r requirements.txt
+pip install -r requirements-pinecone.txt
 ```
 
 ### 2. Set Environment Variables
 Create a `.env` file with:
 ```env
-PINECONE_API_KEY=your-pinecone-api-key
-PINECONE_INDEX_NAME=rexa-engage
+# Qdrant Configuration (Required)
+QDRANT_URL=https://44cce1a4-277d-4473-b8d3-728cebfc6e09.europe-west3-0.gcp.cloud.qdrant.io:6333
+QDRANT_API_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+QDRANT_COLLECTION_NAME=rexa-engage
+
+# OpenAI Configuration (Optional - ChromaDB is free!)
 OPENAI_API_KEY=your-openai-api-key
+
+# OpenRouter Configuration
 OPENROUTER_API_KEY=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
 OPENROUTER_SITE_URL=http://localhost:3000
 OPENROUTER_SITE_NAME=Rexa CRM
@@ -174,3 +182,24 @@ The modular backend maintains **100% API compatibility** with the original `pine
 - All API calls from the frontend will continue to work without changes
 - The modular structure makes it easier to add new features and maintain the codebase
 - Each service is self-contained and can be tested independently
+
+## 🚀 Deployment
+
+### Quick Deploy (5 Minutes - FREE)
+
+Deploy your backend to the cloud for free! See:
+- **[DEPLOY_NOW.md](../DEPLOY_NOW.md)** - Fastest deployment guide (5 minutes)
+- **[DEPLOYMENT_GUIDE.md](../DEPLOYMENT_GUIDE.md)** - Complete deployment options
+- **[DEPLOYMENT_CHECKLIST.md](../DEPLOYMENT_CHECKLIST.md)** - Step-by-step checklist
+
+**Recommended Platform**: Render (free tier, no credit card needed)
+
+**Your backend will be live at**: `https://your-app-name.onrender.com`
+
+### Production-Ready Features
+- ✅ Dynamic PORT configuration for cloud platforms
+- ✅ Configurable CORS origins via environment variable
+- ✅ Docker support included
+- ✅ Auto-deploy on Git push (Render/Railway)
+- ✅ Free HTTPS/SSL certificate
+- ✅ Health check endpoints for monitoring
