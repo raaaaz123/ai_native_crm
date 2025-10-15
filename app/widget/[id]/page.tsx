@@ -77,6 +77,9 @@ export default function ChatWidget() {
     maxRetrievalDocs: number;
     ragEnabled: boolean;
     fallbackToHuman: boolean;
+    embeddingModel: string;
+    systemPrompt: string;
+    customSystemPrompt?: string;
   } | null>(null);
 
   const loadWidget = useCallback(async () => {
@@ -127,7 +130,10 @@ export default function ChatWidget() {
             confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
             maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
             ragEnabled: aiConfig.ragEnabled || false,
-            fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true
+            fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
+            embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+            systemPrompt: aiConfig.systemPrompt || 'support',
+            customSystemPrompt: aiConfig.customSystemPrompt || ''
           });
         } else {
           // Fallback: Enable AI with OpenRouter config if no AI config exists
@@ -140,7 +146,10 @@ export default function ChatWidget() {
             confidenceThreshold: 0.6,
             maxRetrievalDocs: 5,
             ragEnabled: true,
-            fallbackToHuman: true
+            fallbackToHuman: true,
+            embeddingModel: 'text-embedding-3-large',
+            systemPrompt: 'support',
+            customSystemPrompt: ''
           };
           setAiEnabled(true);
           setAiConfig(defaultAiConfig);
@@ -308,7 +317,20 @@ export default function ChatWidget() {
             message: messageText,
             widgetId: widgetId,
             conversationId: conversation.id,
-            aiConfig: aiConfig,
+            aiConfig: {
+              enabled: aiConfig.enabled,
+              provider: aiConfig.provider || 'openrouter',
+              model: aiConfig.model || 'deepseek/deepseek-chat-v3.1:free',
+              temperature: aiConfig.temperature || 0.7,
+              maxTokens: aiConfig.maxTokens || 500,
+              confidenceThreshold: aiConfig.confidenceThreshold || 0.6,
+              maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
+              ragEnabled: aiConfig.ragEnabled || false,
+              fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
+              embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+              systemPrompt: aiConfig.systemPrompt || 'support',
+              customSystemPrompt: aiConfig.customSystemPrompt || ''
+            },
             businessId: widget?.businessId || '',
             customerName: userInfo.name,
             customerEmail: userInfo.email
