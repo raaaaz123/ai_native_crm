@@ -15,6 +15,9 @@ QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "rexa-engage")
 # OpenAI Configuration
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
+# Voyage AI Configuration
+VOYAGE_API_KEY = os.getenv("VOYAGE_API_KEY", "pa-FWgqHx-CbvS36MJZvGMxaOFNmo8RzH0pMkcos6DmseR")
+
 # OpenRouter Configuration
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "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")
 OPENROUTER_SITE_URL = os.getenv("OPENROUTER_SITE_URL", "http://localhost:3000")

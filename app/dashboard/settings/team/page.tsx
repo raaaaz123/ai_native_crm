@@ -9,6 +9,7 @@ import { Container } from '@/components/layout';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { LoadingDialog } from '../../../components/ui/loading-dialog';
 import { 
   Users, 
   UserPlus, 
@@ -22,7 +23,8 @@ import {
   Clock,
   Copy,
   Link as LinkIcon,
-  RefreshCw
+  RefreshCw,
+  Loader2
 } from 'lucide-react';
 import {
   getCompanyMembers,
@@ -71,6 +73,7 @@ export default function TeamManagementPage() {
   const [editMemberPermissions, setEditMemberPermissions] = useState<Permission[]>([]);
   const [updatingMember, setUpdatingMember] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [invitesLoading, setInvitesLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -117,11 +120,18 @@ export default function TeamManagementPage() {
   // Load team data
   useEffect(() => {
     console.log('Team Management - Company Context:', companyContext);
+    
+    // Wait for auth to complete before showing UI
+    if (loading) {
+      return;
+    }
+    
     if (companyContext?.company.id) {
       loadTeamData();
     } else {
       // If no company context, stop loading but load user invitations
       setLoading(false);
+      setInitialLoadComplete(true);
       if (user?.email) {
         loadUserInvitations();
       }
@@ -171,6 +181,7 @@ export default function TeamManagementPage() {
       if (loading) {
         console.log('Team Management - Loading timeout, stopping loading');
         setLoading(false);
+        setInitialLoadComplete(true);
       }
     }, 5000); // 5 second timeout
 
@@ -207,6 +218,7 @@ export default function TeamManagementPage() {
       setError('Failed to load team data');
     } finally {
       setLoading(false);
+      setInitialLoadComplete(true);
     }
   };
 
@@ -312,8 +324,15 @@ export default function TeamManagementPage() {
           const result = await acceptInvite(inviteId, user.uid, userEmail);
           if (result.success) {
             setSuccess('Invitation accepted! Welcome to the team!');
-            // Reload the page to update company context
-            window.location.reload();
+            
+            // Refresh company context without page reload
+            await refreshCompanyContext();
+            
+            // Reload team data
+            await loadTeamData();
+            
+            // Navigate to dashboard
+            router.push('/dashboard');
           } else {
             setError(result.error || 'Failed to accept invitation');
           }
@@ -400,13 +419,17 @@ export default function TeamManagementPage() {
         companyFormData.domain.trim() || undefined
       );
 
-      setSuccess('Company created successfully! Refreshing page...');
+      setSuccess('Company created successfully!');
       setShowCreateCompanyModal(false);
       
-      // Refresh the page to load the new company context
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      // Refresh company context without page reload
+      await refreshCompanyContext();
+      
+      // Reload team data
+      await loadTeamData();
+      
+      // Navigate to dashboard
+      router.push('/dashboard');
     } catch (error) {
       console.error('Error creating company:', error);
       setError((error as Error).message || 'Failed to create company');
@@ -688,13 +711,17 @@ export default function TeamManagementPage() {
     return 'Custom';
   };
 
-  if (loading) {
+  // Show loading dialog until initial load is complete
+  if (loading || !initialLoadComplete) {
     return (
-      <Container>
-        <div className="flex items-center justify-center min-h-96">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-500"></div>
-        </div>
-      </Container>
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+        <LoadingDialog 
+          open={true}
+          message="Loading Team Data" 
+          submessage="Fetching team members and invitations..."
+          variant="gradient"
+        />
+      </div>
     );
   }
 
@@ -822,7 +849,7 @@ export default function TeamManagementPage() {
               {/* Received Invitations */}
               {invitesLoading ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                  <Loader2 className="w-10 h-10 text-primary-600 mx-auto mb-3 animate-spin" />
                   <p className="text-neutral-600 text-sm">Loading invitations...</p>
                 </div>
               ) : receivedInvites.length > 0 ? (
@@ -1272,7 +1299,7 @@ export default function TeamManagementPage() {
 
               {loadingSentInvites ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto mb-4"></div>
+                  <Loader2 className="w-10 h-10 text-primary-600 mx-auto mb-3 animate-spin" />
                   <p className="text-neutral-600 text-sm">Loading sent invitations...</p>
                 </div>
               ) : sentInvites.length === 0 ? (

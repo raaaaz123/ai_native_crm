@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { LoadingDialog } from '../../components/ui/loading-dialog';
 import { 
   Database, 
   Plus, 
@@ -67,6 +68,7 @@ export default function KnowledgeBasePage() {
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
@@ -103,9 +105,14 @@ export default function KnowledgeBasePage() {
   });
 
   useEffect(() => {
-    loadWidgets();
+    if (user && companyContext?.company?.id) {
+      loadWidgets();
+    } else {
+      setIsLoading(false);
+      setInitialLoadComplete(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, companyContext]);
 
   useEffect(() => {
     if (selectedWidget) {
@@ -203,6 +210,7 @@ export default function KnowledgeBasePage() {
       setSelectedWidget(defaultWidget.id);
     } finally {
       setIsLoading(false);
+      setInitialLoadComplete(true);
     }
   };
 
@@ -264,13 +272,26 @@ export default function KnowledgeBasePage() {
         // Format FAQ content
         content = `Q: ${formData.question.trim()}\n\nA: ${formData.answer.trim()}`;
         
-        // Store FAQ in Pinecone via backend
+        // Get widget's embedding configuration
+        const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
+        
+        // Debug what's in the widget
+        console.log('🔍 Widget aiConfig:', selectedWidgetObj?.aiConfig);
+        
+        const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
+        const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
+        
+        console.log(`📤 Sending FAQ with embeddings: ${embeddingProvider}/${embeddingModel}`);
+        
+        // Store FAQ in Qdrant via backend
         const faqRequest = {
           widget_id: selectedWidget,
           title: formData.title || formData.question.substring(0, 50),
           question: formData.question.trim(),
           answer: formData.answer.trim(),
           type: 'faq',
+          embedding_provider: embeddingProvider,
+          embedding_model: embeddingModel,
           metadata: {
             business_id: companyContext?.company?.id ?? '',
             tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
@@ -404,11 +425,16 @@ export default function KnowledgeBasePage() {
         return;
       }
 
-      // Get the widget's embedding model configuration
+      // Get the widget's embedding configuration
       const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
-      const embeddingModel = selectedWidgetObj?.aiConfig?.embeddingModel || 'text-embedding-3-large';
       
-      console.log(`📊 Using embedding model: ${embeddingModel} (from widget config)`);
+      // Debug what's in the widget
+      console.log('🔍 Widget aiConfig (document):', selectedWidgetObj?.aiConfig);
+      
+      const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
+      const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
+      
+      console.log(`📊 Using embeddings: ${embeddingProvider}/${embeddingModel} (from widget config)`);
 
       // Create knowledge base item
       const itemData = {
@@ -417,6 +443,7 @@ export default function KnowledgeBasePage() {
         type: formData.type as 'text' | 'pdf' | 'website',
         fileName: fileName || undefined,
         fileSize: fileSize || undefined,
+        embeddingProvider: embeddingProvider,
         embeddingModel: embeddingModel
       };
 
@@ -711,13 +738,14 @@ export default function KnowledgeBasePage() {
     return matchesSearch && item.isActive;
   });
 
-  if (isLoading) {
+  if (isLoading || !initialLoadComplete) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-blue-50/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading knowledge base...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+        <LoadingDialog 
+          open={true}
+          message="Loading Knowledge Base" 
+          submessage="Loading your articles and content..."
+        />
       </div>
     );
   }
@@ -794,6 +822,51 @@ export default function KnowledgeBasePage() {
               </div>
             )}
           </div>
+          
+          {/* Embedding Provider Info */}
+          {selectedWidget && (() => {
+            const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
+            const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
+            const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
+            
+            return (
+              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
+                      backgroundColor: embeddingProvider === 'voyage' ? '#06b6d4' : '#3b82f6'
+                    }}>
+                      <span className="text-xl">{embeddingProvider === 'voyage' ? '🚢' : '🤖'}</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">Embedding Provider</p>
+                      <p className="text-xs text-gray-600">All items will use this configuration</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-bold text-gray-900">
+                      {embeddingProvider === 'voyage' ? 'Voyage AI' : 'OpenAI'}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {embeddingModel === 'voyage-3' ? 'voyage-3 (1024d)' :
+                       embeddingModel === 'voyage-3-lite' ? 'voyage-3-lite (512d)' :
+                       embeddingModel === 'text-embedding-3-large' ? 'text-emb-3-large (3072d)' :
+                       embeddingModel === 'text-embedding-3-small' ? 'text-emb-3-small (1536d)' :
+                       embeddingModel}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-3 p-2 bg-white rounded border border-green-200">
+                  <p className="text-xs text-gray-700">
+                    💡 <strong>Note:</strong> To change embedding provider, go to{' '}
+                    <a href={`/dashboard/widgets/${selectedWidget}`} className="text-blue-600 hover:underline font-semibold">
+                      Widget Settings → AI Tab
+                    </a>
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
           
           {!selectedWidget && (
             <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">

@@ -19,7 +19,8 @@ async def ai_chat_response(request: ChatRequest):
             request.message,
             request.widgetId,
             request.aiConfig,
-            request.businessId
+            request.businessId,
+            request.customerHandover
         )
         
         print(f"✅ AI Response - Success: {result.success}, Confidence: {result.confidence}, Sources: {len(result.sources)}")

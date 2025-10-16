@@ -32,6 +32,20 @@ class DocumentUploadResponse(BaseModel):
 
 
 # AI Models
+class CustomerHandoverConfig(BaseModel):
+    enabled: bool = True
+    showHandoverButton: bool = True
+    handoverButtonText: str = "Talk to Human Agent"
+    handoverButtonPosition: str = "bottom"
+    includeInQuickReplies: bool = True
+    autoDetectKeywords: bool = True
+    detectionKeywords: List[str] = []
+    handoverMessage: str = "I'll connect you with a human agent right away."
+    notificationToAgent: bool = True
+    allowCustomerToSwitch: bool = True
+    smartFallbackEnabled: bool = True  # Auto-offer handover when AI doesn't have relevant information
+
+
 class AIConfig(BaseModel):
     enabled: bool
     provider: str = "openrouter"
@@ -42,8 +56,12 @@ class AIConfig(BaseModel):
     maxRetrievalDocs: int = 5
     ragEnabled: bool = True
     fallbackToHuman: bool = True
-    embeddingModel: str = "text-embedding-3-large"  # OpenAI embedding models: text-embedding-3-large, text-embedding-3-small, text-embedding-ada-002
+    embeddingProvider: str = "openai"  # Embedding provider: openai or voyage
+    embeddingModel: str = "text-embedding-3-large"  # OpenAI: text-embedding-3-large/small/ada-002, Voyage: voyage-3
+    rerankerEnabled: bool = True  # Enable reranking for better accuracy (95%+ vs 65%)
+    rerankerModel: str = "rerank-2.5"  # Voyage AI reranker model
     systemPrompt: str = "support"  # System prompt preset: support, sales, booking, technical, custom
+    customSystemPrompt: str = ""
 
 
 class ChatRequest(BaseModel):
@@ -54,6 +72,7 @@ class ChatRequest(BaseModel):
     businessId: Optional[str] = None
     customerName: Optional[str] = None
     customerEmail: Optional[str] = None
+    customerHandover: Optional[CustomerHandoverConfig] = None
 
 
 class AIResponse(BaseModel):

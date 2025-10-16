@@ -129,6 +129,18 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const showBranding = widget.showBranding !== undefined ? widget.showBranding : true;
   const quickReplies = widget.quickReplies || ['Get Support', 'Pricing', 'Contact Sales'];
   
+  // Helper function to convert hex to RGB
+  const hexToRgb = (hex: string) => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : { r: 59, g: 130, b: 246 }; // Default blue
+  };
+  
+  const rgb = hexToRgb(primaryColor);
+  
   // New styling options
   const buttonStyle = widget.buttonStyle || 'rounded';
   const buttonAnimation = widget.buttonAnimation || 'pulse';
@@ -146,9 +158,9 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   
   // Widget size dimensions
   const sizeMap = {
-    compact: { width: '300px', height: '400px', button: 'w-5 h-5' },
-    standard: { width: '350px', height: '500px', button: 'w-6 h-6' },
-    large: { width: '400px', height: '600px', button: 'w-7 h-7' }
+    compact: { width: '360px', height: '480px', button: 'w-5 h-5' },
+    standard: { width: '400px', height: '550px', button: 'w-6 h-6' },
+    large: { width: '450px', height: '650px', button: 'w-7 h-7' }
   };
   
   const dimensions = sizeMap[widgetSize as keyof typeof sizeMap] || sizeMap.standard;
@@ -195,6 +207,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const getAnimationClass = () => {
     if (isMinimized) return 'animate-bounce';
     switch (buttonAnimation) {
+      case 'none': return '';
       case 'pulse': return 'animate-pulse';
       case 'bounce': return 'animate-bounce';
       case 'shake': return 'animate-[shake_1s_ease-in-out_infinite]';
@@ -206,6 +219,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   // Hover effect classes
   const getHoverClass = () => {
     switch (buttonHoverEffect) {
+      case 'none': return '';
       case 'scale': return 'hover:scale-110';
       case 'lift': return 'hover:-translate-y-2';
       case 'glow': return 'hover:shadow-[0_0_30px_rgba(59,130,246,0.6)]';
@@ -228,6 +242,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   // Badge animation classes
   const getBadgeAnimationClass = () => {
     switch (badgeAnimation) {
+      case 'none': return '';
       case 'pulse': return 'animate-pulse';
       case 'bounce': return 'animate-bounce';
       case 'ping': return 'animate-ping';
@@ -337,6 +352,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
             
             // Subscribe to messages
             subscribeToMessages(result.data.id, (updatedMessages) => {
+              console.log('📨 Messages updated (anonymous):', updatedMessages.length);
               setMessages(updatedMessages);
             });
             
@@ -397,7 +413,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
 
         // Subscribe to real-time messages
         subscribeToMessages(result.data.id, (updatedMessages) => {
-          console.log('📨 Preview messages updated:', updatedMessages.length);
+          console.log('📨 Preview messages updated:', updatedMessages.length, updatedMessages);
           setMessages(updatedMessages);
         });
 
@@ -442,22 +458,24 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   };
 
   // Handle handover request
-  const handleHandoverRequest = async () => {
+  const handleHandoverRequest = async (skipMessage = false) => {
     if (!conversation) return;
     
     const handoverConfig = widget.customerHandover;
     const handoverMessage = handoverConfig?.handoverMessage || "I'll connect you with a human agent right away. Please wait a moment.";
     
-    // Save handover message to Firestore
-    await sendMessage(conversation.id, {
-      text: handoverMessage,
-      sender: 'business',
-      senderName: 'AI Assistant',
-      metadata: {
-        handover_requested: true,
-        timestamp: new Date().toISOString()
-      }
-    });
+    // Save handover message to Firestore (only if not already sent by AI)
+    if (!skipMessage) {
+      await sendMessage(conversation.id, {
+        text: handoverMessage,
+        sender: 'business',
+        senderName: 'AI Assistant',
+        metadata: {
+          handover_requested: true,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
     
     setHandoverRequested(true);
     setHandoverMode('human');
@@ -553,13 +571,29 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
             maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
             ragEnabled: aiConfig.ragEnabled || false,
             fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
-            embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+            embeddingProvider: (aiConfig.embeddingProvider as string) || 'openai',
+            embeddingModel: (aiConfig.embeddingModel as string) || 'text-embedding-3-large',
+            rerankerEnabled: (aiConfig.rerankerEnabled as boolean) !== undefined ? (aiConfig.rerankerEnabled as boolean) : true,
+            rerankerModel: (aiConfig.rerankerModel as string) || 'rerank-2.5',
             systemPrompt: aiConfig.systemPrompt || 'support',
             customSystemPrompt: aiConfig.customSystemPrompt || ''
           },
           businessId: widget.businessId || '',
           customerName: formData.name || 'Preview User',
-          customerEmail: formData.email || 'preview@example.com'
+          customerEmail: formData.email || 'preview@example.com',
+          customerHandover: widget.customerHandover ? {
+            enabled: widget.customerHandover.enabled !== undefined ? !!widget.customerHandover.enabled : false,
+            showHandoverButton: widget.customerHandover.showHandoverButton !== undefined ? !!widget.customerHandover.showHandoverButton : false,
+            handoverButtonText: widget.customerHandover.handoverButtonText || 'Talk to Human Agent',
+            handoverButtonPosition: widget.customerHandover.handoverButtonPosition || 'bottom',
+            includeInQuickReplies: widget.customerHandover.includeInQuickReplies !== undefined ? !!widget.customerHandover.includeInQuickReplies : false,
+            autoDetectKeywords: widget.customerHandover.autoDetectKeywords !== undefined ? !!widget.customerHandover.autoDetectKeywords : false,
+            detectionKeywords: widget.customerHandover.detectionKeywords || [],
+            handoverMessage: widget.customerHandover.handoverMessage || "I'll connect you with a human agent.",
+            notificationToAgent: widget.customerHandover.notificationToAgent !== undefined ? !!widget.customerHandover.notificationToAgent : false,
+            allowCustomerToSwitch: widget.customerHandover.allowCustomerToSwitch !== undefined ? !!widget.customerHandover.allowCustomerToSwitch : false,
+            smartFallbackEnabled: widget.customerHandover.smartFallbackEnabled !== undefined ? !!widget.customerHandover.smartFallbackEnabled : true
+          } : undefined
         };
 
         console.log('=== WIDGET PREVIEW AI CHAT DEBUG ===');
@@ -582,22 +616,57 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
           console.log('AI Config Threshold:', aiConfig.confidenceThreshold);
           console.log('Backend shouldFallbackToHuman:', responseData.shouldFallbackToHuman);
           console.log('Backend decided to fallback?', responseData.shouldFallbackToHuman);
+          console.log('Handover Confirmed:', responseData.metadata?.handover_confirmed);
           console.log('=======================');
           
           // Always show the actual AI response (backend decides fallback logic)
-          await sendMessage(conversation.id, {
+          console.log('📤 Sending AI response to Firestore...');
+          
+          // Build metadata object, excluding undefined values
+          const metadata: Record<string, unknown> = {
+            ai_generated: true,
+            confidence: responseData.confidence,
+            sources: responseData.sources,
+            shouldFallbackToHuman: responseData.shouldFallbackToHuman
+          };
+          
+          // Only add handover_confirmed if it's true (avoid undefined)
+          if (responseData.metadata?.handover_confirmed === true) {
+            metadata.handover_confirmed = true;
+          }
+          
+          const sendResult = await sendMessage(conversation.id, {
               text: responseData.response, 
             sender: 'business',
             senderName: 'AI Assistant',
-              metadata: {
-                ai_generated: true,
-                confidence: responseData.confidence,
-                sources: responseData.sources,
-                shouldFallbackToHuman: responseData.shouldFallbackToHuman
-              }
+            metadata
           });
+          console.log('✅ Message sent to Firestore:', sendResult);
+          
+          if (!sendResult.success) {
+            console.error('❌ Failed to send message to Firestore:', sendResult.error);
+            // Clear states even on error
+            setAiThinking(false);
+            setSending(false);
+            return;
+          }
+          
+          // Clear AI thinking state after successful message send
+          console.log('🔄 Clearing AI thinking state...');
+          setAiThinking(false);
+          
+          // If handover was confirmed by affirmative response, trigger handover
+          if (responseData.metadata?.handover_confirmed === true) {
+            console.log('🔄 Auto-triggering handover after affirmative response');
+            // Skip message since AI already sent confirmation
+            // Don't await - let it run in background to avoid blocking UI
+            handleHandoverRequest(true).catch(err => {
+              console.error('Error triggering handover:', err);
+            });
+          }
         } else {
           // AI failed, save fallback message to Firestore
+          console.log('❌ AI response failed, sending fallback message');
           await sendMessage(conversation.id, {
               text: "I'm having trouble processing your request. Let me connect you with a human agent.", 
             sender: 'business',
@@ -608,9 +677,11 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                 error: aiResponse.error
               }
           });
+          console.log('✅ Fallback message sent');
+          setAiThinking(false);
         }
       } catch (aiError) {
-        console.error('AI response error:', aiError);
+        console.error('❌ AI response error:', aiError);
         
         // Save fallback message to Firestore
         await sendMessage(conversation.id, {
@@ -623,7 +694,10 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
               error: 'AI service unavailable'
             }
         });
+        console.log('✅ Error fallback message sent');
+        setAiThinking(false);
       } finally {
+        console.log('🏁 Finally block - ensuring states are cleared');
         setAiThinking(false);
         setSending(false);
       }
@@ -935,6 +1009,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                               
                               // Subscribe to messages
                               subscribeToMessages(result.data.id, (updatedMessages) => {
+                                console.log('📨 Messages updated (new conv):', updatedMessages.length);
                                 setMessages(updatedMessages);
                               });
                               
@@ -976,6 +1051,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                               if (result.success) {
                                 setConversation(result.data);
                                 subscribeToMessages(result.data.id, (updatedMessages) => {
+                                  console.log('📨 Messages updated (history):', updatedMessages.length);
                                   setMessages(updatedMessages);
                                 });
                               }
@@ -1112,7 +1188,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                !handoverRequested && (
                 <div className="px-3 py-1.5 border-b border-gray-100 bg-gray-50">
                   <button
-                    onClick={handleHandoverRequest}
+                    onClick={() => handleHandoverRequest()}
                     className="w-full py-1.5 px-2.5 text-xs font-medium rounded-md border transition-all hover:shadow-sm flex items-center justify-center gap-1.5"
                     style={{ 
                       borderColor: primaryColor,
@@ -1171,7 +1247,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                  widget.customerHandover?.handoverButtonPosition === 'floating' && 
                  !handoverRequested && (
                   <button
-                    onClick={handleHandoverRequest}
+                    onClick={() => handleHandoverRequest()}
                     className="absolute top-3 right-3 z-10 py-1.5 px-2.5 text-xs font-medium rounded-full border shadow-md transition-all hover:shadow-lg flex items-center gap-1 bg-white/95 backdrop-blur-sm"
                     style={{ 
                       borderColor: primaryColor,
@@ -1195,51 +1271,56 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                     }`}
                   >
                     {msg.sender === 'customer' ? (
-                      // Customer message - right aligned like WhatsApp
+                      // Customer message - right aligned with branded color background
                       <>
                         <div
-                          className="max-w-[80%] px-4 py-2.5 rounded-2xl premium-shadow text-white relative overflow-hidden group"
+                          className="max-w-[80%] px-4 py-2.5 rounded-2xl shadow-md relative overflow-hidden group"
                           style={{ 
-                            background: `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`,
+                            backgroundColor: primaryColor,
                             borderRadius: '18px 18px 4px 18px'
                           }}
                         >
-                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed font-medium">{msg.text}</p>
-                          
-                          {/* Timestamp */}
-                          <p className="text-xs mt-1 text-white/60 text-right font-medium">
-                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed text-white">
+                            {msg.text}
                           </p>
                           
-                          {/* Subtle shine effect */}
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+                          {/* Timestamp */}
+                          <p className="text-xs mt-1 text-right text-white/70">
+                            {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </p>
                         </div>
                         
                         {/* Customer Avatar - Rightmost position */}
                         <div 
-                          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold premium-shadow ring-1 ring-white/20"
-                          style={{ backgroundColor: getColorFromName(formData.name || 'User') }}
+                          className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-white text-xs font-bold shadow-sm"
+                          style={{ backgroundColor: primaryColor }}
                         >
                           {getInitials(formData.name || 'User')}
                         </div>
                       </>
                     ) : (
-                      // Business/Bot message - right aligned
+                      // Business/Bot message - left aligned with gray background
                       <>
-                        <div className="max-w-[80%] px-4 py-2.5 rounded-2xl premium-shadow relative overflow-hidden group" style={{ 
-                          background: `linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)`,
-                          borderRadius: '18px 18px 4px 18px'
+                        {/* Business Avatar - Leftmost position */}
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-300 shadow-sm">
+                          <Bot className="w-4 h-4 text-gray-700" />
+                        </div>
+                        
+                        <div className="max-w-[80%] px-4 py-2.5 rounded-2xl shadow-sm border bg-gray-100 border-gray-200 relative overflow-hidden group" style={{ 
+                          borderRadius: '18px 18px 18px 4px'
                         }}>
-                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed text-white font-medium">{msg.text}</p>
+                          <p className="text-sm whitespace-pre-wrap break-words leading-relaxed text-gray-700">
+                            {msg.text}
+                          </p>
                       
                       {/* AI Response Metadata */}
                       {msg.metadata?.ai_generated === true && (
-                            <div className="mt-1.5 pt-1.5 border-t border-white/20">
-                              <div className="flex items-center gap-2 text-xs text-white/70">
+                            <div className="mt-1.5 pt-1.5 border-t border-gray-300">
+                              <div className="flex items-center gap-2 text-xs text-gray-600">
                                 <Bot className="w-3 h-3" />
                                 <span>AI</span>
                               {typeof msg.metadata.confidence === 'number' && (
-                                  <span className="text-white/60">
+                                  <span className="text-gray-500">
                                     • {Math.round(msg.metadata.confidence * 100)}%
                                   </span>
                                 )}
@@ -1248,18 +1329,10 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                       )}
                           
                           {/* Timestamp */}
-                          <p className="text-xs mt-1 text-white/60 font-medium">
+                          <p className="text-xs mt-1 text-gray-500">
                             {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                           </p>
-                          
-                          {/* Subtle shine effect */}
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
                     </div>
-                        
-                        {/* Business Avatar - Rightmost position */}
-                        <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600 premium-shadow ring-1 ring-white/20">
-                          <Bot className="w-4 h-4 text-white" />
-                        </div>
                       </>
                     )}
                   </div>
@@ -1273,7 +1346,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                      widget.customerHandover?.includeInQuickReplies && 
                      !handoverRequested && (
                       <button
-                        onClick={handleHandoverRequest}
+                        onClick={() => handleHandoverRequest()}
                         className="px-2.5 py-1 text-xs border rounded-md transition-all flex items-center gap-1"
                         style={{ 
                           borderColor: '#10B981',
@@ -1319,13 +1392,29 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                                   maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
                                   ragEnabled: aiConfig.ragEnabled || false,
                                   fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
-                                  embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+                                  embeddingProvider: (aiConfig.embeddingProvider as string) || 'openai',
+                                  embeddingModel: (aiConfig.embeddingModel as string) || 'text-embedding-3-large',
+                                  rerankerEnabled: (aiConfig.rerankerEnabled as boolean) !== undefined ? (aiConfig.rerankerEnabled as boolean) : true,
+                                  rerankerModel: (aiConfig.rerankerModel as string) || 'rerank-2.5',
                                   systemPrompt: aiConfig.systemPrompt || 'support',
                                   customSystemPrompt: aiConfig.customSystemPrompt || ''
                                 },
                                 businessId: widget.businessId || '',
                                 customerName: formData.name || 'Preview User',
-                                customerEmail: formData.email || 'preview@example.com'
+                                customerEmail: formData.email || 'preview@example.com',
+                                customerHandover: widget.customerHandover ? {
+                                  enabled: widget.customerHandover.enabled !== undefined ? !!widget.customerHandover.enabled : false,
+                                  showHandoverButton: widget.customerHandover.showHandoverButton !== undefined ? !!widget.customerHandover.showHandoverButton : false,
+                                  handoverButtonText: widget.customerHandover.handoverButtonText || 'Talk to Human Agent',
+                                  handoverButtonPosition: widget.customerHandover.handoverButtonPosition || 'bottom',
+                                  includeInQuickReplies: widget.customerHandover.includeInQuickReplies !== undefined ? !!widget.customerHandover.includeInQuickReplies : false,
+                                  autoDetectKeywords: widget.customerHandover.autoDetectKeywords !== undefined ? !!widget.customerHandover.autoDetectKeywords : false,
+                                  detectionKeywords: widget.customerHandover.detectionKeywords || [],
+                                  handoverMessage: widget.customerHandover.handoverMessage || "I'll connect you with a human agent.",
+                                  notificationToAgent: widget.customerHandover.notificationToAgent !== undefined ? !!widget.customerHandover.notificationToAgent : false,
+                                  allowCustomerToSwitch: widget.customerHandover.allowCustomerToSwitch !== undefined ? !!widget.customerHandover.allowCustomerToSwitch : false,
+                                  smartFallbackEnabled: widget.customerHandover.smartFallbackEnabled !== undefined ? !!widget.customerHandover.smartFallbackEnabled : true
+                                } : undefined
                               };
 
                               const aiResponse = await apiClient.sendAIMessage(aiRequest);
@@ -1334,34 +1423,67 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                                 const responseData = aiResponse.data;
                                 
                                 // Always show the actual AI response
-                                await sendMessage(conversation.id, {
+                                console.log('📤 Sending AI response (quick reply) to Firestore...');
+                                
+                                // Build metadata object, excluding undefined values
+                                const quickReplyMetadata: Record<string, unknown> = {
+                                  ai_generated: true,
+                                  confidence: responseData.confidence,
+                                  sources: responseData.sources,
+                                  shouldFallbackToHuman: responseData.shouldFallbackToHuman
+                                };
+                                
+                                // Only add handover_confirmed if it's true (avoid undefined)
+                                if (responseData.metadata?.handover_confirmed === true) {
+                                  quickReplyMetadata.handover_confirmed = true;
+                                }
+                                
+                                const sendResult = await sendMessage(conversation.id, {
                                     text: responseData.response, 
                                   sender: 'business',
                                   senderName: 'AI Assistant',
-                                    metadata: {
-                                      ai_generated: true,
-                                      confidence: responseData.confidence,
-                                      sources: responseData.sources,
-                                      shouldFallbackToHuman: responseData.shouldFallbackToHuman
-                                    }
+                                  metadata: quickReplyMetadata
                                 });
+                                console.log('✅ Quick reply message sent:', sendResult);
+                                
+                                if (sendResult.success) {
+                                  setAiThinking(false);
+                                } else {
+                                  console.error('❌ Failed to send quick reply message:', sendResult.error);
+                                  setAiThinking(false);
+                                }
+                                
+                                // If handover was confirmed by affirmative response, trigger handover
+                                if (responseData.metadata?.handover_confirmed === true) {
+                                  console.log('🔄 Auto-triggering handover after affirmative response (quick reply)');
+                                  // Skip message since AI already sent confirmation
+                                  // Don't await - let it run in background to avoid blocking UI
+                                  handleHandoverRequest(true).catch(err => {
+                                    console.error('Error triggering handover:', err);
+                                  });
+                                }
                               } else {
+                                console.log('❌ Quick reply AI failed, sending auto-reply');
                                 await sendMessage(conversation.id, {
                                     text: widget.autoReply || 'Thanks for your message!', 
                                   sender: 'business',
                                   senderName: 'AI Assistant',
                                     metadata: { ai_generated: true, fallback_message: true }
                                 });
+                                setAiThinking(false);
                               }
                             } catch (error) {
-                              console.error('Quick reply AI error:', error);
+                              console.error('❌ Quick reply AI error:', error);
                               await sendMessage(conversation.id, {
                                   text: widget.autoReply || 'Thanks for your message!', 
                                 sender: 'business',
                                 senderName: 'AI Assistant',
                                   metadata: { ai_generated: true, fallback_message: true }
                               });
+                              console.log('✅ Error auto-reply sent (quick reply)');
+                              setAiThinking(false);
                             } finally {
+                              console.log('🏁 Finally block (quick reply) - ensuring state cleared');
                               setAiThinking(false);
                             }
                           } else {
@@ -1388,15 +1510,17 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                 
                 {/* AI Thinking Indicator */}
                 {aiThinking && (
-                  <div className="flex items-end gap-2 justify-end">
-                    <div className="bg-blue-600 text-white max-w-[80%] px-4 py-2.5 rounded-2xl premium-shadow" style={{ borderRadius: '18px 18px 4px 18px' }}>
-                      <div className="flex items-center space-x-2">
-                        <Loader2 className="w-4 h-4 animate-spin text-white" />
-                        <span className="text-sm font-medium">AI is thinking...</span>
-                      </div>
+                  <div className="flex items-end gap-2 justify-start">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gray-300 shadow-sm">
+                      <Bot className="w-4 h-4 text-gray-700" />
                     </div>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-blue-500 to-indigo-600 premium-shadow ring-1 ring-white/20">
-                      <Bot className="w-4 h-4 text-white" />
+                    <div className="max-w-[80%] px-4 py-2.5 rounded-2xl shadow-sm border bg-gray-100 border-gray-200" style={{ 
+                      borderRadius: '18px 18px 18px 4px' 
+                    }}>
+                      <div className="flex items-center space-x-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-gray-600" />
+                        <span className="text-sm text-gray-700">AI is thinking...</span>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1409,7 +1533,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
                !handoverRequested && (
                 <div className="px-3 pt-1.5 pb-1.5 border-t border-gray-100 bg-gray-50">
                   <button
-                    onClick={handleHandoverRequest}
+                    onClick={() => handleHandoverRequest()}
                     className="w-full py-1.5 px-2.5 text-xs font-medium rounded-md border transition-all hover:shadow-sm flex items-center justify-center gap-1.5"
                     style={{ 
                       borderColor: primaryColor,

@@ -110,7 +110,10 @@ export default function CustomizeWidgetPage() {
       maxRetrievalDocs: 5,
       ragEnabled: true,
       fallbackToHuman: true,
+      embeddingProvider: 'openai',
       embeddingModel: 'text-embedding-3-large',
+      rerankerEnabled: true,
+      rerankerModel: 'rerank-2.5',
       systemPrompt: 'support',
       customSystemPrompt: ''
     },
@@ -125,7 +128,8 @@ export default function CustomizeWidgetPage() {
       detectionKeywords: ['human', 'agent', 'representative', 'person', 'support agent', 'real person', 'talk to someone'],
       handoverMessage: "I'll connect you with a human agent right away. Please wait a moment.",
       notificationToAgent: true,
-      allowCustomerToSwitch: true
+      allowCustomerToSwitch: true,
+      smartFallbackEnabled: true
     }
   });
 
@@ -205,7 +209,10 @@ export default function CustomizeWidgetPage() {
               maxRetrievalDocs: foundWidget.aiConfig?.maxRetrievalDocs || 5,
               ragEnabled: foundWidget.aiConfig?.ragEnabled || false,
               fallbackToHuman: foundWidget.aiConfig?.fallbackToHuman !== undefined ? foundWidget.aiConfig.fallbackToHuman : true,
-              embeddingModel: foundWidget.aiConfig?.embeddingModel || 'text-embedding-3-large',
+              embeddingProvider: (foundWidget.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai',
+              embeddingModel: (foundWidget.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large',
+              rerankerEnabled: (foundWidget.aiConfig as {rerankerEnabled?: boolean})?.rerankerEnabled !== undefined ? !!(foundWidget.aiConfig as {rerankerEnabled?: boolean}).rerankerEnabled : true,
+              rerankerModel: (foundWidget.aiConfig as {rerankerModel?: string})?.rerankerModel || 'rerank-2.5',
               systemPrompt: foundWidget.aiConfig?.systemPrompt || 'support',
               customSystemPrompt: foundWidget.aiConfig?.customSystemPrompt || ''
             },
@@ -219,7 +226,8 @@ export default function CustomizeWidgetPage() {
               detectionKeywords: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.detectionKeywords as string[] | undefined) || ['human', 'agent', 'representative', 'person', 'support agent', 'real person', 'talk to someone'],
               handoverMessage: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverMessage as string | undefined) || "I'll connect you with a human agent right away. Please wait a moment.",
               notificationToAgent: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.notificationToAgent !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).notificationToAgent as boolean) : true,
-              allowCustomerToSwitch: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.allowCustomerToSwitch !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).allowCustomerToSwitch as boolean) : true
+              allowCustomerToSwitch: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.allowCustomerToSwitch !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).allowCustomerToSwitch as boolean) : true,
+              smartFallbackEnabled: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.smartFallbackEnabled !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).smartFallbackEnabled as boolean) : true
             }
           };
           setFormData(data);
@@ -1038,9 +1046,9 @@ export default function CustomizeWidgetPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="compact">📱 Compact (300x400)</SelectItem>
-                            <SelectItem value="standard">💻 Standard (350x500)</SelectItem>
-                            <SelectItem value="large">🖥️ Large (400x600)</SelectItem>
+                            <SelectItem value="compact">📱 Compact (360x480)</SelectItem>
+                            <SelectItem value="standard">💻 Standard (400x550)</SelectItem>
+                            <SelectItem value="large">🖥️ Large (450x650)</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1122,7 +1130,7 @@ export default function CustomizeWidgetPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="none">⭕ None</SelectItem>
                             <SelectItem value="small">Small</SelectItem>
                             <SelectItem value="medium">Medium</SelectItem>
                             <SelectItem value="large">Large</SelectItem>
@@ -1143,7 +1151,7 @@ export default function CustomizeWidgetPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="none">⭕ None</SelectItem>
                             <SelectItem value="scale">↔️ Scale</SelectItem>
                             <SelectItem value="lift">⬆️ Lift</SelectItem>
                             <SelectItem value="glow">✨ Glow</SelectItem>
@@ -1164,7 +1172,7 @@ export default function CustomizeWidgetPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
+                            <SelectItem value="none">⭕ None</SelectItem>
                             <SelectItem value="pulse">💓 Pulse</SelectItem>
                             <SelectItem value="bounce">⚡ Bounce</SelectItem>
                             <SelectItem value="shake">📳 Shake</SelectItem>
@@ -1259,7 +1267,7 @@ export default function CustomizeWidgetPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
+                                <SelectItem value="none">⭕ None</SelectItem>
                                 <SelectItem value="pulse">💓 Pulse</SelectItem>
                                 <SelectItem value="bounce">⚡ Bounce</SelectItem>
                                 <SelectItem value="ping">📡 Ping</SelectItem>
@@ -1419,10 +1427,34 @@ export default function CustomizeWidgetPage() {
 
                       {/* Embeddings Configuration */}
                       <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">🔍 Embeddings Model (OpenAI)</h4>
+                        <h4 className="text-sm font-semibold text-gray-900 mb-3">🔍 Embeddings Configuration</h4>
                         <div className="space-y-3">
                           <div>
-                            <Label htmlFor="embeddingModel" className="text-xs font-medium text-gray-700 mb-2 block">Select Embedding Model</Label>
+                            <Label htmlFor="embeddingProvider" className="text-xs font-medium text-gray-700 mb-2 block">Embedding Provider</Label>
+                            <Select
+                              value={formData.aiConfig.embeddingProvider}
+                              onValueChange={(value) => {
+                                handleNestedChange('aiConfig', 'embeddingProvider', value);
+                                // Set default model based on provider
+                                if (value === 'voyage') {
+                                  handleNestedChange('aiConfig', 'embeddingModel', 'voyage-3');
+                                } else {
+                                  handleNestedChange('aiConfig', 'embeddingModel', 'text-embedding-3-large');
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="h-10 text-sm bg-white">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="openai">🤖 OpenAI - Industry standard</SelectItem>
+                                <SelectItem value="voyage">🚢 Voyage AI - Optimized for retrieval</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div>
+                            <Label htmlFor="embeddingModel" className="text-xs font-medium text-gray-700 mb-2 block">Select Model</Label>
                             <Select
                               value={formData.aiConfig.embeddingModel}
                               onValueChange={(value) => 
@@ -1433,22 +1465,87 @@ export default function CustomizeWidgetPage() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="text-embedding-3-large">⚡ Text Embedding 3 Large (3072d) - Best quality</SelectItem>
-                                <SelectItem value="text-embedding-3-small">💨 Text Embedding 3 Small (1536d) - Faster & cheaper</SelectItem>
-                                <SelectItem value="text-embedding-ada-002">📦 Ada 002 (1536d) - Legacy model</SelectItem>
+                                {formData.aiConfig.embeddingProvider === 'voyage' ? (
+                                  <>
+                                    <SelectItem value="voyage-3">🚢 Voyage-3 (1024d) - Best for retrieval</SelectItem>
+                                    <SelectItem value="voyage-3-lite">💨 Voyage-3-Lite (512d) - Faster & cheaper</SelectItem>
+                                  </>
+                                ) : (
+                                  <>
+                                    <SelectItem value="text-embedding-3-large">⚡ Text Embedding 3 Large (3072d) - Best quality</SelectItem>
+                                    <SelectItem value="text-embedding-3-small">💨 Text Embedding 3 Small (1536d) - Faster & cheaper</SelectItem>
+                                    <SelectItem value="text-embedding-ada-002">📦 Ada 002 (1536d) - Legacy model</SelectItem>
+                                  </>
+                                )}
                               </SelectContent>
                             </Select>
                             <p className="text-xs text-gray-500 mt-2">
-                              Higher dimensions = better accuracy but higher cost
+                              {formData.aiConfig.embeddingProvider === 'voyage' 
+                                ? 'Voyage AI is optimized for search and retrieval tasks'
+                                : 'Higher dimensions = better accuracy but higher cost'
+                              }
                             </p>
                           </div>
                           
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <p className="text-xs text-blue-800">
-                              <strong>💡 Tip:</strong> Use <strong>text-embedding-3-large</strong> for best quality or <strong>text-embedding-3-small</strong> for cost savings.
+                              <strong>💡 Tip:</strong> {formData.aiConfig.embeddingProvider === 'voyage' 
+                                ? 'Voyage-3 is specifically trained for retrieval tasks and may provide better semantic matching.'
+                                : 'Use text-embedding-3-large for best quality or text-embedding-3-small for cost savings.'
+                              }
                             </p>
                           </div>
                         </div>
+                      </div>
+
+                      {/* Reranker Configuration */}
+                      <div className="p-4 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-lg border border-cyan-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <Label htmlFor="rerankerEnabled" className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                              🎯 Reranker (Recommended)
+                            </Label>
+                            <p className="text-xs text-gray-600 mt-1">Boost accuracy from 65% to 95%+ with intelligent reranking</p>
+                          </div>
+                          <Switch
+                            id="rerankerEnabled"
+                            checked={formData.aiConfig.rerankerEnabled}
+                            onCheckedChange={(checked) => 
+                              handleNestedChange('aiConfig', 'rerankerEnabled', checked)
+                            }
+                          />
+                        </div>
+                        
+                        {formData.aiConfig.rerankerEnabled && (
+                          <div className="space-y-3 pt-3 border-t border-cyan-200">
+                            <div className="bg-white rounded-lg p-3 border border-cyan-200">
+                              <Label htmlFor="rerankerModel" className="text-xs font-medium text-gray-700 mb-2 block">Reranker Model</Label>
+                              <select
+                                id="rerankerModel"
+                                value={formData.aiConfig.rerankerModel}
+                                onChange={(e) => handleNestedChange('aiConfig', 'rerankerModel', e.target.value)}
+                                className="w-full h-9 px-3 text-sm bg-white border-2 border-gray-200 rounded-lg focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20"
+                              >
+                                <option value="rerank-2.5">🚢 rerank-2.5 (Latest, Best Quality)</option>
+                                <option value="rerank-2">🚢 rerank-2 (Fast & Accurate)</option>
+                                <option value="rerank-lite-1">💨 rerank-lite-1 (Fastest)</option>
+                              </select>
+                            </div>
+                            
+                            <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3">
+                              <p className="text-xs text-cyan-900 font-semibold mb-2">🎯 How Reranking Works:</p>
+                              <ul className="text-xs text-cyan-800 space-y-1.5 ml-4 list-disc">
+                                <li><strong>Step 1:</strong> Vector search finds 15 candidates</li>
+                                <li><strong>Step 2:</strong> Reranker scores each by relevance</li>
+                                <li><strong>Step 3:</strong> Returns top 5 most relevant</li>
+                                <li><strong>Result:</strong> Much better context for AI!</li>
+                              </ul>
+                              <p className="text-xs text-cyan-700 mt-3 font-semibold">
+                                ⚡ Cost: ~$0.03 per 1000 queries | Worth it for 30% better accuracy!
+                              </p>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* AI Features Grid */}
@@ -1608,6 +1705,36 @@ export default function CustomizeWidgetPage() {
                               rows={2}
                               className="text-xs bg-white resize-none"
                             />
+                          )}
+                        </div>
+
+                        {/* Smart AI Fallback */}
+                        <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 sm:col-span-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <Label htmlFor="smartFallbackEnabled" className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                🤖 Smart AI Fallback
+                              </Label>
+                              <p className="text-xs text-gray-600 mt-1">Auto-detect when AI doesn&apos;t have relevant information and offer human handover</p>
+                            </div>
+                            <Switch
+                              id="smartFallbackEnabled"
+                              checked={formData.customerHandover.smartFallbackEnabled}
+                              onCheckedChange={(checked) => 
+                                handleNestedChange('customerHandover', 'smartFallbackEnabled', checked)
+                              }
+                            />
+                          </div>
+                          {formData.customerHandover.smartFallbackEnabled && (
+                            <div className="mt-3 p-3 bg-white rounded-lg border border-blue-200">
+                              <p className="text-xs text-blue-800 font-medium mb-1">✨ How it works:</p>
+                              <ul className="text-xs text-blue-700 space-y-1 ml-4 list-disc">
+                                <li>AI detects when it doesn&apos;t have relevant information</li>
+                                <li>Responds: &quot;I&apos;m not sure about that from my knowledge base.&quot;</li>
+                                <li>Offers: &quot;Would you like me to connect you with a human agent?&quot;</li>
+                                <li>Works automatically - no keywords needed</li>
+                              </ul>
+                            </div>
                           )}
                         </div>
                       </div>

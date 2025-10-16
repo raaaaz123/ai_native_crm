@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
 import { Badge } from '@/components/ui/badge';
+import { LoadingDialog } from '../../components/ui/loading-dialog';
 import { Users, Settings, Shield } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -15,6 +16,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const { user, userData, updateUserData, companyContext } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [formData, setFormData] = useState({
@@ -37,8 +39,22 @@ export default function SettingsPage() {
         role: userData.role || '',
         displayName: userData.displayName || ''
       });
+      setPageLoading(false);
     }
   }, [userData]);
+
+  // Show loading state while user data is loading
+  if (pageLoading && !userData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+        <LoadingDialog 
+          open={true}
+          message="Loading Settings" 
+          submessage="Fetching your profile information..."
+        />
+      </div>
+    );
+  }
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));

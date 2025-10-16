@@ -34,6 +34,7 @@ async def upload_document(
     content: Optional[str] = Form(None),
     metadata: Optional[str] = Form(None),
     file: Optional[UploadFile] = File(None),
+    embedding_provider: Optional[str] = Form("openai"),
     embedding_model: Optional[str] = Form("text-embedding-3-large")
 ):
     """Upload and process documents (text or PDF) to knowledge base"""
@@ -100,23 +101,28 @@ async def upload_document(
         if not qdrant_service.qdrant_client:
             raise HTTPException(status_code=500, detail="Qdrant client not initialized")
         
-        if qdrant_service.embeddings:
-            # Set embedding model from request (widget configuration)
-            if embedding_model:
-                print(f"🔄 Using embedding model: {embedding_model}")
-                qdrant_service.set_embedding_model(embedding_model)
-            
-            # Use Qdrant service to store
-            result = qdrant_service.store_knowledge_item(knowledge_item)
-            
-            return DocumentUploadResponse(
-                success=True,
-                message=f"Document '{title}' uploaded and vectorized successfully with {embedding_model}",
-                id=item_id,
-                processing_status="completed"
-            )
+        # Set embedding provider and model from request (widget configuration)
+        if embedding_provider and embedding_model:
+            print(f"🔄 Using embeddings: {embedding_provider}/{embedding_model}")
+            qdrant_service.set_embedding_provider(embedding_provider, embedding_model)
+        
+        # Check if embeddings are ready
+        if embedding_provider == "voyage":
+            if not qdrant_service.voyage_service.client:
+                raise HTTPException(status_code=500, detail="Voyage AI embeddings not initialized")
         else:
-            raise HTTPException(status_code=500, detail="Embeddings not initialized")
+            if not qdrant_service.embeddings:
+                raise HTTPException(status_code=500, detail="OpenAI embeddings not initialized")
+        
+        # Use Qdrant service to store
+        result = qdrant_service.store_knowledge_item(knowledge_item, embedding_provider, embedding_model)
+        
+        return DocumentUploadResponse(
+            success=True,
+            message=f"Document '{title}' uploaded and vectorized successfully with {embedding_provider}/{embedding_model}",
+            id=item_id,
+            processing_status="completed"
+        )
         
     except Exception as e:
         print(f"❌ Error uploading document: {e}")

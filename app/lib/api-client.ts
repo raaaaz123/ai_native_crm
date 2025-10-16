@@ -45,9 +45,26 @@ export interface AIConfig {
   maxRetrievalDocs: number;
   ragEnabled: boolean;
   fallbackToHuman: boolean;
+  embeddingProvider: string;
   embeddingModel: string;
+  rerankerEnabled: boolean;
+  rerankerModel: string;
   systemPrompt: string;
   customSystemPrompt?: string;
+}
+
+export interface CustomerHandoverConfig {
+  enabled: boolean;
+  showHandoverButton: boolean;
+  handoverButtonText: string;
+  handoverButtonPosition: string;
+  includeInQuickReplies: boolean;
+  autoDetectKeywords: boolean;
+  detectionKeywords: string[];
+  handoverMessage: string;
+  notificationToAgent: boolean;
+  allowCustomerToSwitch: boolean;
+  smartFallbackEnabled: boolean;
 }
 
 export interface AIChatRequest {
@@ -58,6 +75,7 @@ export interface AIChatRequest {
   businessId?: string;
   customerName?: string;
   customerEmail?: string;
+  customerHandover?: CustomerHandoverConfig;
 }
 
 export interface AIChatResponse {
@@ -98,6 +116,8 @@ export interface DocumentUploadRequest {
   file_name?: string;
   website_url?: string;
   metadata?: Record<string, unknown>;
+  embeddingProvider?: string;
+  embeddingModel?: string;
 }
 
 export interface WebsiteScrapingRequest {
@@ -219,6 +239,15 @@ class ApiClient {
     
     if (document.metadata) {
       formData.append('metadata', JSON.stringify(document.metadata));
+    }
+    
+    // Add embedding configuration
+    if (document.embeddingProvider) {
+      formData.append('embedding_provider', document.embeddingProvider);
+    }
+    
+    if (document.embeddingModel) {
+      formData.append('embedding_model', document.embeddingModel);
     }
 
     try {

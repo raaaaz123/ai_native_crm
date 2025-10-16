@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { LoadingDialog } from '../../components/ui/loading-dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +52,7 @@ export default function WidgetsPage() {
   const { companyContext } = useAuth();
   const [widgets, setWidgets] = useState<Widget[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCreateWidget, setShowCreateWidget] = useState(false);
   const [deletingWidget, setDeletingWidget] = useState<Widget | null>(null);
@@ -88,7 +90,11 @@ export default function WidgetsPage() {
       confidenceThreshold: 0.5,
       maxRetrievalDocs: 5,
       ragEnabled: true,
-      fallbackToHuman: true
+      fallbackToHuman: true,
+      embeddingProvider: 'openai',
+      embeddingModel: 'text-embedding-3-large',
+      rerankerEnabled: true,
+      rerankerModel: 'rerank-2.5'
     }
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,6 +102,9 @@ export default function WidgetsPage() {
   useEffect(() => {
     if (companyContext?.company?.id) {
       loadWidgets();
+    } else {
+      setLoading(false);
+      setInitialLoadComplete(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyContext]);
@@ -128,6 +137,7 @@ export default function WidgetsPage() {
       setError('Failed to load widgets. Please try again.');
     } finally {
       setLoading(false);
+      setInitialLoadComplete(true);
     }
   };
 
@@ -274,7 +284,11 @@ export default function WidgetsPage() {
         confidenceThreshold: 0.5,
         maxRetrievalDocs: 5,
         ragEnabled: true,
-        fallbackToHuman: true
+        fallbackToHuman: true,
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-large',
+        rerankerEnabled: true,
+        rerankerModel: 'rerank-2.5'
       }
     });
   };
@@ -322,13 +336,14 @@ export default function WidgetsPage() {
     );
   }
 
-  if (loading) {
+  if (loading || !initialLoadComplete) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-blue-50/20 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading widgets...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+        <LoadingDialog 
+          open={true}
+          message="Loading Widgets" 
+          submessage="Fetching your chat widgets and settings..."
+        />
       </div>
     );
   }

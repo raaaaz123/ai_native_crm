@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
+import { LoadingDialog } from '../components/ui/loading-dialog';
 import { 
   createChatWidget, 
   getBusinessWidgets, 
@@ -40,6 +41,9 @@ export default function DashboardPage() {
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
   const [, setLoadingWidgets] = useState(true);
   const [showCreateWidget, setShowCreateWidget] = useState(false);
+  
+  // Track if initial data loading is complete
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
   // New state for analytics and data
   const [reviewForms, setReviewForms] = useState<ReviewForm[]>([]);
@@ -94,6 +98,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!loading && !user) {
       router.push('/signin');
+    }
+    
+    // Mark initial load as complete when auth loading is done
+    if (!loading) {
+      setInitialLoadComplete(true);
     }
   }, [user, loading, router]);
 
@@ -237,36 +246,6 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.uid, companyContext?.company?.id]);
 
-  // Show company setup if no company context
-  if (!loading && user && !companyContext) {
-    return (
-      <Container>
-        <div className="text-center py-12">
-          <Shield className="w-16 h-16 text-neutral-400 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">Welcome to Your Dashboard</h1>
-          <p className="text-neutral-600 mb-8">
-            You need to create or join a company to start using the dashboard.
-          </p>
-          <div className="flex space-x-4 justify-center">
-            <Button 
-              onClick={() => router.push('/dashboard/settings/company')}
-              className="bg-primary-500 hover:bg-primary-600"
-            >
-              Create Company
-            </Button>
-            <Button 
-              variant="outline"
-              onClick={() => router.push('/dashboard/settings/team')}
-            >
-              Join Company
-            </Button>
-          </div>
-        </div>
-      </Container>
-    );
-  }
-
-
   const handleCreateWidget = async () => {
     if (!user?.uid || creating) return;
     
@@ -322,13 +301,16 @@ export default function DashboardPage() {
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is loading OR initial load is not complete
+  if (loading || !initialLoadComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-          <p className="text-neutral-600">Loading...</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+        <LoadingDialog 
+          open={true}
+          message="Loading Dashboard" 
+          submessage="Preparing your workspace and loading data..." 
+          variant="gradient"
+        />
       </div>
     );
   }
