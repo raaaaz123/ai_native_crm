@@ -91,16 +91,6 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Get color from name (consistent color for each user)
-  const getColorFromName = (name: string) => {
-    if (!name) return '#6B7280';
-    const colors = [
-      '#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', 
-      '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#84CC16'
-    ];
-    const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    return colors[hash % colors.length];
-  };
 
   // Load user email from localStorage on mount
   useEffect(() => {
@@ -129,17 +119,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
   const showBranding = widget.showBranding !== undefined ? widget.showBranding : true;
   const quickReplies = widget.quickReplies || ['Get Support', 'Pricing', 'Contact Sales'];
   
-  // Helper function to convert hex to RGB
-  const hexToRgb = (hex: string) => {
-    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-    return result ? {
-      r: parseInt(result[1], 16),
-      g: parseInt(result[2], 16),
-      b: parseInt(result[3], 16)
-    } : { r: 59, g: 130, b: 246 }; // Default blue
-  };
   
-  const rgb = hexToRgb(primaryColor);
   
   // New styling options
   const buttonStyle = widget.buttonStyle || 'rounded';

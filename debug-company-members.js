@@ -1,4 +1,5 @@
 // Debug script to check companyMembers collection
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { initializeApp } = require('firebase/app');
 const { getFirestore, collection, query, where, getDocs } = require('firebase/firestore');
 const { getAuth, onAuthStateChanged } = require('firebase/auth');

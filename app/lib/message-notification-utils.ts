@@ -9,13 +9,6 @@
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
-interface MessageNotificationStatus {
-  messageId: string;
-  emailSent: boolean;
-  emailSentAt?: number;
-  recipientEmail: string;
-}
-
 /**
  * Check if a message should trigger an email notification
  * Returns true if email should be sent

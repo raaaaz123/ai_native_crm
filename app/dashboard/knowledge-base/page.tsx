@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
 import { sendArticleNotificationEmail } from '../../lib/email-client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -28,7 +28,6 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle,
-  X
 } from 'lucide-react';
 import { getBusinessWidgets, type ChatWidget } from '@/app/lib/chat-utils';
 import { 
@@ -368,8 +367,8 @@ export default function KnowledgeBasePage() {
       setUploadStatus('uploading');
 
       let content = formData.content;
-      let fileName = '';
-      let fileSize = 0;
+      const fileName = '';
+      const fileSize = 0;
 
       // Handle FAQ
       if (formData.type === 'faq') {

@@ -20,7 +20,6 @@ export function LoadingDialog({
   open = true,
   message = 'Loading...', 
   submessage,
-  variant = 'gradient',
   icon
 }: LoadingDialogProps) {
   return (
@@ -100,9 +99,8 @@ export function LoadingDialog({
 
 export function LoadingSpinner({ 
   message = 'Loading...', 
-  submessage,
-  variant = 'default'
-}: Omit<LoadingDialogProps, 'open'>) {
+  submessage
+}: Omit<LoadingDialogProps, 'open' | 'variant'>) {
   return (
     <div className="flex items-center justify-center py-12">
       <div className="text-center">

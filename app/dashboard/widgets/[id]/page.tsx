@@ -1427,7 +1427,7 @@ export default function CustomizeWidgetPage() {
                               <>
                                 <p className="text-xs text-green-900 font-medium mb-1.5">⚡ Gemini 2.5 Flash Benefits:</p>
                                 <ul className="text-xs text-green-800 space-y-1 ml-4 list-disc">
-                                  <li>Google's latest model</li>
+                                  <li>Google&apos;s latest model</li>
                                   <li>Ultra-fast response times</li>
                                   <li>Multimodal capabilities (text + images)</li>
                                   <li>Great for real-time chat</li>

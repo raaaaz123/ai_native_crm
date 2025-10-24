@@ -31,9 +31,9 @@
        if (response.ok) {
          widgetConfig = await response.json();
        }
-     } catch (error) {
-       console.warn('Could not fetch widget config, using defaults');
-     }
+    } catch {
+      console.warn('Could not fetch widget config, using defaults');
+    }
 
     const buttonText = widgetConfig?.buttonText || 'Chat with us';
     const primaryColor = widgetConfig?.primaryColor || '#3B82F6';

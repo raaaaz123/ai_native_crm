@@ -11,7 +11,7 @@ import { LoadingDialog } from '../../components/ui/loading-dialog';
 import { Users, Settings, Shield, Crown, Clock, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { getSubscriptionInfo, formatDate, getPlanFeatures } from '@/app/lib/subscription-utils';
+import { getSubscriptionInfo, getPlanFeatures } from '@/app/lib/subscription-utils';
 
 export default function SettingsPage() {
   const router = useRouter();

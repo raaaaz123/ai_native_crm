@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 import {
@@ -38,7 +38,7 @@ import {
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 
-export default function ConversationsPage() {
+function ConversationsContent() {
   const { user, companyContext } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -396,7 +396,6 @@ export default function ConversationsPage() {
     } else if (!status) {
       setStatusFilter('all');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Mobile: Switch to chat view when conversation is selected
@@ -1774,5 +1773,20 @@ export default function ConversationsPage() {
       </div>
     </div>
     </>
+  );
+}
+
+export default function ConversationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-50 to-blue-50/20">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-700 font-medium">Loading conversations...</p>
+        </div>
+      </div>
+    }>
+      <ConversationsContent />
+    </Suspense>
   );
 }
