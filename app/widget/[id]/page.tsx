@@ -14,7 +14,7 @@ import type {
   ChatConversation
 } from '../../lib/chat-utils';
 import { apiClient } from '../../lib/api-client';
-import type { AIChatRequest } from '../../lib/api-client';
+import type { AIChatRequest, AIConfig } from '../../lib/api-client';
 import { 
   MessageCircle, 
   Send,
@@ -292,27 +292,29 @@ export default function ChatWidget() {
         setAiThinking(true);
         
         try {
+          const aiConfigObj: AIConfig = {
+            enabled: aiConfig.enabled,
+            provider: (aiConfig as Record<string, unknown>).provider as string || 'openrouter',
+            model: (aiConfig as Record<string, unknown>).model as string || 'openai/gpt-5-mini',
+            temperature: (aiConfig as Record<string, unknown>).temperature as number || 0.7,
+            maxTokens: (aiConfig as Record<string, unknown>).maxTokens as number || 500,
+            confidenceThreshold: (aiConfig as Record<string, unknown>).confidenceThreshold as number || 0.6,
+            maxRetrievalDocs: (aiConfig as Record<string, unknown>).maxRetrievalDocs as number || 5,
+            ragEnabled: (aiConfig as Record<string, unknown>).ragEnabled as boolean || false,
+            fallbackToHuman: (aiConfig as Record<string, unknown>).fallbackToHuman !== undefined ? (aiConfig as Record<string, unknown>).fallbackToHuman as boolean : true,
+            embeddingProvider: (aiConfig as Record<string, unknown>).embeddingProvider as string || 'openai',
+            embeddingModel: (aiConfig as Record<string, unknown>).embeddingModel as string || 'text-embedding-3-large',
+            rerankerEnabled: (aiConfig as Record<string, unknown>).rerankerEnabled !== undefined ? (aiConfig as Record<string, unknown>).rerankerEnabled as boolean : true,
+            rerankerModel: (aiConfig as Record<string, unknown>).rerankerModel as string || 'rerank-2.5',
+            systemPrompt: (aiConfig as Record<string, unknown>).systemPrompt as string || 'support',
+            customSystemPrompt: (aiConfig as Record<string, unknown>).customSystemPrompt as string || ''
+          };
+
           const aiRequest: AIChatRequest = {
             message: messageText,
             widgetId: widgetId,
             conversationId: conversation.id,
-            aiConfig: {
-              enabled: aiConfig.enabled,
-              provider: (aiConfig as Record<string, unknown>).provider as string || 'openrouter',
-              model: (aiConfig as Record<string, unknown>).model as string || 'openai/gpt-5-mini',
-              temperature: (aiConfig as Record<string, unknown>).temperature as number || 0.7,
-              maxTokens: (aiConfig as Record<string, unknown>).maxTokens as number || 500,
-              confidenceThreshold: (aiConfig as Record<string, unknown>).confidenceThreshold as number || 0.6,
-              maxRetrievalDocs: (aiConfig as Record<string, unknown>).maxRetrievalDocs as number || 5,
-              ragEnabled: (aiConfig as Record<string, unknown>).ragEnabled as boolean || false,
-              fallbackToHuman: (aiConfig as Record<string, unknown>).fallbackToHuman !== undefined ? (aiConfig as Record<string, unknown>).fallbackToHuman as boolean : true,
-              embeddingProvider: (aiConfig as Record<string, unknown>).embeddingProvider as string || 'openai',
-              embeddingModel: (aiConfig as Record<string, unknown>).embeddingModel as string || 'text-embedding-3-large',
-              rerankerEnabled: (aiConfig as Record<string, unknown>).rerankerEnabled !== undefined ? (aiConfig as Record<string, unknown>).rerankerEnabled as boolean : true,
-              rerankerModel: (aiConfig as Record<string, unknown>).rerankerModel as string || 'rerank-2.5',
-              systemPrompt: (aiConfig as Record<string, unknown>).systemPrompt as string || 'support',
-              customSystemPrompt: (aiConfig as Record<string, unknown>).customSystemPrompt as string || ''
-            },
+            aiConfig: aiConfigObj,
             businessId: widget.businessId,
             customerName: userInfo.name,
             customerEmail: userInfo.email,
