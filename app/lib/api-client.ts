@@ -4,6 +4,10 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://git-branch-m-main.onrender.com';
 
+// Debug logging for API URL
+console.log('🔍 API_BASE_URL:', API_BASE_URL);
+console.log('🔍 NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
