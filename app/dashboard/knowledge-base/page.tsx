@@ -295,7 +295,7 @@ export default function KnowledgeBasePage() {
       setUploadStatus('uploading');
       setUploadMessage('Testing Notion connection...');
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
       const response = await fetch(`${backendUrl}/api/notion/test-connection`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -328,7 +328,7 @@ export default function KnowledgeBasePage() {
     
     try {
       setNotionSearching(true);
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
       
       const response = await fetch(`${backendUrl}/api/notion/search-pages`, {
         method: 'POST',
@@ -406,7 +406,7 @@ export default function KnowledgeBasePage() {
           }
         };
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
         const faqResponse = await fetch(`${backendUrl}/api/knowledge-base/store-faq`, {
           method: 'POST',
           headers: {
@@ -488,7 +488,7 @@ export default function KnowledgeBasePage() {
           return;
         }
         
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
         const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
         const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
         const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
@@ -604,7 +604,7 @@ export default function KnowledgeBasePage() {
           }
         };
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
         const scrapingResponse = await fetch(`${backendUrl}/api/crawler/crawl-website-preview`, {
           method: 'POST',
           headers: {
@@ -655,7 +655,7 @@ export default function KnowledgeBasePage() {
         }));
 
         // Upload file to backend
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
         const uploadResponse = await fetch(`${backendUrl}/api/knowledge-base/upload`, {
           method: 'POST',
           body: uploadFormData,
@@ -808,7 +808,7 @@ export default function KnowledgeBasePage() {
       setUploadStatus('uploading');
       setSaveProgress({ current: 0, total: editableChunks.length });
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
       const BATCH_SIZE = 50; // Process 50 chunks at a time
       const totalChunks = editableChunks.length;
       let allStoredChunks: ChunkData[] = [];
@@ -937,7 +937,7 @@ export default function KnowledgeBasePage() {
       
       // Step 1: Delete from Qdrant FIRST (all vector chunks with this itemId)
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
         console.log(`🗑️ Deleting all vector chunks for itemId: ${id} from Qdrant...`);
         
         const qdrantResponse = await fetch(`${backendUrl}/api/knowledge-base/delete/${id}`, {
@@ -1010,7 +1010,7 @@ export default function KnowledgeBasePage() {
       setUploadMessage('Deleting all data from Qdrant and Firestore...');
 
       const businessId = companyContext.company.id;
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
 
       // Delete from Qdrant
       const qdrantResponse = await fetch(`${backendUrl}/api/knowledge-base/delete-all`, {
@@ -1079,7 +1079,7 @@ export default function KnowledgeBasePage() {
       setUploadStatus('uploading');
       setUploadMessage('Cleaning entire Qdrant collection...');
 
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
 
       // Call the clean Qdrant endpoint
       const response = await fetch(`${backendUrl}/api/knowledge-base/clean-qdrant`, {

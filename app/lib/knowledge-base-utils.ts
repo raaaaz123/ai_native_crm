@@ -44,7 +44,7 @@ export interface ApiResponse<T> {
 // Store knowledge base item in Qdrant for semantic search
 async function storeInQdrant(item: KnowledgeBaseItem, embeddingModel: string = 'text-embedding-3-large'): Promise<void> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
     const response = await fetch(`${backendUrl}/api/knowledge-base/store?embedding_model=${encodeURIComponent(embeddingModel)}`, {
       method: 'POST',
       headers: {
