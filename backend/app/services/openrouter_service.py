@@ -24,7 +24,7 @@ class OpenRouterService:
     def generate_response(
         self, 
         message: str, 
-        model: str = "deepseek/deepseek-chat-v3.1:free",
+        model: str = "openai/gpt-5-mini",
         temperature: float = 0.7,
         max_tokens: int = 500,
         system_prompt: Optional[str] = None
@@ -116,7 +116,7 @@ class OpenRouterService:
         self, 
         message: str, 
         context: str,
-        model: str = "deepseek/deepseek-chat-v3.1:free",
+        model: str = "openai/gpt-5-mini",
         temperature: float = 0.7,
         max_tokens: int = 500,
         system_prompt_type: str = "support",

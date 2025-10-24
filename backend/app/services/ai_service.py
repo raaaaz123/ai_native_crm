@@ -43,9 +43,10 @@ class AIService:
             print(f"   Embedding Provider: {embedding_provider}")
             print(f"   Embedding Model: {embedding_model}")
             
-            # Step 1: Get initial results from Qdrant (retrieve more for reranking)
+            # Step 1: HYBRID SEARCH - Get initial results from Qdrant
+            # Uses Dense (semantic) + BM42 Sparse (keywords) with RRF Fusion
             initial_limit = max_docs * 3  # Get 3x more for better reranking
-            print(f"   📥 Retrieving {initial_limit} candidates for reranking...")
+            print(f"   📥 Hybrid search: retrieving {initial_limit} fused candidates...")
             
             search_result = qdrant_service.search_knowledge_base(
                 query=query,
@@ -58,9 +59,13 @@ class AIService:
                 return []
             
             initial_results = search_result.get("results", [])
+            search_type = search_result.get("search_type", "unknown")
             
-            print(f"\n📊 INITIAL RETRIEVAL:")
+            print(f"\n📊 HYBRID RETRIEVAL RESULTS:")
+            print(f"   Search Type: {search_type}")
             print(f"   Candidates Found: {len(initial_results)}")
+            if search_type == "hybrid_rrf":
+                print(f"   ✅ Using: Dense (semantic) + BM42 (keywords) + RRF Fusion")
             
             if len(initial_results) == 0:
                 print("\n⚠️ WARNING: No documents found in knowledge base!")

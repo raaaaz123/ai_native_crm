@@ -103,7 +103,7 @@ export default function CustomizeWidgetPage() {
     aiConfig: {
       enabled: true,
       provider: 'openrouter',
-      model: 'deepseek/deepseek-chat-v3.1:free',
+      model: 'openai/gpt-5-mini',
       temperature: 0.7,
       maxTokens: 500,
       confidenceThreshold: 0.5,
@@ -202,7 +202,7 @@ export default function CustomizeWidgetPage() {
             aiConfig: {
               enabled: foundWidget.aiConfig?.enabled || false,
               provider: foundWidget.aiConfig?.provider || 'openrouter',
-              model: foundWidget.aiConfig?.model || 'deepseek/deepseek-chat-v3.1:free',
+              model: foundWidget.aiConfig?.model || 'openai/gpt-5-mini',
               temperature: foundWidget.aiConfig?.temperature || 0.7,
               maxTokens: foundWidget.aiConfig?.maxTokens || 500,
               confidenceThreshold: foundWidget.aiConfig?.confidenceThreshold || 0.6,
@@ -1373,54 +1373,67 @@ export default function CustomizeWidgetPage() {
 
                   {formData.aiConfig.enabled && (
                     <div className="space-y-4">
-                      {/* AI Provider & Model Selection */}
-                      <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3">AI Provider & Model</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <Label htmlFor="aiProvider" className="text-xs font-medium text-gray-700">Provider</Label>
-                            <Select
-                              value={formData.aiConfig.provider}
-                              onValueChange={(value) => 
-                                handleNestedChange('aiConfig', 'provider', value)
-                              }
-                            >
-                              <SelectTrigger className="h-9 text-sm bg-white mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="openrouter">🚀 OpenRouter</SelectItem>
-                                <SelectItem value="openai">⚡ OpenAI</SelectItem>
-                                <SelectItem value="anthropic">🤖 Anthropic</SelectItem>
-                                <SelectItem value="google">🔍 Google</SelectItem>
-                              </SelectContent>
-                            </Select>
+                      {/* AI Model Selection */}
+                      <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border-2 border-indigo-300">
+                        <div className="flex items-start gap-3 mb-3">
+                          <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
+                            <Bot className="w-6 h-6 text-white" />
                           </div>
-
-                          <div>
-                            <Label htmlFor="aiModel" className="text-xs font-medium text-gray-700">Model</Label>
-                            <Select
-                              value={formData.aiConfig.model}
-                              onValueChange={(value) => 
-                                handleNestedChange('aiConfig', 'model', value)
-                              }
-                            >
-                              <SelectTrigger className="h-9 text-sm bg-white mt-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="google/gemini-2.0-flash-exp:free">Gemini 2.0 Flash (Free)</SelectItem>
-                                <SelectItem value="deepseek/deepseek-chat-v3.1:free">DeepSeek v3.1 (Free)</SelectItem>
-                                <SelectItem value="meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 3B (Free)</SelectItem>
-                                <SelectItem value="microsoft/phi-3-mini-128k-instruct:free">Phi-3 Mini (Free)</SelectItem>
-                                <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                                <SelectItem value="gpt-4">GPT-4</SelectItem>
-                                <SelectItem value="claude-3-sonnet">Claude 3 Sonnet</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-indigo-600 mt-1.5 flex items-center gap-1">
-                              💡 Free models recommended for testing
-                            </p>
+                          <div className="flex-1">
+                            <h4 className="text-sm font-bold text-gray-900 mb-1">🚀 AI Model Selection</h4>
+                            <p className="text-xs text-gray-700">Powered by OpenRouter</p>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <Label htmlFor="aiModel" className="text-xs font-semibold text-gray-700 mb-2 block">Select Model</Label>
+                          <Select
+                            value={formData.aiConfig.model}
+                            onValueChange={(value) => 
+                              handleNestedChange('aiConfig', 'model', value)
+                            }
+                          >
+                            <SelectTrigger className="h-10 text-sm bg-white border-2 border-indigo-300">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="openai/gpt-5-mini">
+                                <div className="flex items-center gap-2">
+                                  <span>🤖 GPT-5 Mini</span>
+                                  <span className="text-xs text-blue-600">(OpenAI - Latest)</span>
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="google/gemini-2.5-flash">
+                                <div className="flex items-center gap-2">
+                                  <span>⚡ Gemini 2.5 Flash</span>
+                                  <span className="text-xs text-green-600">(Google - Fast)</span>
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                          
+                          <div className="mt-3 p-3 bg-white rounded-lg border border-indigo-200">
+                            {formData.aiConfig.model === 'openai/gpt-5-mini' ? (
+                              <>
+                                <p className="text-xs text-indigo-900 font-medium mb-1.5">✨ GPT-5 Mini Benefits:</p>
+                                <ul className="text-xs text-indigo-800 space-y-1 ml-4 list-disc">
+                                  <li>Latest technology from OpenAI</li>
+                                  <li>Better accuracy & understanding</li>
+                                  <li>Excellent for complex reasoning</li>
+                                  <li>Best-in-class performance</li>
+                                </ul>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-xs text-green-900 font-medium mb-1.5">⚡ Gemini 2.5 Flash Benefits:</p>
+                                <ul className="text-xs text-green-800 space-y-1 ml-4 list-disc">
+                                  <li>Google's latest model</li>
+                                  <li>Ultra-fast response times</li>
+                                  <li>Multimodal capabilities (text + images)</li>
+                                  <li>Great for real-time chat</li>
+                                </ul>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>

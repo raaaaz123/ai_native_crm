@@ -481,7 +481,7 @@ export async function sendMessage(
 
     // Send email notification
     try {
-      await sendEmailNotification(conversationId, messageData);
+      await sendEmailNotification(conversationId, messageData, messageRef.id);
     } catch (emailError) {
       console.error('Failed to send email notification:', emailError);
       // Don't fail the message send if email fails
@@ -699,10 +699,11 @@ export async function clearHandover(conversationId: string): Promise<void> {
   }
 }
 
-// Email notification function
+// Intelligent email notification function
 async function sendEmailNotification(
   conversationId: string,
-  messageData: { text: string; sender: 'customer' | 'business'; senderName: string; metadata?: Record<string, unknown> }
+  messageData: { text: string; sender: 'customer' | 'business'; senderName: string; metadata?: Record<string, unknown> },
+  messageId: string
 ): Promise<void> {
   try {
     // Get conversation details
@@ -713,50 +714,80 @@ async function sendEmailNotification(
     }
 
     const conversation = conversationDoc.data();
-    const { customerName, customerEmail } = conversation;
+    const { customerName, customerEmail, widgetId, businessId } = conversation;
 
-    // Get business details (you might need to fetch from users collection)
-    // For now, we'll use a placeholder - you should fetch actual business email
-    const businessEmail = 'support@rexahire.com'; // This should be fetched from business profile
-    const businessName = 'Business'; // This should be fetched from business profile
-
-    // Determine sender type for email template
-    let senderType: 'customer' | 'business' | 'ai' = messageData.sender;
+    // Skip AI-generated messages (only send for human messages)
     if (messageData.metadata?.ai_generated) {
-      senderType = 'ai';
+      console.log('Skipping email for AI-generated message');
+      return;
     }
 
-    // Send email notification to backend
-    const emailPayload = {
-      conversationId,
-      message: messageData.text,
-      senderType,
-      senderName: messageData.senderName,
-      customerName,
-      customerEmail,
-      businessName,
-      businessEmail,
-      metadata: messageData.metadata
-    };
-
-    // Try to call backend email service, but don't fail if it's not available
+    // Get business email from companyMembers
+    let businessEmail = '';
+    let businessName = 'Support Team';
+    
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'}/api/email/send-notification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(emailPayload)
-      });
-
-      if (!response.ok) {
-        console.error('Failed to send email notification:', await response.text());
+      const membersSnapshot = await getDocs(
+        query(
+          collection(db, 'companyMembers'),
+          where('companyId', '==', businessId),
+          where('role', '==', 'admin')
+        )
+      );
+      
+      if (!membersSnapshot.empty) {
+        const adminMember = membersSnapshot.docs[0].data();
+        businessEmail = adminMember.email || '';
+        
+        // Get company name
+        const companyDoc = await getDoc(doc(db, 'companies', businessId));
+        if (companyDoc.exists()) {
+          businessName = companyDoc.data().name || 'Support Team';
+        }
       }
-    } catch (fetchError) {
-      console.log('Email service not available, skipping email notification:', fetchError);
-      // Don't throw error - email is optional
+    } catch (error) {
+      console.error('Error fetching business details:', error);
     }
+
+    // Get widget name
+    let widgetName = '';
+    try {
+      if (widgetId) {
+        const widgetDoc = await getDoc(doc(db, 'chatWidgets', widgetId));
+        if (widgetDoc.exists()) {
+          widgetName = widgetDoc.data().name || '';
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching widget name:', error);
+    }
+
+    // Determine recipient based on sender
+    const recipientEmail = messageData.sender === 'customer' ? businessEmail : customerEmail;
+    const recipientName = messageData.sender === 'customer' ? businessName : customerName;
+
+    if (!recipientEmail) {
+      console.log('No recipient email found, skipping notification');
+      return;
+    }
+
+    // Use the intelligent notification system
+    const { handleMessageNotification } = await import('./message-notification-utils');
+    
+    await handleMessageNotification({
+      messageId,
+      conversationId,
+      sender: messageData.sender,
+      recipientEmail,
+      recipientName,
+      senderName: messageData.senderName,
+      messageText: messageData.text,
+      widgetName,
+      businessName
+    });
+
   } catch (error) {
-    console.error('Error sending email notification:', error);
+    console.error('Error in email notification:', error);
+    // Don't fail the message send if email fails
   }
 }

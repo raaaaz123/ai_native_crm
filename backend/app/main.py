@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import ALLOWED_ORIGINS, API_HOST, API_PORT
-from app.routers import health_router, knowledge_router, ai_router, review_router, email_router, scraping_router, firestore_router, crawler_router, faq_router
+from app.routers import health_router, knowledge_router, ai_router, review_router, email_router, scraping_router, firestore_router, crawler_router, faq_router, notion_router
 from app.services.qdrant_service import qdrant_service
 
 # Create FastAPI app
@@ -34,6 +34,7 @@ app.include_router(scraping_router.router, prefix="/api/scraping", tags=["scrapi
 app.include_router(crawler_router.router, prefix="/api/crawler", tags=["crawler"])
 app.include_router(firestore_router.router, prefix="/api/firestore", tags=["firestore"])
 app.include_router(faq_router.router, prefix="/api/knowledge-base", tags=["faq"])
+app.include_router(notion_router.router)
 
 
 @app.on_event("startup")

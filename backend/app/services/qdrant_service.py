@@ -12,7 +12,16 @@ from qdrant_client.models import (
     Filter,
     FieldCondition,
     MatchValue,
-    SearchRequest
+    SearchRequest,
+    SparseVector,
+    SparseVectorParams,
+    Modifier,
+    NamedVector,
+    NamedSparseVector,
+    Prefetch,
+    Query,
+    FusionQuery,
+    Fusion
 )
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings
@@ -21,6 +30,71 @@ import pdfplumber
 
 from app.config import QDRANT_URL, QDRANT_API_KEY, QDRANT_COLLECTION_NAME, OPENAI_API_KEY, VOYAGE_API_KEY
 from app.services.voyage_service import voyage_service
+import re
+from collections import Counter
+import math
+
+
+def tokenize_for_bm42(text: str) -> List[str]:
+    """
+    Tokenize text for BM42 sparse vectors
+    Simple but effective tokenization for keyword matching
+    """
+    # Convert to lowercase
+    text = text.lower()
+    
+    # Remove special characters but keep important ones
+    text = re.sub(r'[^\w\s@._-]', ' ', text)
+    
+    # Split into tokens
+    tokens = text.split()
+    
+    # Filter out very short tokens and stopwords
+    stopwords = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 
+                 'of', 'with', 'by', 'from', 'is', 'are', 'was', 'were', 'be', 'been',
+                 'has', 'have', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+                 'should', 'may', 'might', 'can', 'this', 'that', 'these', 'those'}
+    
+    tokens = [t for t in tokens if len(t) > 1 and t not in stopwords]
+    
+    return tokens
+
+
+def generate_sparse_vector(text: str) -> SparseVector:
+    """
+    Generate BM42-style sparse vector for text
+    Uses token frequency with simple weighting
+    """
+    tokens = tokenize_for_bm42(text)
+    
+    if not tokens:
+        return SparseVector(indices=[], values=[])
+    
+    # Count token frequencies
+    token_counts = Counter(tokens)
+    
+    # Create sparse vector (indices = token hashes, values = TF scores)
+    indices = []
+    values = []
+    
+    total_tokens = len(tokens)
+    
+    for token, count in token_counts.items():
+        # Use hash of token as index (Qdrant will handle IDF internally)
+        token_hash = hash(token) % (2**31)  # Ensure positive 32-bit int
+        
+        # Simple TF (term frequency) score
+        # BM42 formula: tf / (tf + k1 * (1 - b + b * (doc_len / avg_doc_len)))
+        # Simplified: just use normalized term frequency
+        tf_score = count / total_tokens
+        
+        indices.append(token_hash)
+        values.append(tf_score)
+    
+    return SparseVector(
+        indices=indices,
+        values=values
+    )
 
 
 class QdrantService:
@@ -69,35 +143,65 @@ class QdrantService:
             raise
 
     def _ensure_collection_exists(self, vector_size: int):
-        """Ensure the collection exists, create if it doesn't"""
+        """Ensure the collection exists with both dense and sparse vectors for hybrid search"""
         try:
             # Check if collection exists
             collections = self.qdrant_client.get_collections()
             collection_names = [col.name for col in collections.collections]
             
             if self.collection_name not in collection_names:
-                print(f"📦 Creating new collection: {self.collection_name} with dimension {vector_size}")
+                print(f"📦 Creating new HYBRID collection: {self.collection_name}")
+                print(f"   Dense vector dimension: {vector_size}")
+                print(f"   Sparse vector: BM42 (Qdrant native)")
+                
+                # Create collection with BOTH dense and sparse vectors
                 self.qdrant_client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=VectorParams(
-                        size=vector_size,
-                        distance=Distance.COSINE
-                    )
+                    vectors_config={
+                        "dense": VectorParams(
+                            size=vector_size,
+                            distance=Distance.COSINE
+                        )
+                    },
+                    sparse_vectors_config={
+                        "sparse": SparseVectorParams(
+                            modifier=Modifier.IDF  # BM42 uses IDF weighting
+                        )
+                    }
                 )
-                print(f"✅ Collection '{self.collection_name}' created successfully")
+                print(f"✅ Hybrid collection '{self.collection_name}' created successfully")
+                print(f"   ✅ Dense vectors: Ready for semantic search")
+                print(f"   ✅ Sparse vectors: Ready for keyword search (BM42)")
             else:
                 print(f"✅ Collection '{self.collection_name}' already exists")
                 
                 # Verify vector size matches
                 collection_info = self.qdrant_client.get_collection(self.collection_name)
-                existing_size = collection_info.config.params.vectors.size
                 
-                if existing_size != vector_size:
-                    print(f"⚠️ Warning: Collection has dimension {existing_size}, but embeddings have dimension {vector_size}")
-                    print(f"💡 You may need to recreate the collection with correct dimensions")
+                # Check if collection has dense vectors config
+                if hasattr(collection_info.config.params, 'vectors'):
+                    if isinstance(collection_info.config.params.vectors, dict):
+                        # Named vectors
+                        if 'dense' in collection_info.config.params.vectors:
+                            existing_size = collection_info.config.params.vectors['dense'].size
+                        else:
+                            # Old collection format - needs migration
+                            print(f"⚠️ Collection uses old format (single vector)")
+                            print(f"💡 For hybrid search, recreate collection with dense+sparse vectors")
+                            return
+                    else:
+                        # Single vector config (old format)
+                        existing_size = collection_info.config.params.vectors.size
+                        print(f"⚠️ Collection uses old format (dimension: {existing_size})")
+                        print(f"💡 For hybrid search, recreate collection with dense+sparse vectors")
+                        return
+                    
+                    if existing_size != vector_size:
+                        print(f"⚠️ Warning: Collection has dimension {existing_size}, but embeddings have dimension {vector_size}")
+                        print(f"💡 You may need to recreate the collection with correct dimensions")
             
-            # Create payload indexes for filtering (critical for search performance)
-            print(f"🔍 Creating payload indexes for widgetId and businessId...")
+            # Create payload indexes for filtering (critical for search and deletion performance)
+            print(f"🔍 Creating payload indexes for widgetId, businessId, and itemId...")
             try:
                 # Create index for widgetId (keyword type for exact matching)
                 self.qdrant_client.create_payload_index(
@@ -125,6 +229,20 @@ class QdrantService:
                     print(f"✅ Payload index for 'businessId' already exists")
                 else:
                     print(f"⚠️ Could not create businessId index: {idx_error}")
+            
+            try:
+                # Create index for itemId (keyword type for fast deletion)
+                self.qdrant_client.create_payload_index(
+                    collection_name=self.collection_name,
+                    field_name="itemId",
+                    field_schema="keyword"
+                )
+                print(f"✅ Created payload index for 'itemId' (for fast deletion)")
+            except Exception as idx_error:
+                if "already exists" in str(idx_error).lower():
+                    print(f"✅ Payload index for 'itemId' already exists")
+                else:
+                    print(f"⚠️ Could not create itemId index: {idx_error}")
                     
         except Exception as e:
             print(f"❌ Error ensuring collection exists: {e}")
@@ -289,17 +407,21 @@ class QdrantService:
             # Split the content
             texts = text_splitter.split_text(item["content"])
             
-            # Generate embeddings based on provider
+            # Generate dense embeddings based on provider
             if provider == "voyage":
-                print(f"   🚢 Generating Voyage AI embeddings for {len(texts)} chunks...")
-                embeddings = self.voyage_service.embed_documents(texts, model)
+                print(f"   🚢 Generating Voyage AI dense embeddings for {len(texts)} chunks...")
+                dense_embeddings = self.voyage_service.embed_documents(texts, model)
             else:
-                print(f"   🤖 Generating OpenAI embeddings for {len(texts)} chunks...")
-                embeddings = self.embeddings.embed_documents(texts)
+                print(f"   🤖 Generating OpenAI dense embeddings for {len(texts)} chunks...")
+                dense_embeddings = self.embeddings.embed_documents(texts)
             
-            # Prepare points for Qdrant
+            # Generate sparse vectors (BM42) for all chunks
+            print(f"   🔍 Generating BM42 sparse vectors for {len(texts)} chunks...")
+            sparse_vectors = [generate_sparse_vector(text) for text in texts]
+            
+            # Prepare points for Qdrant with BOTH dense and sparse vectors
             points = []
-            for i, (text, embedding) in enumerate(zip(texts, embeddings)):
+            for i, (text, dense_emb, sparse_vec) in enumerate(zip(texts, dense_embeddings, sparse_vectors)):
                 point_id = str(uuid.uuid4())
                 
                 payload = {
@@ -321,9 +443,13 @@ class QdrantService:
                 if item.get("fileSize"):
                     payload["fileSize"] = item["fileSize"]
                 
+                # Create point with NAMED vectors (dense + sparse)
                 points.append(PointStruct(
                     id=point_id,
-                    vector=embedding,
+                    vector={
+                        "dense": dense_emb,  # Semantic search vector
+                        "sparse": sparse_vec  # Keyword search vector (BM42)
+                    },
                     payload=payload
                 ))
             
@@ -345,7 +471,10 @@ class QdrantService:
             raise Exception(str(e))
 
     def search_knowledge_base(self, query: str, widget_id: str, limit: int = 5, score_threshold: float = 0.05) -> Dict[str, Any]:
-        """Search knowledge base using semantic search with liberal matching (threshold: 0.05 = very lenient, let AI decide relevance)"""
+        """
+        HYBRID SEARCH using Dense + BM42 Sparse with RRF Fusion
+        Combines semantic understanding with exact keyword matching
+        """
         try:
             if not self.qdrant_client:
                 raise Exception("Qdrant client not initialized")
@@ -361,73 +490,168 @@ class QdrantService:
             # Preprocess query to handle typos and variations
             preprocessed_query = self._preprocess_query(query)
             
-            print(f"🔍 RAG Search:")
-            print(f"   Provider: {self.embedding_provider}")
-            print(f"   Model: {self.embedding_model}")
+            print(f"\n{'='*70}")
+            print(f"🔍 HYBRID SEARCH (Dense + BM42 Sparse + RRF Fusion)")
+            print(f"{'='*70}")
             print(f"   Original query: '{query}'")
             if preprocessed_query != query:
                 print(f"   Preprocessed: '{preprocessed_query}'")
-            print(f"   Score threshold: {score_threshold}")
+            print(f"   Widget ID: {widget_id}")
+            print(f"   Requested limit: {limit}")
+            print(f"   Embedding: {self.embedding_provider}/{self.embedding_model}")
             
-            # Generate query embedding based on provider
+            # Generate dense query embedding based on provider
             if self.embedding_provider == "voyage":
-                if not self.voyage_service.client:
-                    raise Exception("Voyage AI client not initialized")
-                query_embedding = self.voyage_service.embed_query(preprocessed_query, self.embedding_model)
-                print(f"   🚢 Using Voyage AI embeddings")
+                query_dense_vector = self.voyage_service.embed_query(preprocessed_query, self.embedding_model)
+                print(f"   🚢 Dense vector: Voyage AI ({len(query_dense_vector)} dims)")
             else:
-                # Use OpenAI (default)
-                if not self.embeddings:
-                    raise Exception("OpenAI embeddings not initialized")
-                query_embedding = self.embeddings.embed_query(preprocessed_query)
-                print(f"   🤖 Using OpenAI embeddings")
+                query_dense_vector = self.embeddings.embed_query(preprocessed_query)
+                print(f"   🤖 Dense vector: OpenAI ({len(query_dense_vector)} dims)")
             
-            # Search in Qdrant with filter (get more results for filtering)
-            # Note: We get all results and filter by score ourselves for better control
-            search_results = self.qdrant_client.search(
-                collection_name=self.collection_name,
-                query_vector=query_embedding,
-                query_filter=Filter(
-                    must=[
-                        FieldCondition(
-                            key="widgetId",
-                            match=MatchValue(value=widget_id)
-                        )
-                    ]
-                ),
-                limit=limit * 3,  # Get more results for quality filtering
-                score_threshold=None  # Don't filter by Qdrant, we'll filter ourselves
+            # Generate sparse query vector (BM42)
+            query_sparse_vector = generate_sparse_vector(preprocessed_query)
+            print(f"   🔍 Sparse vector: BM42 ({len(query_sparse_vector.indices)} tokens)")
+            
+            # Create filter for widgetId
+            widget_filter = Filter(
+                must=[
+                    FieldCondition(
+                        key="widgetId",
+                        match=MatchValue(value=widget_id)
+                    )
+                ]
             )
             
-            # Format results and apply additional quality checks
+            # Perform HYBRID search with RRF (Reciprocal Rank Fusion)
+            # This runs BOTH searches in PARALLEL inside Qdrant and fuses results
+            print(f"\n   🚀 Executing hybrid search (parallel dense + sparse)...")
+            
+            search_results = self.qdrant_client.query_points(
+                collection_name=self.collection_name,
+                prefetch=[
+                    # Prefetch from dense vector search (semantic)
+                    Prefetch(
+                        query=query_dense_vector,
+                        using="dense",
+                        limit=limit * 3,  # Get 3x more for better fusion
+                        filter=widget_filter
+                    ),
+                    # Prefetch from sparse vector search (keywords - BM42)
+                    Prefetch(
+                        query=query_sparse_vector,
+                        using="sparse",
+                        limit=limit * 3,  # Get 3x more for better fusion
+                        filter=widget_filter
+                    )
+                ],
+                query=FusionQuery(
+                    fusion=Fusion.RRF  # Reciprocal Rank Fusion combines both
+                ),
+                limit=limit * 3,  # Final limit after fusion (will be reranked)
+                with_payload=True
+            )
+            
+            print(f"\n   📊 FUSION RESULTS:")
+            print(f"      Total fused results: {len(search_results.points)}")
+            
+            # Format results
             results = []
-            for result in search_results:
-                score = float(result.score)
-                print(f"   📄 Found: '{result.payload.get('title', 'Untitled')}' (score: {score:.4f})")
+            for idx, result in enumerate(search_results.points):
+                score = float(result.score) if hasattr(result, 'score') else 1.0
                 
-                # Only include results above threshold
+                # Qdrant returns scored points
+                title = result.payload.get('title', 'Untitled')
+                content_preview = result.payload.get('text', '')[:100]
+                
+                print(f"      {idx+1}. '{title}' (fusion_score: {score:.4f})")
+                print(f"         Preview: {content_preview}...")
+                
+                # Apply threshold filter
                 if score >= score_threshold:
                     results.append({
                         "content": result.payload.get("text", ""),
                         "metadata": result.payload,
-                        "score": score
+                        "score": score,
+                        "fusion_score": score  # This is the combined dense+sparse score
                     })
             
             # Limit to requested number
-            results = results[:limit]
+            results = results[:limit * 3]  # Return 3x for reranking
             
-            print(f"   ✅ Returning {len(results)} results (threshold: {score_threshold})")
+            print(f"\n   ✅ Returning {len(results)} results for reranking")
+            print(f"{'='*70}\n")
             
             return {
                 "success": True,
                 "results": results,
                 "query": preprocessed_query,
-                "total_results": len(results)
+                "total_results": len(results),
+                "search_type": "hybrid_rrf"  # Indicate this was hybrid search
             }
             
         except Exception as e:
-            print(f"Error searching knowledge base: {e}")
-            raise Exception(str(e))
+            print(f"\n❌ Error in hybrid search: {e}")
+            print(f"   Falling back to dense-only search...")
+            
+            # Fallback to dense-only search if hybrid fails
+            try:
+                return self._fallback_dense_search(query, widget_id, limit, score_threshold)
+            except Exception as fallback_error:
+                print(f"❌ Fallback search also failed: {fallback_error}")
+                raise Exception(str(e))
+    
+    def _fallback_dense_search(self, query: str, widget_id: str, limit: int, score_threshold: float) -> Dict[str, Any]:
+        """
+        Fallback to dense-only search for backward compatibility
+        Used if hybrid search fails (e.g., old collection format)
+        """
+        print(f"\n   ⚠️ Using DENSE-ONLY search (fallback mode)")
+        
+        # Preprocess query
+        preprocessed_query = self._preprocess_query(query)
+        
+        # Generate query embedding
+        if self.embedding_provider == "voyage":
+            query_embedding = self.voyage_service.embed_query(preprocessed_query, self.embedding_model)
+        else:
+            query_embedding = self.embeddings.embed_query(preprocessed_query)
+        
+        # Perform dense search only
+        search_results = self.qdrant_client.search(
+            collection_name=self.collection_name,
+            query_vector=query_embedding,
+            query_filter=Filter(
+                must=[
+                    FieldCondition(
+                        key="widgetId",
+                        match=MatchValue(value=widget_id)
+                    )
+                ]
+            ),
+            limit=limit * 3,
+            score_threshold=None
+        )
+        
+        # Format results
+        results = []
+        for result in search_results:
+            score = float(result.score)
+            if score >= score_threshold:
+                results.append({
+                    "content": result.payload.get("text", ""),
+                    "metadata": result.payload,
+                    "score": score
+                })
+        
+        print(f"   ✅ Dense-only search returned {len(results)} results\n")
+        
+        return {
+            "success": True,
+            "results": results[:limit * 3],
+            "query": preprocessed_query,
+            "total_results": len(results),
+            "search_type": "dense_only"
+        }
     
     def _preprocess_query(self, query: str) -> str:
         """Preprocess query to improve search quality with typo correction and semantic expansion"""
@@ -564,6 +788,61 @@ class QdrantService:
             print(f"Error deleting data: {e}")
             raise Exception(str(e))
 
+    def delete_item_by_id(self, item_id: str) -> Dict[str, Any]:
+        """
+        Delete all chunks for a specific knowledge base item by itemId
+        This deletes ALL vector chunks associated with a single document
+        """
+        try:
+            if not self.qdrant_client:
+                raise Exception("Qdrant client not initialized")
+            
+            print(f"\n🗑️ Deleting all chunks for itemId: {item_id}")
+            
+            # Create filter to match this specific itemId
+            filter_condition = Filter(
+                must=[
+                    FieldCondition(
+                        key="itemId",
+                        match=MatchValue(value=item_id)
+                    )
+                ]
+            )
+            
+            # Get count before deletion (for confirmation)
+            scroll_result = self.qdrant_client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=filter_condition,
+                limit=1000,
+                with_payload=False,
+                with_vectors=False
+            )
+            chunks_count = len(scroll_result[0])
+            
+            # Delete all points matching this itemId
+            self.qdrant_client.delete(
+                collection_name=self.collection_name,
+                points_selector=filter_condition
+            )
+            
+            print(f"✅ Successfully deleted {chunks_count} chunks for itemId: {item_id}")
+            
+            return {
+                "success": True,
+                "message": f"Successfully deleted {chunks_count} vector chunks for item {item_id}",
+                "deleted_chunks": chunks_count,
+                "item_id": item_id
+            }
+            
+        except Exception as e:
+            print(f"❌ Error deleting item by ID: {e}")
+            return {
+                "success": False,
+                "message": f"Failed to delete item: {str(e)}",
+                "error": str(e),
+                "deleted_chunks": 0
+            }
+    
     def clean_collection(self) -> Dict[str, Any]:
         """Clean entire Qdrant collection (dangerous!)"""
         try:

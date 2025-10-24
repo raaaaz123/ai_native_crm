@@ -564,7 +564,7 @@ export default function WidgetPreview({ widget, viewMode }: WidgetPreviewProps) 
           aiConfig: {
             enabled: aiConfig.enabled,
             provider: aiConfig.provider || 'openrouter',
-            model: aiConfig.model || 'deepseek/deepseek-chat-v3.1:free',
+            model: aiConfig.model || 'openai/gpt-5-mini',
             temperature: aiConfig.temperature || 0.7,
             maxTokens: aiConfig.maxTokens || 500,
             confidenceThreshold: aiConfig.confidenceThreshold || 0.6,

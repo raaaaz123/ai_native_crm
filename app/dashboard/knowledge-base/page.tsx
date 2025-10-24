@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../lib/auth-context';
+import { sendArticleNotificationEmail } from '../../lib/email-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoadingDialog } from '../../components/ui/loading-dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { 
   Database, 
   Plus, 
@@ -58,6 +66,7 @@ interface ChunkData {
 const documentTypes = [
   { value: 'manual', label: 'Manual Text Entry', description: 'Type or paste content directly' },
   { value: 'faq', label: 'FAQ / Q&A', description: 'Add question and answer pairs' },
+  { value: 'notion', label: 'Notion Page/Database', description: 'Import content from Notion workspace' },
   { value: 'text', label: 'Text File Upload', description: 'Upload .txt, .md, or other text files' },
   { value: 'pdf', label: 'PDF Document', description: 'Upload PDF files with text extraction' },
   { value: 'website', label: 'Website Scraping', description: 'Scrape content from a website URL' }
@@ -96,13 +105,43 @@ export default function KnowledgeBasePage() {
     title: '',
     content: '',
     tags: '',
-    type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq',
+    type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion',
     file: null as File | null,
     websiteUrl: '',
     isSitemap: false,
     question: '',
-    answer: ''
+    answer: '',
+    notionApiKey: '',
+    notionPageId: '',
+    notionImportType: 'page' as 'page' | 'database'
   });
+  
+  const [notionPages, setNotionPages] = useState<Array<{id: string, title: string, url: string}>>([]);
+  const [notionSearching, setNotionSearching] = useState(false);
+  const [notionConnected, setNotionConnected] = useState(false);
+
+  // Helper function to send article notification email
+  const sendArticleEmail = async (articleTitle: string, articleType: string, chunksCount?: number) => {
+    try {
+      if (user?.email) {
+        const widgetName = widgets.find(w => w.id === selectedWidget)?.name;
+        
+        await sendArticleNotificationEmail({
+          email: user.email,
+          userName: user.displayName || user.email,
+          articleTitle,
+          articleType,
+          widgetName,
+          chunksCount
+        });
+        
+        console.log('✅ Article notification email sent');
+      }
+    } catch (error) {
+      console.error('❌ Error sending article notification:', error);
+      // Don't block the main flow if email fails
+    }
+  };
 
   useEffect(() => {
     if (user && companyContext?.company?.id) {
@@ -246,6 +285,76 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  const handleNotionConnect = async () => {
+    if (!formData.notionApiKey.trim()) {
+      alert('Please enter your Notion API key');
+      return;
+    }
+    
+    try {
+      setNotionSearching(true);
+      setUploadStatus('uploading');
+      setUploadMessage('Testing Notion connection...');
+      
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      const response = await fetch(`${backendUrl}/api/notion/test-connection`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: formData.notionApiKey })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setNotionConnected(true);
+        setUploadStatus('success');
+        setUploadMessage(`Connected to Notion! User: ${result.user || 'Unknown'}`);
+        
+        // Fetch available pages
+        handleNotionSearch('');
+      } else {
+        setUploadStatus('error');
+        setUploadMessage(`Connection failed: ${result.error || 'Invalid API key'}`);
+      }
+    } catch (error) {
+      setUploadStatus('error');
+      setUploadMessage(`Error: ${error instanceof Error ? error.message : 'Failed to connect'}`);
+    } finally {
+      setNotionSearching(false);
+    }
+  };
+
+  const handleNotionSearch = async (query: string = '') => {
+    if (!formData.notionApiKey.trim()) return;
+    
+    try {
+      setNotionSearching(true);
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+      
+      const response = await fetch(`${backendUrl}/api/notion/search-pages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          api_key: formData.notionApiKey,
+          query: query
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        setNotionPages(result.pages || []);
+        console.log(`📄 Found ${result.total} Notion pages`);
+      } else {
+        console.error('Failed to search Notion pages:', result.error);
+      }
+    } catch (error) {
+      console.error('Error searching Notion:', error);
+    } finally {
+      setNotionSearching(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -314,8 +423,32 @@ export default function KnowledgeBasePage() {
         const faqResult = await faqResponse.json();
         
         if (faqResult.success) {
+          // Backend stored in Qdrant successfully
+          // Now create ONLY Firestore record (without Qdrant duplicate)
+          const { collection: firestoreCollection, addDoc, serverTimestamp } = await import('firebase/firestore');
+          const { db } = await import('@/app/lib/firebase');
+          
+          const docData = {
+            businessId: companyContext!.company.id,
+            widgetId: selectedWidget,
+            title: formData.title || formData.question.substring(0, 50),
+            content: content, // Already formatted as Q: ... A: ...
+            type: 'text', // Store FAQs as text type for consistency
+            faqQuestion: formData.question,
+            faqAnswer: formData.answer,
+            embeddingProvider: embeddingProvider,
+            embeddingModel: embeddingModel,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+          
+          await addDoc(firestoreCollection(db, 'knowledgeBase'), docData);
+          
           setUploadStatus('success');
-          setUploadMessage(`FAQ added successfully!`);
+          setUploadMessage(`FAQ added to Qdrant and saved to Firestore successfully!`);
+          
+          // Send email notification
+          await sendArticleEmail(formData.title || formData.question.substring(0, 50), 'faq');
           
           // Reload knowledge items
           await loadKnowledgeItems();
@@ -325,12 +458,15 @@ export default function KnowledgeBasePage() {
             title: '', 
             content: '', 
             tags: '', 
-            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq', 
+            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
             file: null,
             websiteUrl: '',
             isSitemap: false,
             question: '',
-            answer: ''
+            answer: '',
+            notionApiKey: '',
+            notionPageId: '',
+            notionImportType: 'page' as 'page' | 'database'
           });
           setShowAddForm(false);
           setEditingItem(null);
@@ -338,6 +474,115 @@ export default function KnowledgeBasePage() {
           return;
         } else {
           throw new Error(faqResult.error || 'FAQ storage failed');
+        }
+      }
+
+      // Handle Notion import
+      if (formData.type === 'notion') {
+        if (!formData.notionApiKey.trim()) {
+          alert('Please enter your Notion API key');
+          return;
+        }
+        
+        if (!formData.notionPageId.trim()) {
+          alert('Please select a Notion page or enter a page/database ID');
+          return;
+        }
+        
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
+        const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
+        const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
+        
+        setUploadMessage('Importing from Notion...');
+        
+        const endpoint = formData.notionImportType === 'database' 
+          ? '/api/notion/import-database'
+          : '/api/notion/import-page';
+        
+        const notionRequest = {
+          api_key: formData.notionApiKey,
+          [formData.notionImportType === 'database' ? 'database_id' : 'page_id']: formData.notionPageId,
+          widget_id: selectedWidget,
+          title: formData.title,
+          embedding_provider: embeddingProvider,
+          embedding_model: embeddingModel,
+          metadata: {
+            business_id: companyContext?.company?.id ?? ''
+          }
+        };
+        
+        const notionResponse = await fetch(`${backendUrl}${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(notionRequest)
+        });
+        
+        if (!notionResponse.ok) {
+          const errorData = await notionResponse.json();
+          throw new Error(errorData.detail || 'Failed to import from Notion');
+        }
+        
+        const notionResult = await notionResponse.json();
+        
+        if (notionResult.success) {
+          // Create Firestore record
+          const { collection: firestoreCollection, addDoc, serverTimestamp } = await import('firebase/firestore');
+          const { db } = await import('@/app/lib/firebase');
+          
+          const docData = {
+            businessId: companyContext!.company.id,
+            widgetId: selectedWidget,
+            title: notionResult.title || formData.title,
+            content: `Notion ${formData.notionImportType === 'database' ? 'database' : 'page'} imported: ${notionResult.title || formData.title}`,
+            type: 'text',
+            notionPageId: formData.notionPageId,
+            notionUrl: notionResult.url,
+            chunksCreated: notionResult.chunks_created,
+            embeddingProvider: embeddingProvider,
+            embeddingModel: embeddingModel,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+          
+          await addDoc(firestoreCollection(db, 'knowledgeBase'), docData);
+          
+          setUploadStatus('success');
+          if (formData.notionImportType === 'database') {
+            setUploadMessage(`✅ Imported ${notionResult.imported || 0} pages from Notion database!`);
+          } else {
+            setUploadMessage(`✅ Imported Notion page with ${notionResult.chunks_created || 0} chunks!`);
+          }
+          
+          // Send email notification
+          await sendArticleEmail(notionResult.title || formData.title, 'notion', notionResult.chunks_created);
+          
+          // Reload knowledge items
+          await loadKnowledgeItems();
+          
+          // Reset form
+          setFormData({ 
+            title: '', 
+            content: '', 
+            tags: '', 
+            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+            file: null,
+            websiteUrl: '',
+            isSitemap: false,
+            question: '',
+            answer: '',
+            notionApiKey: '',
+            notionPageId: '',
+            notionImportType: 'page' as 'page' | 'database'
+          });
+          setNotionPages([]);
+          setNotionConnected(false);
+          setShowAddForm(false);
+          setEditingItem(null);
+          setIsSubmitting(false);
+          return;
+        } else {
+          throw new Error(notionResult.error || 'Notion import failed');
         }
       }
 
@@ -397,23 +642,83 @@ export default function KnowledgeBasePage() {
         uploadFormData.append('file', formData.file);
         uploadFormData.append('widget_id', selectedWidget);
         uploadFormData.append('title', formData.title);
+        uploadFormData.append('document_type', formData.type);
+        
+        // Get widget's embedding configuration
+        const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
+        const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
+        const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
+        
+        uploadFormData.append('embedding_provider', embeddingProvider);
+        uploadFormData.append('embedding_model', embeddingModel);
+        uploadFormData.append('metadata', JSON.stringify({
+          business_id: companyContext?.company?.id ?? ''
+        }));
 
         // Upload file to backend
-        const uploadResponse = await fetch('/api/knowledge-base/upload', {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        const uploadResponse = await fetch(`${backendUrl}/api/knowledge-base/upload`, {
           method: 'POST',
           body: uploadFormData,
         });
 
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload file');
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.detail || 'Failed to upload file');
         }
 
         const uploadResult = await uploadResponse.json();
         
         if (uploadResult.success) {
-          content = uploadResult.data.content;
-          fileName = formData.file.name;
-          fileSize = formData.file.size;
+          // Backend stored in Qdrant successfully
+          // Now create ONLY Firestore record (without Qdrant duplicate)
+          const { collection: firestoreCollection, addDoc, serverTimestamp } = await import('firebase/firestore');
+          const { db } = await import('@/app/lib/firebase');
+          
+          const docData = {
+            businessId: companyContext!.company.id,
+            widgetId: selectedWidget,
+            title: formData.title,
+            content: `${formData.type.toUpperCase()} file uploaded: ${formData.file.name} (${(formData.file.size / 1024 / 1024).toFixed(2)} MB)`,
+            type: formData.type,
+            fileName: formData.file.name,
+            fileSize: formData.file.size,
+            embeddingProvider: embeddingProvider,
+            embeddingModel: embeddingModel,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          };
+          
+          await addDoc(firestoreCollection(db, 'knowledgeBase'), docData);
+          
+          setUploadStatus('success');
+          setUploadMessage(`${formData.type.toUpperCase()} file uploaded to Qdrant and saved to Firestore successfully!`);
+          
+          // Send email notification
+          await sendArticleEmail(formData.title, formData.type);
+          
+          // Reload knowledge items
+          await loadKnowledgeItems();
+          
+          // Reset form
+          setFormData({ 
+            title: '', 
+            content: '', 
+            tags: '', 
+            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+            file: null,
+            websiteUrl: '',
+            isSitemap: false,
+            question: '',
+            answer: '',
+            notionApiKey: '',
+            notionPageId: '',
+            notionImportType: 'page' as 'page' | 'database'
+          });
+          setShowAddForm(false);
+          setEditingItem(null);
+          setIsSubmitting(false);
+          return;
         } else {
           throw new Error(uploadResult.error || 'Upload failed');
         }
@@ -470,12 +775,15 @@ export default function KnowledgeBasePage() {
           title: '', 
           content: '', 
           tags: '', 
-          type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq', 
+          type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
           file: null,
           websiteUrl: '',
           isSitemap: false,
           question: '',
-          answer: ''
+          answer: '',
+          notionApiKey: '',
+          notionPageId: '',
+          notionImportType: 'page' as 'page' | 'database'
         });
         setShowAddForm(false);
         setEditingItem(null);
@@ -576,12 +884,15 @@ export default function KnowledgeBasePage() {
         title: '', 
         content: '', 
         tags: '', 
-        type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq', 
+        type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
         file: null,
         websiteUrl: '',
         isSitemap: false,
         question: '',
-        answer: ''
+        answer: '',
+        notionApiKey: '',
+        notionPageId: '',
+        notionImportType: 'page' as 'page' | 'database'
       });
       setShowAddForm(false);
       
@@ -601,19 +912,90 @@ export default function KnowledgeBasePage() {
       title: item.title,
       content: item.content,
       tags: item.tags.join(', '),
-      type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq',
+      type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion',
       file: null,
       websiteUrl: '',
       isSitemap: false,
       question: '',
-      answer: ''
+      answer: '',
+      notionApiKey: '',
+      notionPageId: '',
+      notionImportType: 'page' as 'page' | 'database'
     });
     setShowAddForm(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure you want to delete this knowledge item?')) {
+    if (!confirm('Are you sure you want to delete this knowledge item? This will remove it from both Firestore and Qdrant vector database.')) {
+      return;
+    }
+    
+    try {
+      setUploadStatus('uploading');
+      setUploadMessage('Deleting from Firestore and Qdrant...');
+      
+      let qdrantChunksDeleted = 0;
+      
+      // Step 1: Delete from Qdrant FIRST (all vector chunks with this itemId)
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+        console.log(`🗑️ Deleting all vector chunks for itemId: ${id} from Qdrant...`);
+        
+        const qdrantResponse = await fetch(`${backendUrl}/api/knowledge-base/delete/${id}`, {
+          method: 'DELETE',
+        });
+        
+        if (qdrantResponse.ok) {
+          const qdrantResult = await qdrantResponse.json();
+          qdrantChunksDeleted = qdrantResult.deleted_chunks || 0;
+          console.log(`✅ Deleted ${qdrantChunksDeleted} vector chunks from Qdrant`);
+          setUploadMessage(`Deleted ${qdrantChunksDeleted} vectors from Qdrant. Now deleting from Firestore...`);
+        } else {
+          const errorData = await qdrantResponse.json();
+          console.warn('Failed to delete from Qdrant:', errorData);
+          setUploadMessage('Qdrant deletion failed, continuing with Firestore deletion...');
+        }
+      } catch (qdrantError) {
+        console.warn('Could not delete from Qdrant:', qdrantError);
+        setUploadMessage('Qdrant deletion failed, continuing with Firestore deletion...');
+      }
+      
+      // Step 2: Delete from Firestore
+      const { deleteKnowledgeBaseItem } = await import('@/app/lib/knowledge-base-utils');
+      const firestoreResult = await deleteKnowledgeBaseItem(id);
+      
+      if (!firestoreResult.success) {
+        throw new Error(`Failed to delete from Firestore: ${firestoreResult.error}`);
+      }
+      
+      console.log(`✅ Deleted from Firestore`);
+      
+      // Update local state
       setKnowledgeItems(prev => prev.filter(item => item.id !== id));
+      
+      setUploadStatus('success');
+      setUploadMessage(
+        qdrantChunksDeleted > 0 
+          ? `Item deleted successfully! Removed ${qdrantChunksDeleted} vector chunks from Qdrant and record from Firestore.`
+          : 'Item deleted from Firestore successfully!'
+      );
+      
+      // Clear message after 3 seconds
+      setTimeout(() => {
+        setUploadStatus('idle');
+        setUploadMessage('');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error deleting knowledge item:', error);
+      setUploadStatus('error');
+      setUploadMessage(`Error: ${error instanceof Error ? error.message : 'Failed to delete item'}`);
+      
+      // Clear error after 5 seconds
+      setTimeout(() => {
+        setUploadStatus('idle');
+        setUploadMessage('');
+      }, 5000);
     }
   };
 
@@ -950,12 +1332,15 @@ export default function KnowledgeBasePage() {
                     title: '', 
                     content: '', 
                     tags: '', 
-                    type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq', 
+                    type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
                     file: null,
                     websiteUrl: '',
                     isSitemap: false,
                     question: '',
-                    answer: ''
+                    answer: '',
+                    notionApiKey: '',
+                    notionPageId: '',
+                    notionImportType: 'page' as 'page' | 'database'
                   });
                 }}
                 className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-11"
@@ -1001,25 +1386,27 @@ export default function KnowledgeBasePage() {
         )}
 
       {/* Add/Edit Form */}
-      {showAddForm && selectedWidget && (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <span>{editingItem ? 'Edit Article' : 'Add New Article'}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setShowAddForm(false);
-                  setEditingItem(null);
-                }}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Add/Edit Article Dialog */}
+      <Dialog open={showAddForm && !!selectedWidget} onOpenChange={(open) => {
+        if (!open) {
+          setShowAddForm(false);
+          setEditingItem(null);
+          setUploadStatus('idle');
+          setUploadMessage('');
+        }
+      }}>
+        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              {editingItem ? '✏️ Edit Article' : '➕ Add New Article'}
+            </DialogTitle>
+            <DialogDescription className="text-gray-600">
+              {editingItem ? 'Update your knowledge base article' : 'Add content to your AI knowledge base'}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto max-h-[calc(90vh-120px)] px-6">
+            <form onSubmit={handleSubmit} className="space-y-6 py-4">
               <div className="grid grid-cols-1 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1039,31 +1426,31 @@ export default function KnowledgeBasePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-3">
                   Document Type
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {documentTypes.map((type) => (
                     <div
                       key={type.value}
-                      className={`relative cursor-pointer rounded-lg border p-4 transition-all duration-200 ${
+                      className={`relative cursor-pointer rounded-lg border p-3 sm:p-4 transition-all duration-200 ${
                         formData.type === type.value
                           ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
                           : 'border-gray-300 hover:border-gray-400'
                       }`}
                       onClick={() => setFormData(prev => ({ ...prev, type: type.value, file: null }))}
                     >
-                      <div className="flex items-center">
+                      <div className="flex items-start">
                         <input
                           type="radio"
                           name="documentType"
                           value={type.value}
                           checked={formData.type === type.value}
                           onChange={() => setFormData(prev => ({ ...prev, type: type.value, file: null }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 mt-0.5"
                         />
-                        <div className="ml-3">
-                          <label className="block text-sm font-medium text-gray-900 cursor-pointer">
+                        <div className="ml-3 flex-1">
+                          <label className="block text-xs sm:text-sm font-medium text-gray-900 cursor-pointer">
                             {type.label}
                           </label>
-                          <p className="text-xs text-gray-500 mt-1">{type.description}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">{type.description}</p>
                         </div>
                       </div>
                     </div>
@@ -1104,6 +1491,154 @@ export default function KnowledgeBasePage() {
                       <strong>💡 Tip:</strong> Write clear, concise answers. The AI will use these Q&A pairs to respond to similar customer questions.
                     </p>
                   </div>
+                </div>
+              )}
+
+              {/* Notion Import Section */}
+              {formData.type === 'notion' && (
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
+                    <h4 className="text-sm font-semibold text-purple-900 mb-2">🔗 Connect to Notion</h4>
+                    <p className="text-xs text-purple-700 mb-3">
+                      Get your integration token from <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Notion Integrations</a>
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Notion API Key / Integration Token
+                        </label>
+                        <Input
+                          type="password"
+                          value={formData.notionApiKey}
+                          onChange={(e) => setFormData(prev => ({ ...prev, notionApiKey: e.target.value }))}
+                          placeholder="secret_xxxxxxxxxxxxxxxxxxxxx"
+                          required
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Create an integration at notion.so/my-integrations and copy the token
+                        </p>
+                      </div>
+                      
+                      {!notionConnected && (
+                        <Button
+                          type="button"
+                          onClick={handleNotionConnect}
+                          disabled={!formData.notionApiKey.trim() || notionSearching}
+                          className="w-full bg-purple-600 hover:bg-purple-700"
+                        >
+                          {notionSearching ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Connecting...
+                            </>
+                          ) : (
+                            <>Connect to Notion</>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {notionConnected && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Import Type
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, notionImportType: 'page' }))}
+                            className={`p-3 border-2 rounded-lg text-sm font-medium transition-all ${
+                              formData.notionImportType === 'page'
+                                ? 'border-purple-500 bg-purple-50 text-purple-900'
+                                : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            📄 Single Page
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, notionImportType: 'database' }))}
+                            className={`p-3 border-2 rounded-lg text-sm font-medium transition-all ${
+                              formData.notionImportType === 'database'
+                                ? 'border-purple-500 bg-purple-50 text-purple-900'
+                                : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                            }`}
+                          >
+                            📊 Entire Database
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {formData.notionImportType === 'page' ? 'Select Page' : 'Database ID'}
+                        </label>
+                        
+                        {formData.notionImportType === 'page' ? (
+                          <>
+                            <Select
+                              value={formData.notionPageId}
+                              onValueChange={(value) => {
+                                setFormData(prev => ({ ...prev, notionPageId: value }));
+                                // Auto-fill title from selected page
+                                const selectedPage = notionPages.find(p => p.id === value);
+                                if (selectedPage && !formData.title) {
+                                  setFormData(prev => ({ ...prev, title: selectedPage.title }));
+                                }
+                              }}
+                            >
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select a Notion page" />
+                              </SelectTrigger>
+                              <SelectContent className="max-h-[300px]">
+                                {notionPages.map((page) => (
+                                  <SelectItem key={page.id} value={page.id}>
+                                    <div className="flex items-center gap-2">
+                                      <span>📄</span>
+                                      <span className="truncate">{page.title}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            {notionPages.length === 0 && notionSearching && (
+                              <p className="text-xs text-gray-500 mt-1">Loading pages...</p>
+                            )}
+                            {notionPages.length === 0 && !notionSearching && (
+                              <p className="text-xs text-amber-600 mt-1">No pages found. Make sure the integration has access to your pages.</p>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <Input
+                              value={formData.notionPageId}
+                              onChange={(e) => setFormData(prev => ({ ...prev, notionPageId: e.target.value }))}
+                              placeholder="Enter Notion database ID"
+                              required
+                            />
+                            <p className="text-xs text-gray-500 mt-1">
+                              Copy the database ID from the URL: notion.so/DATABASE_ID?v=...
+                            </p>
+                          </>
+                        )}
+                      </div>
+                      
+                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                        <p className="text-sm text-purple-800">
+                          <strong>📚 How it works:</strong>
+                        </p>
+                        <ul className="text-xs text-purple-700 mt-2 space-y-1 ml-4 list-disc">
+                          <li>Content is fetched from your Notion workspace</li>
+                          <li>Blocks are converted to formatted text</li>
+                          <li>Stored in knowledge base with embeddings</li>
+                          <li>Updates in Notion won&apos;t sync automatically (re-import to update)</li>
+                        </ul>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1230,18 +1765,19 @@ export default function KnowledgeBasePage() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t">
                 <Button 
                   type="submit" 
                   disabled={isSubmitting}
-                  className="flex items-center gap-2"
+                  className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center gap-2 h-11"
                 >
                   {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {editingItem ? 'Update Article' : 'Add Article'}
+                  {editingItem ? '💾 Update Article' : '➕ Add Article'}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
+                  className="flex-1 sm:flex-none h-11"
                   onClick={() => {
                     setShowAddForm(false);
                     setEditingItem(null);
@@ -1437,9 +1973,9 @@ export default function KnowledgeBasePage() {
                 </div>
               )}
             </form>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
         {/* Knowledge Items */}
         {selectedWidget && (
@@ -1466,12 +2002,15 @@ export default function KnowledgeBasePage() {
                           title: '', 
                           content: '', 
                           tags: '', 
-                          type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq', 
+                          type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
                           file: null,
                           websiteUrl: '',
                           isSitemap: false,
                           question: '',
-                          answer: ''
+                          answer: '',
+                          notionApiKey: '',
+                          notionPageId: '',
+                          notionImportType: 'page' as 'page' | 'database'
                         });
                       }}
                       className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl"
@@ -1509,6 +2048,11 @@ export default function KnowledgeBasePage() {
                       {item.type === 'faq' && (
                         <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
                           FAQ
+                        </Badge>
+                      )}
+                      {item.type === 'notion' && (
+                        <Badge variant="outline" className="text-xs bg-pink-50 text-pink-700 border-pink-200">
+                          Notion
                         </Badge>
                       )}
                     </div>

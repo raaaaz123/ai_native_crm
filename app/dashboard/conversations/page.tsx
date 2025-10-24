@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../lib/auth-context';
 import {
   subscribeToConversations,
@@ -16,6 +17,7 @@ import { apiClient, ChatRequest } from '../../lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   MessageCircle,
   Search,
@@ -38,6 +40,8 @@ import { formatDistanceToNow, format } from 'date-fns';
 
 export default function ConversationsPage() {
   const { user, companyContext } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   // Get initials from name
   const getInitials = (name: string) => {
@@ -78,6 +82,7 @@ export default function ConversationsPage() {
   const [customerDetailsPanelWidth, setCustomerDetailsPanelWidth] = useState(25); // percentage
   const [isResizing, setIsResizing] = useState(false);
   const [indexBuilding, setIndexBuilding] = useState(false);
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>('list');
 
   // Widget filtering state
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
@@ -381,6 +386,26 @@ export default function ConversationsPage() {
   const [aiThinking, setAiThinking] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(false);
 
+  // Update status filter when URL parameter changes
+  useEffect(() => {
+    const status = searchParams?.get('status');
+    const validStatuses = ['all', 'active', 'pending', 'resolved', 'unsolved', 'closed', 'custom'];
+    
+    if (status && validStatuses.includes(status)) {
+      setStatusFilter(status as typeof statusFilter);
+    } else if (!status) {
+      setStatusFilter('all');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  // Mobile: Switch to chat view when conversation is selected
+  useEffect(() => {
+    if (selectedConversation && typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileView('chat');
+    }
+  }, [selectedConversation]);
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || sending || !user?.uid || !selectedConversation) return;
@@ -530,6 +555,11 @@ export default function ConversationsPage() {
     );
   }
 
+  const handleMobileBackToList = () => {
+    setMobileView('list');
+    setSelectedConversation(null);
+  };
+
   return (
     <>
       {/* Modern Premium Styles */}
@@ -556,6 +586,19 @@ export default function ConversationsPage() {
         }
         .float-animation {
           animation: float 3s ease-in-out infinite;
+        }
+        /* Mobile width override */
+        @media (max-width: 1023px) {
+          .mobile-full-width {
+            width: 100% !important;
+            max-width: 100%;
+          }
+        }
+        /* Prevent horizontal overflow */
+        @media (max-width: 1023px) {
+          body {
+            overflow-x: hidden;
+          }
         }
       `}</style>
       
@@ -588,17 +631,19 @@ export default function ConversationsPage() {
       )}
       
       {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden max-w-full">
         {/* Modern Left Panel - Conversation List */}
         <div 
-        className={`border-r border-gray-200/60 glass-morphism flex flex-col transition-all duration-300 ${isResizing ? 'premium-shadow-lg' : ''}`}
+        className={`glass-morphism flex flex-col transition-all duration-300 mobile-full-width ${isResizing ? 'premium-shadow-lg' : ''} ${
+          mobileView === 'chat' ? 'hidden lg:flex' : 'flex'
+        } w-full lg:border-r lg:border-gray-200/60 lg:flex-shrink-0`}
         style={{ width: `${conversationPanelWidth}%` }}
       >
         {/* Clean Header */}
-        <div className="p-4 border-b border-gray-200/60 bg-white">
-          <div className="flex items-center justify-between mb-3">
+        <div className="p-3 sm:p-4 border-b border-gray-200/60 bg-white">
+          <div className="flex items-center justify-between mb-2 sm:mb-3">
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-gray-900">Conversations</h1>
+              <h1 className="text-sm sm:text-base font-semibold text-gray-900">Conversations</h1>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
                 {conversations.length}
               </span>
@@ -606,10 +651,10 @@ export default function ConversationsPage() {
           </div>
           
           {/* Clean Search */}
-          <div className="relative mb-3">
+          <div className="relative mb-2 sm:mb-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Search conversations..."
+              placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 h-9 text-sm border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-all duration-200"
@@ -617,23 +662,23 @@ export default function ConversationsPage() {
           </div>
 
           {/* Clean Widget Filter */}
-          <div className="mb-3">
+          <div className="mb-2 sm:mb-3">
             <div className="relative" ref={widgetDropdownRef}>
               <Button
                 variant="outline"
                 onClick={() => setShowWidgetDropdown(!showWidgetDropdown)}
-                className="w-full justify-between h-8 text-xs border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200"
+                className="w-full justify-between h-8 text-[10px] sm:text-xs border-gray-200 rounded-lg hover:bg-gray-50 transition-all duration-200"
               >
-                <div className="flex items-center gap-2">
-                  <Filter className="w-3.5 h-3.5 text-gray-500" />
-                  <span className="font-medium text-gray-700">
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <Filter className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                  <span className="font-medium text-gray-700 truncate">
                     {selectedWidgetId === 'all' 
                       ? 'All Widgets' 
                       : widgets.find(w => w.id === selectedWidgetId)?.name || 'Select Widget'
                     }
                   </span>
                 </div>
-                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
               </Button>
               
               {showWidgetDropdown && (
@@ -644,7 +689,7 @@ export default function ConversationsPage() {
                         setSelectedWidgetId('all');
                         setShowWidgetDropdown(false);
                       }}
-                      className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded ${
+                      className={`w-full text-left px-3 py-2 text-xs sm:text-sm hover:bg-gray-100 rounded ${
                         selectedWidgetId === 'all' ? 'bg-blue-50 text-blue-600' : ''
                       }`}
                     >
@@ -659,7 +704,7 @@ export default function ConversationsPage() {
                             setSelectedWidgetId(widget.id);
                             setShowWidgetDropdown(false);
                           }}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 rounded ${
+                          className={`w-full text-left px-3 py-2 text-xs sm:text-sm hover:bg-gray-100 rounded truncate ${
                             selectedWidgetId === widget.id ? 'bg-blue-50 text-blue-600' : ''
                           }`}
                         >
@@ -673,98 +718,271 @@ export default function ConversationsPage() {
             </div>
           </div>
 
-          {/* Clean Status Filters */}
-          <div className="flex flex-wrap gap-1.5">
-            <Button
-              variant={statusFilter === 'all' ? 'default' : 'outline'}
-              onClick={() => setStatusFilter('all')}
-              size="sm"
-              className={`h-7 text-xs font-medium rounded-md transition-all duration-200 ${
-                statusFilter === 'all' 
-                  ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                  : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              All ({conversations.length})
-            </Button>
-            <Button
-              variant={statusFilter === 'active' ? 'default' : 'outline'}
-              onClick={() => setStatusFilter('active')}
-              size="sm"
-              className={`h-7 text-xs font-medium rounded-md transition-all duration-200 ${
-                statusFilter === 'active' 
-                  ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                  : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              Active ({conversations.filter(c => c.status === 'active').length})
-            </Button>
-            <Button
-              variant={statusFilter === 'pending' ? 'default' : 'outline'}
-              onClick={() => setStatusFilter('pending')}
-              size="sm"
-              className={`h-7 text-xs font-medium rounded-md transition-all duration-200 ${
-                statusFilter === 'pending' 
-                  ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                  : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              Pending ({conversations.filter(c => c.status === 'pending').length})
-            </Button>
-            <Button
-              variant={statusFilter === 'resolved' ? 'default' : 'outline'}
-              onClick={() => setStatusFilter('resolved')}
-              size="sm"
-              className={`h-7 text-xs font-medium rounded-md transition-all duration-200 ${
-                statusFilter === 'resolved' 
-                  ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                  : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              Resolved ({conversations.filter(c => c.status === 'resolved').length})
-            </Button>
-            <Button
-              variant={statusFilter === 'unsolved' ? 'default' : 'outline'}
-              onClick={() => setStatusFilter('unsolved')}
-              size="sm"
-              className={`h-7 text-xs font-medium rounded-md transition-all duration-200 ${
-                statusFilter === 'unsolved' 
-                  ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                  : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              Unsolved ({conversations.filter(c => c.status === 'unsolved').length})
-            </Button>
-            <Button
-              variant={statusFilter === 'closed' ? 'default' : 'outline'}
-              onClick={() => setStatusFilter('closed')}
-              size="sm"
-              className={`h-7 text-xs font-medium rounded-md transition-all duration-200 ${
-                statusFilter === 'closed' 
-                  ? 'bg-gray-900 hover:bg-gray-800 text-white' 
-                  : 'border-gray-200 hover:bg-gray-50 text-gray-600'
-              }`}
-            >
-              Closed ({conversations.filter(c => c.status === 'closed').length})
-            </Button>
-          </div>
         </div>
 
-        {/* Conversation List */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Modern Tabs for Status Filtering */}
+        <Tabs 
+          key={statusFilter}
+          value={statusFilter} 
+          onValueChange={(value) => {
+            const newStatus = value as typeof statusFilter;
+            setStatusFilter(newStatus);
+            // Update URL without adding to history
+            if (newStatus === 'all') {
+              router.replace('/dashboard/conversations');
+            } else {
+              router.replace(`/dashboard/conversations?status=${newStatus}`);
+            }
+          }}
+          className="flex-1 flex flex-col overflow-hidden"
+        >
+          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 gap-0.5 sm:gap-1 p-0.5 sm:p-1 bg-gray-100 border-b border-gray-200">
+            <TabsTrigger 
+              value="all" 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs py-1.5 sm:py-2.5 px-1 sm:px-2 rounded-md transition-all ${
+                statusFilter === 'all' 
+                  ? 'bg-white text-gray-900 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium">All</span>
+              <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === 'all' ? 'bg-gray-100' : 'bg-gray-200'
+              }`}>
+                {conversations.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="active" 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs py-1.5 sm:py-2.5 px-1 sm:px-2 rounded-md transition-all ${
+                statusFilter === 'active' 
+                  ? 'bg-white text-green-700 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium">Active</span>
+              <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-200'
+              }`}>
+                {conversations.filter(c => c.status === 'active').length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="pending" 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs py-1.5 sm:py-2.5 px-1 sm:px-2 rounded-md transition-all ${
+                statusFilter === 'pending' 
+                  ? 'bg-white text-yellow-700 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium">Pending</span>
+              <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === 'pending' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-200'
+              }`}>
+                {conversations.filter(c => c.status === 'pending').length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="resolved" 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs py-1.5 sm:py-2.5 px-1 sm:px-2 rounded-md transition-all ${
+                statusFilter === 'resolved' 
+                  ? 'bg-white text-blue-700 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium">Resolved</span>
+              <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === 'resolved' ? 'bg-blue-100 text-blue-700' : 'bg-gray-200'
+              }`}>
+                {conversations.filter(c => c.status === 'resolved').length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="unsolved" 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs py-1.5 sm:py-2.5 px-1 sm:px-2 rounded-md transition-all ${
+                statusFilter === 'unsolved' 
+                  ? 'bg-white text-red-700 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium">Unsolved</span>
+              <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === 'unsolved' ? 'bg-red-100 text-red-700' : 'bg-gray-200'
+              }`}>
+                {conversations.filter(c => c.status === 'unsolved').length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="closed" 
+              className={`flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs py-1.5 sm:py-2.5 px-1 sm:px-2 rounded-md transition-all ${
+                statusFilter === 'closed' 
+                  ? 'bg-white text-gray-700 shadow-sm' 
+                  : 'text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <span className="font-medium">Closed</span>
+              <span className={`text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded-full font-semibold ${
+                statusFilter === 'closed' ? 'bg-gray-100' : 'bg-gray-200'
+              }`}>
+                {conversations.filter(c => c.status === 'closed').length}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+
+          {/* Conversation Lists for Each Tab */}
+          <TabsContent value="all" className="flex-1 overflow-y-auto m-0 mt-0">
+            {filteredConversations.length === 0 ? (
+              <div className="p-6 sm:p-8 text-center">
+                <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">No conversations found</h3>
+                <p className="text-sm sm:text-base text-gray-600">
+                  {searchTerm ? 'Try adjusting your search' : 'Your customer conversations will appear here once they start chatting'}
+                </p>
+          </div>
+            ) : (
+              <div className="space-y-0.5 px-1.5 sm:px-2 py-1.5 sm:py-2">
+                {filteredConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-2.5 sm:p-3 cursor-pointer hover:bg-gray-50 active:bg-gray-100 border-l-2 transition-all duration-200 rounded-lg touch-manipulation ${
+                      selectedConversation?.id === conversation.id
+                        ? 'bg-gray-50 border-gray-900'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <div className="flex items-start gap-2 sm:gap-2.5">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                        background: `${getColorFromName(conversation.customerName)}`
+                      }}>
+                        <span className="text-white text-xs font-semibold">
+                          {getInitials(conversation.customerName)}
+                        </span>
+        </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium text-sm text-gray-900 truncate">
+                              {conversation.customerName}
+                            </span>
+                            {conversation.handoverRequested && (
+                              <UserCheck className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {conversation.unreadCount > 0 && (
+                              <div className="w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {conversation.unreadCount}
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              {conversation.lastMessageAt
+                                ? formatTime(conversation.lastMessageAt)
+                                : formatTime(conversation.createdAt)
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate mb-1">
+                          {conversation.lastMessage || 'No messages yet'}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            conversation.handoverRequested ? 'bg-orange-400' : 'bg-green-400'
+                          }`}></div>
+                          <Badge className={`text-xs px-1.5 py-0 ${getStatusColor(conversation.status)}`}>
+                            {getStatusDisplayText(conversation)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="active" className="flex-1 overflow-y-auto m-0 mt-0">
           {filteredConversations.length === 0 ? (
             <div className="p-8 text-center">
               <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversations found</h3>
-              <p className="text-gray-600">
-                {searchTerm || statusFilter !== 'all'
-                  ? 'Try adjusting your search or filters'
-                  : 'Your customer conversations will appear here once they start chatting'
-                }
-              </p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No active conversations</h3>
+                <p className="text-gray-600">Active conversations will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5 px-2 py-2">
+                {filteredConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-3 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 rounded-lg ${
+                      selectedConversation?.id === conversation.id
+                        ? 'bg-gray-50 border-gray-900'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                        background: `${getColorFromName(conversation.customerName)}`
+                      }}>
+                        <span className="text-white text-xs font-semibold">
+                          {getInitials(conversation.customerName)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium text-sm text-gray-900 truncate">
+                              {conversation.customerName}
+                            </span>
+                            {conversation.handoverRequested && (
+                              <UserCheck className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {conversation.unreadCount > 0 && (
+                              <div className="w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {conversation.unreadCount}
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              {conversation.lastMessageAt
+                                ? formatTime(conversation.lastMessageAt)
+                                : formatTime(conversation.createdAt)
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate mb-1">
+                          {conversation.lastMessage || 'No messages yet'}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            conversation.handoverRequested ? 'bg-orange-400' : 'bg-green-400'
+                          }`}></div>
+                          <Badge className={`text-xs px-1.5 py-0 ${getStatusColor(conversation.status)}`}>
+                            {getStatusDisplayText(conversation)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="pending" className="flex-1 overflow-y-auto m-0 mt-0">
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending conversations</h3>
+                <p className="text-gray-600">Pending conversations will appear here</p>
             </div>
           ) : (
-            <div className="space-y-0.5 px-2 py-1">
+              <div className="space-y-0.5 px-2 py-2">
               {filteredConversations.map((conversation) => (
                 <div
                   key={conversation.id}
@@ -776,7 +994,6 @@ export default function ConversationsPage() {
                   onClick={() => setSelectedConversation(conversation)}
                 >
                   <div className="flex items-start gap-2.5">
-                    {/* Compact Avatar */}
                     <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
                       background: `${getColorFromName(conversation.customerName)}`
                     }}>
@@ -826,12 +1043,226 @@ export default function ConversationsPage() {
               ))}
             </div>
           )}
+          </TabsContent>
+
+          <TabsContent value="resolved" className="flex-1 overflow-y-auto m-0 mt-0">
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No resolved conversations</h3>
+                <p className="text-gray-600">Resolved conversations will appear here</p>
         </div>
+            ) : (
+              <div className="space-y-0.5 px-2 py-2">
+                {filteredConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-3 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 rounded-lg ${
+                      selectedConversation?.id === conversation.id
+                        ? 'bg-gray-50 border-gray-900'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                        background: `${getColorFromName(conversation.customerName)}`
+                      }}>
+                        <span className="text-white text-xs font-semibold">
+                          {getInitials(conversation.customerName)}
+                        </span>
       </div>
 
-      {/* Resize Handle for Conversation Panel */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium text-sm text-gray-900 truncate">
+                              {conversation.customerName}
+                            </span>
+                            {conversation.handoverRequested && (
+                              <UserCheck className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {conversation.unreadCount > 0 && (
+                              <div className="w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {conversation.unreadCount}
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              {conversation.lastMessageAt
+                                ? formatTime(conversation.lastMessageAt)
+                                : formatTime(conversation.createdAt)
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate mb-1">
+                          {conversation.lastMessage || 'No messages yet'}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            conversation.handoverRequested ? 'bg-orange-400' : 'bg-green-400'
+                          }`}></div>
+                          <Badge className={`text-xs px-1.5 py-0 ${getStatusColor(conversation.status)}`}>
+                            {getStatusDisplayText(conversation)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="unsolved" className="flex-1 overflow-y-auto m-0 mt-0">
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No unsolved conversations</h3>
+                <p className="text-gray-600">Unsolved conversations will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5 px-2 py-2">
+                {filteredConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-3 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 rounded-lg ${
+                      selectedConversation?.id === conversation.id
+                        ? 'bg-gray-50 border-gray-900'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                        background: `${getColorFromName(conversation.customerName)}`
+                      }}>
+                        <span className="text-white text-xs font-semibold">
+                          {getInitials(conversation.customerName)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium text-sm text-gray-900 truncate">
+                              {conversation.customerName}
+                            </span>
+                            {conversation.handoverRequested && (
+                              <UserCheck className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {conversation.unreadCount > 0 && (
+                              <div className="w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {conversation.unreadCount}
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              {conversation.lastMessageAt
+                                ? formatTime(conversation.lastMessageAt)
+                                : formatTime(conversation.createdAt)
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate mb-1">
+                          {conversation.lastMessage || 'No messages yet'}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            conversation.handoverRequested ? 'bg-orange-400' : 'bg-green-400'
+                          }`}></div>
+                          <Badge className={`text-xs px-1.5 py-0 ${getStatusColor(conversation.status)}`}>
+                            {getStatusDisplayText(conversation)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="closed" className="flex-1 overflow-y-auto m-0 mt-0">
+            {filteredConversations.length === 0 ? (
+              <div className="p-8 text-center">
+                <MessageCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">No closed conversations</h3>
+                <p className="text-gray-600">Closed conversations will appear here</p>
+              </div>
+            ) : (
+              <div className="space-y-0.5 px-2 py-2">
+                {filteredConversations.map((conversation) => (
+                  <div
+                    key={conversation.id}
+                    className={`p-3 cursor-pointer hover:bg-gray-50 border-l-2 transition-all duration-200 rounded-lg ${
+                      selectedConversation?.id === conversation.id
+                        ? 'bg-gray-50 border-gray-900'
+                        : 'border-transparent hover:border-gray-300'
+                    }`}
+                    onClick={() => setSelectedConversation(conversation)}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                        background: `${getColorFromName(conversation.customerName)}`
+                      }}>
+                        <span className="text-white text-xs font-semibold">
+                          {getInitials(conversation.customerName)}
+                        </span>
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-medium text-sm text-gray-900 truncate">
+                              {conversation.customerName}
+                            </span>
+                            {conversation.handoverRequested && (
+                              <UserCheck className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            {conversation.unreadCount > 0 && (
+                              <div className="w-4 h-4 bg-blue-600 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                                {conversation.unreadCount}
+                              </div>
+                            )}
+                            <span className="text-xs text-gray-500">
+                              {conversation.lastMessageAt
+                                ? formatTime(conversation.lastMessageAt)
+                                : formatTime(conversation.createdAt)
+                              }
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 truncate mb-1">
+                          {conversation.lastMessage || 'No messages yet'}
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <div className={`w-1.5 h-1.5 rounded-full ${
+                            conversation.handoverRequested ? 'bg-orange-400' : 'bg-green-400'
+                          }`}></div>
+                          <Badge className={`text-xs px-1.5 py-0 ${getStatusColor(conversation.status)}`}>
+                            {getStatusDisplayText(conversation)}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Resize Handle for Conversation Panel - Desktop Only */}
       <div 
-        className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-all duration-200 hover:w-2 group relative"
+        className="hidden lg:block w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-all duration-200 hover:w-2 group relative"
         onMouseDown={(e) => handleMouseDown(e, 'conversation')}
       >
         {/* Drag indicator dots */}
@@ -850,87 +1281,88 @@ export default function ConversationsPage() {
 
       {/* Modern Middle Panel - Chat Messages */}
       <div 
-        className={`flex flex-col transition-all duration-300 glass-morphism ${isResizing ? 'premium-shadow-lg' : ''}`}
-        style={{ width: `${100 - conversationPanelWidth - (isCustomerDetailsPanelVisible ? customerDetailsPanelWidth : 0)}%` }}
+        className={`flex flex-col transition-all duration-300 glass-morphism mobile-full-width ${isResizing ? 'premium-shadow-lg' : ''} ${
+          mobileView === 'list' ? 'hidden lg:flex' : 'flex'
+        } w-full lg:flex-1`}
       >
         {selectedConversation ? (
           <>
             {/* Clean Chat Header */}
-            <div className="p-4 border-b border-gray-200/60 bg-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+            <div className="p-3 sm:p-4 border-b border-gray-200/60 bg-white">
+              <div className="flex items-center justify-between gap-2">
+                {/* Mobile Back Button */}
+                <button
+                  onClick={handleMobileBackToList}
+                  className="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+                >
+                  <ArrowLeft className="w-5 h-5 text-gray-600" />
+                </button>
+                
+                <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
                     background: `${getColorFromName(selectedConversation.customerName)}`
                   }}>
-                    <span className="text-white text-sm font-semibold">
+                    <span className="text-white text-xs sm:text-sm font-semibold">
                       {getInitials(selectedConversation.customerName)}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h2 className="font-semibold text-gray-900 truncate text-sm">
+                    <h2 className="font-semibold text-gray-900 truncate text-xs sm:text-sm">
                       {selectedConversation.customerName}
                     </h2>
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1 sm:gap-1.5">
                       <div className={`w-1.5 h-1.5 rounded-full ${
                         selectedConversation.handoverRequested ? 'bg-orange-400' : 'bg-green-400'
                       }`}></div>
-                      <p className="text-xs text-gray-600 truncate">
+                      <p className="text-[10px] sm:text-xs text-gray-600 truncate">
                         {selectedConversation.customerEmail}
                       </p>
                     </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
                   {selectedConversation.handoverRequested && (
-                    <Badge className="bg-orange-100 text-orange-800 border-orange-200 flex items-center gap-1">
+                    <Badge className="bg-orange-100 text-orange-800 border-orange-200 flex items-center gap-1 text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
                       <UserCheck className="w-3 h-3" />
-                      Handover Requested
+                      <span className="hidden sm:inline">Handover</span>
                     </Badge>
                   )}
-                  <Badge className={getStatusColor(selectedConversation.status)}>
+                  <Badge className={`${getStatusColor(selectedConversation.status)} text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5`}>
                     {getStatusDisplayText(selectedConversation)}
                   </Badge>
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => setIsCustomerDetailsPanelVisible(!isCustomerDetailsPanelVisible)}
-                    className="flex items-center gap-1"
+                    className="hidden lg:flex items-center gap-1"
                   >
                     {isCustomerDetailsPanelVisible ? (
                       <>
                         <ChevronRight className="w-4 h-4" />
-                        <span className="hidden sm:inline">Hide Details</span>
+                        <span className="hidden xl:inline">Hide Details</span>
                       </>
                     ) : (
                       <>
                         <ChevronLeft className="w-4 h-4" />
-                        <span className="hidden sm:inline">Show Details</span>
+                        <span className="hidden xl:inline">Show Details</span>
                       </>
                     )}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedConversation(null)}
-                    className="lg:hidden"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
 
               {/* Handover Alert Banner */}
               {selectedConversation.handoverRequested && (
-                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-5 h-5 text-orange-600" />
-                      <div>
-                        <p className="text-sm font-semibold text-orange-900">
+                <div className="mt-2 sm:mt-3 p-2.5 sm:p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0">
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-semibold text-orange-900">
                           Customer requested human assistance
                         </p>
-                        <p className="text-xs text-orange-700">
-                          via {selectedConversation.handoverMethod || 'unknown method'} • {
+                        <p className="text-[10px] sm:text-xs text-orange-700">
+                          via {selectedConversation.handoverMethod || 'unknown'} • {
                             selectedConversation.handoverRequestedAt 
                               ? formatTime(selectedConversation.handoverRequestedAt)
                               : 'just now'
@@ -941,9 +1373,9 @@ export default function ConversationsPage() {
                     <Button
                       onClick={handleTakeOverConversation}
                       size="sm"
-                      className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1"
+                      className="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-1 w-full sm:w-auto text-xs h-8"
                     >
-                      <UserCheck className="w-4 h-4" />
+                      <UserCheck className="w-3.5 h-3.5" />
                       Take Over
                     </Button>
                   </div>
@@ -952,7 +1384,7 @@ export default function ConversationsPage() {
             </div>
 
             {/* Clean Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 bg-white">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-white">
               {loadingMessages ? (
                 <div className="text-center py-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
@@ -977,7 +1409,7 @@ export default function ConversationsPage() {
                       {dateMessages.map((message) => (
                         <div
                           key={message.id}
-                          className={`flex items-end gap-2 mb-3 ${
+                          className={`flex items-end gap-1.5 sm:gap-2 mb-2 sm:mb-3 ${
                             message.sender === 'business' 
                               ? 'justify-end' 
                               : 'justify-start'
@@ -987,14 +1419,14 @@ export default function ConversationsPage() {
                             // Business message - right aligned
                             <>
                               <div
-                                className={`max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
+                                className={`max-w-[85%] sm:max-w-[75%] px-3 py-2 rounded-lg shadow-sm ${
                                   message.senderName === 'AI Assistant' || message.metadata?.ai_generated
                                     ? 'bg-blue-600 text-white'
                                     : 'bg-gray-600 text-white'
                                 }`} style={{
                                   borderRadius: '12px 12px 2px 12px'
                                 }}>
-                                <p className="text-sm leading-relaxed">{message.text}</p>
+                                <p className="text-xs sm:text-sm leading-relaxed break-words">{message.text}</p>
                                 
                                 {/* AI Response Metadata */}
                                 {message.metadata?.ai_generated === true && (
@@ -1022,30 +1454,30 @@ export default function ConversationsPage() {
                               </div>
                               
                               {/* Business Avatar - Rightmost position */}
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200 bg-gray-700">
+                              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200 bg-gray-700">
                                 {message.senderName === 'AI Assistant' || message.metadata?.ai_generated ? (
-                                  <Bot className="w-4 h-4 text-white" />
+                                  <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                                 ) : (
-                                  <User className="w-4 h-4 text-white" />
+                                  <User className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
                                 )}
                               </div>
                             </>
                           ) : (
                             // Customer message - left aligned
                             <>
-                              <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
+                              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ring-gray-200" style={{
                                 background: `${getColorFromName(selectedConversation.customerName)}`
                               }}>
-                                <span className="text-white text-xs font-semibold">
+                                <span className="text-white text-[10px] sm:text-xs font-semibold">
                                   {getInitials(selectedConversation.customerName)}
                                 </span>
                               </div>
                               
                               <div
-                                className="max-w-[75%] px-3 py-2 rounded-lg shadow-sm bg-white border border-gray-200 text-gray-900" style={{
+                                className="max-w-[85%] sm:max-w-[75%] px-3 py-2 rounded-lg shadow-sm bg-white border border-gray-200 text-gray-900" style={{
                                   borderRadius: '12px 12px 12px 2px'
                                 }}>
-                                <p className="text-sm leading-relaxed">{message.text}</p>
+                                <p className="text-xs sm:text-sm leading-relaxed break-words">{message.text}</p>
                                 
                                 <div className="flex items-center justify-end gap-1 mt-1 text-xs text-gray-500">
                                   <span>{formatMessageTime(message.createdAt)}</span>
@@ -1063,10 +1495,10 @@ export default function ConversationsPage() {
             </div>
 
             {/* Clean Message Input */}
-            <div className="p-4 border-t border-gray-200/60 bg-white">
+            <div className="p-3 sm:p-4 border-t border-gray-200/60 bg-white">
               <div className="max-w-4xl mx-auto">
                 {/* AI Toggle */}
-                <div className="mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="mb-2 sm:mb-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center space-x-2">
                     <label className="flex items-center space-x-2 text-xs cursor-pointer">
                       <input
@@ -1079,14 +1511,14 @@ export default function ConversationsPage() {
                       <span className="font-medium text-gray-700">Enable AI</span>
                     </label>
                     {aiEnabled && (
-                      <div className="flex items-center space-x-1 text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-md">
+                      <div className="flex items-center space-x-1 text-[10px] sm:text-xs text-gray-700 bg-gray-100 px-2 py-1 rounded-md">
                         <Bot className="w-3 h-3" />
-                        <span>AI Active</span>
+                        <span className="hidden sm:inline">AI Active</span>
                       </div>
                     )}
                   </div>
                   {aiThinking && (
-                    <div className="flex items-center space-x-1.5 text-xs text-gray-600">
+                    <div className="flex items-center space-x-1.5 text-[10px] sm:text-xs text-gray-600">
                       <div className="animate-spin rounded-full h-3 w-3 border-b border-gray-600"></div>
                       <span>AI thinking...</span>
                     </div>
@@ -1101,8 +1533,8 @@ export default function ConversationsPage() {
                         type="text"
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder={aiEnabled ? "Type message (AI will respond)..." : "Type your message..."}
-                        className="w-full px-4 py-2.5 pr-12 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white transition-all duration-200"
+                        placeholder={aiEnabled ? "Message (AI enabled)..." : "Type message..."}
+                        className="w-full px-3 sm:px-4 py-2 sm:py-2.5 pr-10 sm:pr-12 text-xs sm:text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-900 focus:border-gray-900 bg-white transition-all duration-200"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -1115,12 +1547,12 @@ export default function ConversationsPage() {
                         suppressHydrationWarning
                         type="submit"
                         disabled={!newMessage.trim() || sending || aiThinking}
-                        className="absolute right-1.5 top-1/2 transform -translate-y-1/2 w-8 h-8 rounded-lg p-0 bg-gray-900 hover:bg-gray-800 transition-all duration-200"
+                        className="absolute right-1 sm:right-1.5 top-1/2 transform -translate-y-1/2 w-7 h-7 sm:w-8 sm:h-8 rounded-lg p-0 bg-gray-900 hover:bg-gray-800 transition-all duration-200"
                       >
                         {sending || aiThinking ? (
-                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-b border-white"></div>
+                          <div className="animate-spin rounded-full h-3 w-3 sm:h-3.5 sm:w-3.5 border-b border-white"></div>
                         ) : (
-                          <Send className="h-3.5 w-3.5" />
+                          <Send className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                         )}
                       </Button>
                     </div>
@@ -1130,20 +1562,20 @@ export default function ConversationsPage() {
             </div>
           </>
         ) : (
-          <div className="flex-1 flex items-center justify-center">
+          <div className="flex-1 flex items-center justify-center p-4">
             <div className="text-center">
-              <MessageCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">No conversations yet</h2>
-              <p className="text-gray-600">Customer conversations will appear here once they start chatting</p>
+              <MessageCircle className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No conversations yet</h2>
+              <p className="text-sm sm:text-base text-gray-600 px-4">Customer conversations will appear here once they start chatting</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Resize Handle for Customer Details Panel */}
+      {/* Resize Handle for Customer Details Panel - Desktop Only */}
       {isCustomerDetailsPanelVisible && (
         <div 
-          className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-all duration-200 hover:w-2 group relative"
+          className="hidden lg:block w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-all duration-200 hover:w-2 group relative"
           onMouseDown={(e) => handleMouseDown(e, 'customer')}
         >
           {/* Drag indicator dots */}
@@ -1161,10 +1593,10 @@ export default function ConversationsPage() {
         </div>
       )}
 
-      {/* Modern Right Panel - User Details */}
+      {/* Modern Right Panel - User Details - Desktop Only */}
       {isCustomerDetailsPanelVisible && (
         <div 
-          className={`border-l border-gray-200/60 glass-morphism transition-all duration-300 ${isResizing ? 'premium-shadow-lg' : ''}`}
+          className={`hidden lg:block border-l border-gray-200/60 glass-morphism transition-all duration-300 ${isResizing ? 'premium-shadow-lg' : ''}`}
           style={{ width: `${customerDetailsPanelWidth}%` }}
         >
           {selectedConversation ? (

@@ -8,9 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
 import { Badge } from '@/components/ui/badge';
 import { LoadingDialog } from '../../components/ui/loading-dialog';
-import { Users, Settings, Shield } from 'lucide-react';
+import { Users, Settings, Shield, Crown, Clock, Calendar, CheckCircle, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { getSubscriptionInfo, formatDate, getPlanFeatures } from '@/app/lib/subscription-utils';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -257,6 +258,135 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Subscription & Plan Information */}
+          {userData && (() => {
+            const subscriptionInfo = getSubscriptionInfo(userData);
+            const planFeatures = getPlanFeatures(subscriptionInfo.plan);
+            
+            return (
+              <Card className="bg-gradient-to-br from-purple-50/50 to-pink-100/30 border-2 border-purple-500/40 rounded-2xl shadow-sm mb-6">
+                <CardHeader className="pb-4">
+                  <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+                    <Crown className="w-5 h-5 text-purple-600" />
+                    <span>Subscription & Plan</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Plan Overview */}
+                    <div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="p-3 bg-purple-100 rounded-xl">
+                          <Crown className="w-6 h-6 text-purple-600" />
+                        </div>
+                        <div>
+                          <h3 className="text-xl font-bold text-gray-900">
+                            {subscriptionInfo.planDisplay}
+                          </h3>
+                          <div className="flex items-center gap-2 mt-1">
+                            {subscriptionInfo.isTrialActive ? (
+                              <>
+                                <Badge className="bg-blue-100 text-blue-800 border border-blue-300">
+                                  Active Trial
+                                </Badge>
+                                <span className="text-sm text-gray-600">
+                                  {subscriptionInfo.trialDaysRemaining} {subscriptionInfo.trialDaysRemaining === 1 ? 'day' : 'days'} left
+                                </span>
+                              </>
+                            ) : (
+                              <Badge className={
+                                subscriptionInfo.status === 'active' 
+                                  ? 'bg-green-100 text-green-800 border border-green-300'
+                                  : 'bg-gray-100 text-gray-800 border border-gray-300'
+                              }>
+                                {subscriptionInfo.statusDisplay}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Trial/Subscription Dates */}
+                      <div className="space-y-3">
+                        {subscriptionInfo.isTrialActive && subscriptionInfo.trialEndDate && (
+                          <>
+                            <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                              <Clock className="w-5 h-5 text-blue-600 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-semibold text-blue-900">Trial Period</p>
+                                <p className="text-xs text-blue-700 mt-1">
+                                  Ends on {formatDate(subscriptionInfo.trialEndDate)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3 p-3 bg-amber-50 rounded-lg border border-amber-200">
+                              <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                              <div>
+                                <p className="text-sm font-semibold text-amber-900">Upgrade to Continue</p>
+                                <p className="text-xs text-amber-700 mt-1">
+                                  Choose a plan before your trial expires to keep your data and features
+                                </p>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                        
+                        {subscriptionInfo.subscriptionEndDate && !subscriptionInfo.isTrialActive && (
+                          <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                            <Calendar className="w-5 h-5 text-green-600 mt-0.5" />
+                            <div>
+                              <p className="text-sm font-semibold text-green-900">Subscription Active</p>
+                              <p className="text-xs text-green-700 mt-1">
+                                Renews on {formatDate(subscriptionInfo.subscriptionEndDate)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Plan Features */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-3">Plan Features:</h4>
+                      <div className="space-y-2 mb-4">
+                        {planFeatures.map((feature, index) => (
+                          <div key={index} className="flex items-start gap-2">
+                            <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-sm text-gray-700">{feature}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="space-y-2 mt-4">
+                        {subscriptionInfo.isTrialActive ? (
+                          <>
+                            <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                              <Crown className="w-4 h-4 mr-2" />
+                              Upgrade Now
+                            </Button>
+                            <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
+                              View All Plans
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Button variant="outline" className="w-full border-purple-300 text-purple-700 hover:bg-purple-50">
+                              Manage Subscription
+                            </Button>
+                            <Button variant="outline" className="w-full">
+                              View Billing History
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Profile Information */}

@@ -146,23 +146,32 @@ async def search_knowledge_base(request: SearchRequest):
 
 @router.delete("/delete/{item_id}")
 async def delete_knowledge_item(item_id: str):
-    """Delete all chunks for a specific knowledge base item"""
+    """Delete all chunks for a specific knowledge base item from Qdrant"""
     try:
         if not qdrant_service.qdrant_client:
             raise HTTPException(status_code=500, detail="Qdrant client not initialized")
         
-        # Note: Would need to implement deletion by itemId filter
-        # For now, we'll return a success message
+        print(f"📥 Delete request for itemId: {item_id}")
         
-        return {
-            "success": True,
-            "message": f"Delete request received for item {item_id}",
-            "note": "Deletion by item ID not yet implemented"
-        }
+        # Delete all vector chunks with this itemId
+        result = qdrant_service.delete_item_by_id(item_id)
         
+        if result["success"]:
+            print(f"✅ Successfully deleted {result['deleted_chunks']} chunks from Qdrant")
+            return {
+                "success": True,
+                "message": result["message"],
+                "deleted_chunks": result["deleted_chunks"],
+                "item_id": item_id
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to delete item"))
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error deleting knowledge item: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"❌ Error deleting knowledge item: {e}")
+        raise HTTPException(status_code=500, detail=f"Error deleting item: {str(e)}")
 
 
 @router.delete("/delete-all")

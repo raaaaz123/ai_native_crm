@@ -30,7 +30,8 @@ import {
   Play,
   ExternalLink,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Share2
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
@@ -84,7 +85,7 @@ export default function WidgetsPage() {
     aiConfig: {
       enabled: true,
       provider: 'openrouter',
-      model: 'deepseek/deepseek-chat-v3.1:free',
+      model: 'openai/gpt-5-mini',
       temperature: 0.7,
       maxTokens: 500,
       confidenceThreshold: 0.5,
@@ -278,7 +279,7 @@ export default function WidgetsPage() {
       aiConfig: {
         enabled: true,
         provider: 'openrouter',
-        model: 'deepseek/deepseek-chat-v3.1:free',
+        model: 'openai/gpt-5-mini',
         temperature: 0.7,
         maxTokens: 500,
         confidenceThreshold: 0.5,
@@ -382,13 +383,24 @@ export default function WidgetsPage() {
             </h1>
             <p className="text-gray-600 font-light">Manage your chat widgets and customer engagement tools</p>
           </div>
-          <Button 
-            onClick={handleCreateWidget}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 py-6"
-          >
-            <Plus className="w-5 h-5" />
-            Create Widget
-          </Button>
+          <div className="flex gap-3">
+            <Link href="/dashboard/widgets/share">
+              <Button 
+                variant="outline"
+                className="flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 py-6 border-2 border-blue-600 text-blue-600 hover:bg-blue-50"
+              >
+                <Share2 className="w-5 h-5" />
+                Share Widget
+              </Button>
+            </Link>
+            <Button 
+              onClick={handleCreateWidget}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 py-6"
+            >
+              <Plus className="w-5 h-5" />
+              Create Widget
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -541,6 +553,16 @@ export default function WidgetsPage() {
                           >
                             <Settings className="w-4 h-4" />
                             <span>Customise</span>
+                          </Button>
+                        </Link>
+                        <Link href="/dashboard/widgets/share" className="flex-1 lg:w-full">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex items-center justify-center gap-2 h-10 bg-white hover:bg-gray-50 border-2 border-green-600 text-green-600 hover:border-green-700 hover:text-green-700 transition-all font-semibold"
+                          >
+                            <Share2 className="w-4 h-4" />
+                            <span>Share</span>
                           </Button>
                         </Link>
                         <Button
@@ -809,7 +831,7 @@ export default function WidgetsPage() {
                         </div>
                         
                         <div>
-                          <Label htmlFor="aiModel" className="text-xs font-semibold text-gray-700">Model</Label>
+                          <Label htmlFor="aiModel" className="text-xs font-semibold text-gray-700 mb-2 block">AI Model</Label>
                           <Select
                             value={formData.aiConfig.model}
                             onValueChange={(value) => 
@@ -819,15 +841,12 @@ export default function WidgetsPage() {
                               }))
                             }
                           >
-                            <SelectTrigger className="mt-1 h-9 text-sm bg-white border-2 border-gray-200">
+                            <SelectTrigger className="h-9 text-sm bg-white border-2 border-indigo-300">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="google/gemini-2.0-flash-exp:free">Gemini 2.0 (Free)</SelectItem>
-                              <SelectItem value="deepseek/deepseek-chat-v3.1:free">DeepSeek v3.1 (Free)</SelectItem>
-                              <SelectItem value="meta-llama/llama-3.2-3b-instruct:free">Llama 3.2 (Free)</SelectItem>
-                              <SelectItem value="gpt-3.5-turbo">GPT-3.5 Turbo</SelectItem>
-                              <SelectItem value="gpt-4">GPT-4</SelectItem>
+                              <SelectItem value="openai/gpt-5-mini">🤖 GPT-5 Mini (OpenAI)</SelectItem>
+                              <SelectItem value="google/gemini-2.5-flash">⚡ Gemini 2.5 Flash (Google)</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>

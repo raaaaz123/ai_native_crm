@@ -14,28 +14,38 @@ export interface InvitationEmailData {
 export async function sendInvitationEmail(data: InvitationEmailData): Promise<{ success: boolean; error?: string }> {
   try {
     console.log('📧 [Email] Sending invitation email to:', data.to);
-    console.log('📧 [Email] Email data:', data);
-    
-    // In a real implementation, you would:
-    // 1. Use an email service like SendGrid, AWS SES, or Nodemailer
-    // 2. Create a proper HTML email template
-    // 3. Send the email with the invitation link
-    
-    // For now, we'll just log the invitation details
-    const invitationLink = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/invite/${data.inviteToken}`;
-    
-    console.log('📧 [Email] Invitation link:', invitationLink);
-    console.log('📧 [Email] Email template would include:');
-    console.log(`   - Company: ${data.companyName}`);
-    console.log(`   - Inviter: ${data.inviterName}`);
-    console.log(`   - Role: ${data.role}`);
-    console.log(`   - Permissions: ${data.permissions.join(', ')}`);
-    console.log(`   - Link: ${invitationLink}`);
-    
-    // Simulate email sending delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('✅ [Email] Invitation email sent successfully');
+    console.log('📧 [Email] Email data:', {
+      company: data.companyName,
+      inviter: data.inviterName,
+      role: data.role
+    });
+
+    // Call the invite email API endpoint
+    const response = await fetch('/api/emails/invite', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: data.to,
+        companyName: data.companyName,
+        inviterName: data.inviterName,
+        inviteToken: data.inviteToken,
+        role: data.role
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      console.error('❌ [Email] Failed to send invitation email:', result.error);
+      return { 
+        success: false, 
+        error: result.error || 'Failed to send invitation email' 
+      };
+    }
+
+    console.log('✅ [Email] Invitation email sent successfully to:', data.to);
     return { success: true };
   } catch (error) {
     console.error('❌ [Email] Error sending invitation email:', error);

@@ -84,7 +84,7 @@ export default function DashboardPage() {
     aiConfig: {
       enabled: true,
       provider: 'openrouter',
-      model: 'x-ai/grok-4-fast:free',
+      model: 'openai/gpt-5-mini',
       temperature: 0.7,
       maxTokens: 500,
       confidenceThreshold: 0.6,

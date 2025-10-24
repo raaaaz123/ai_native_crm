@@ -30,6 +30,13 @@ interface UserData {
   createdAt?: Date | ReturnType<typeof serverTimestamp>;
   lastLoginAt?: Date | ReturnType<typeof serverTimestamp>;
   updatedAt?: Date | ReturnType<typeof serverTimestamp>;
+  // Subscription fields
+  subscriptionPlan?: 'free_trial' | 'starter' | 'professional' | 'enterprise';
+  subscriptionStatus?: 'active' | 'expired' | 'cancelled';
+  trialStartDate?: Date | ReturnType<typeof serverTimestamp>;
+  trialEndDate?: Date | ReturnType<typeof serverTimestamp>;
+  subscriptionStartDate?: Date | ReturnType<typeof serverTimestamp>;
+  subscriptionEndDate?: Date | ReturnType<typeof serverTimestamp>;
 }
 
 interface AuthContextType {
@@ -169,6 +176,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('👤 [User Data] Parsed name:', { firstName, lastName });
         
         // Create new user document with Google data
+        const now = new Date();
+        const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days from now
+        
         const newUserData: UserData = {
           uid: user.uid,
           email: user.email || '',
@@ -181,7 +191,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: '',
           createdAt: serverTimestamp(),
           lastLoginAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
+          updatedAt: serverTimestamp(),
+          // Initialize 14-day free trial
+          subscriptionPlan: 'free_trial',
+          subscriptionStatus: 'active',
+          trialStartDate: serverTimestamp(),
+          trialEndDate: trialEnd
         };
         
         console.log('💾 [Firestore] Saving new user data:', newUserData);
@@ -198,6 +213,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
         
         console.log('🔄 [State] User data state updated');
+        
+        // Send welcome email asynchronously (don't block signup flow)
+        const userName = newUserData.displayName || `${firstName} ${lastName}`.trim() || 'User';
+        console.log('📧 Triggering welcome email for new Google user:', userName);
+        
+        // Import and send welcome email (async, non-blocking)
+        import('./email-client').then(({ sendWelcomeEmailToUser }) => {
+          sendWelcomeEmailToUser({
+            email: user.email || '',
+            name: userName
+          }).then(result => {
+            if (result.success) {
+              console.log('✅ Welcome email sent successfully to:', user.email);
+            } else {
+              console.warn('⚠️ Failed to send welcome email:', result.error);
+            }
+          }).catch(err => {
+            console.warn('⚠️ Error sending welcome email:', err);
+          });
+        });
       } else {
         console.log('👤 [Firestore] Updating existing user...');
         
@@ -269,6 +304,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const user = result.user;
       
       // Create user document in Firestore
+      const now = new Date();
+      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days from now
+      
       const newUserData: UserData = {
         uid: user.uid,
         email: user.email || '',
@@ -277,6 +315,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: serverTimestamp(),
         lastLoginAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+        // Initialize 14-day free trial
+        subscriptionPlan: 'free_trial',
+        subscriptionStatus: 'active',
+        trialStartDate: serverTimestamp(),
+        trialEndDate: trialEnd,
         ...additionalData
       };
       
@@ -286,6 +329,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: new Date(),
         lastLoginAt: new Date(),
         updatedAt: new Date()
+      });
+      
+      // Send welcome email asynchronously (don't block signup flow)
+      const userName = newUserData.displayName || `${newUserData.firstName || ''} ${newUserData.lastName || ''}`.trim() || 'User';
+      console.log('📧 Triggering welcome email for:', userName);
+      
+      // Import and send welcome email (async, non-blocking)
+      import('./email-client').then(({ sendWelcomeEmailToUser }) => {
+        sendWelcomeEmailToUser({
+          email: user.email || '',
+          name: userName
+        }).then(result => {
+          if (result.success) {
+            console.log('✅ Welcome email sent successfully!');
+          } else {
+            console.warn('⚠️ Failed to send welcome email:', result.error);
+          }
+        }).catch(err => {
+          console.warn('⚠️ Error sending welcome email:', err);
+        });
       });
       
       return user;

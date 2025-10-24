@@ -4,7 +4,8 @@ import {
   addDoc, 
   updateDoc, 
   deleteDoc, 
-  getDocs, 
+  getDocs,
+  getDoc,
   query, 
   where, 
   orderBy, 
@@ -276,12 +277,14 @@ export async function updateKnowledgeBaseItem(
     // Handle file upload if provided
     if (updates.file) {
       // Get current item to access businessId and widgetId
-      const currentItem = await getDocs(query(collection(db, 'knowledgeBase'), where('__name__', '==', itemId)));
-      if (currentItem.empty) {
+      const currentItemRef = doc(db, 'knowledgeBase', itemId);
+      const currentItemSnap = await getDoc(currentItemRef);
+      
+      if (!currentItemSnap.exists()) {
         throw new Error('Item not found');
       }
       
-      const currentData = currentItem.docs[0].data();
+      const currentData = currentItemSnap.data();
       const fileRef = ref(storage, `knowledge-base/${currentData.businessId}/${currentData.widgetId}/${Date.now()}-${updates.file.name}`);
       const uploadResult = await uploadBytes(fileRef, updates.file);
       const fileUrl = await getDownloadURL(uploadResult.ref);
@@ -313,26 +316,34 @@ export async function deleteKnowledgeBaseItem(itemId: string): Promise<ApiRespon
   try {
     // Get item data to access file URL
     const itemRef = doc(db, 'knowledgeBase', itemId);
-    const itemSnap = await getDocs(query(collection(db, 'knowledgeBase'), where('__name__', '==', itemId)));
+    const itemSnap = await getDoc(itemRef);
     
-    if (!itemSnap.empty) {
-      const itemData = itemSnap.docs[0].data();
+    if (itemSnap.exists()) {
+      const itemData = itemSnap.data();
       
       // Delete file from Storage if it exists
       if (itemData.fileUrl) {
-        const fileRef = ref(storage, itemData.fileUrl);
-        await deleteObject(fileRef);
+        try {
+          const fileRef = ref(storage, itemData.fileUrl);
+          await deleteObject(fileRef);
+        } catch (storageError) {
+          console.warn('Could not delete file from storage:', storageError);
+          // Don't fail the whole operation if storage delete fails
+        }
       }
     }
 
     // Delete document from Firestore
     await deleteDoc(itemRef);
+    
+    console.log('✅ Successfully deleted from Firestore:', itemId);
 
     return {
       success: true,
       data: undefined
     };
   } catch (error) {
+    console.error('❌ Error deleting from Firestore:', error);
     return {
       success: false,
       data: undefined,
