@@ -1632,9 +1632,9 @@ CALENDLY BOOKING ACTION: ${action.name}
           {/* Chat Header */}
           <div className="px-6 py-4 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">AI</span>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-xl">AI</span>
                 </div>
                 <div>
                   <div className="text-base font-semibold text-gray-900">{agentConfig.name || 'Agent Playground'}</div>
@@ -1658,8 +1658,8 @@ CALENDLY BOOKING ACTION: ${action.name}
           <div className="flex-1 overflow-y-auto p-6 space-y-4 chat-scrollbar bg-gray-50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-white font-bold text-2xl">AI</span>
+                <div className="w-20 h-20 bg-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
+                  <span className="text-white font-bold text-3xl">AI</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
                   {agentConfig.name || 'AI Agent'}
@@ -1868,9 +1868,9 @@ CALENDLY BOOKING ACTION: ${action.name}
           </div>
 
           {/* Enhanced Input Area */}
-          <div className="border-t border-gray-200/50 p-4 bg-white/50 backdrop-blur-sm flex-shrink-0">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1 relative">
+          <div className="border-t border-gray-200/50 p-4 bg-white/50 backdrop-blur-sm flex-shrink-0" style={{ minHeight: '88px', maxHeight: '88px' }}>
+            <div className="flex gap-3 items-center h-full">
+              <div className="flex-1 relative flex items-center">
                 <Textarea
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -1881,10 +1881,10 @@ CALENDLY BOOKING ACTION: ${action.name}
                     }
                   }}
                   placeholder="Type your message... (Shift+Enter for new line)"
-                  className="min-h-[48px] max-h-[120px] resize-none border-gray-300 rounded-2xl pr-12 pl-4 py-3 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                  className="h-[48px] min-h-[48px] max-h-[48px] resize-none border-gray-300 rounded-2xl pr-12 pl-4 py-3 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all duration-200 overflow-y-auto"
                   rows={1}
                 />
-                <div className="absolute right-3 bottom-3">
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
