@@ -3,31 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  ArrowLeft, 
+import {
+  ArrowLeft,
   Loader2,
-  Plug,
   ExternalLink,
   CheckCircle,
-  XCircle
+  XCircle,
+  Calendar,
+  Clock
 } from 'lucide-react';
 import { useAuth } from '@/app/lib/workspace-auth-context';
 import { getAgent, type Agent } from '@/app/lib/agent-utils';
-import { apiClient } from '@/app/lib/api-client';
 import { toast } from 'sonner';
 import Link from 'next/link';
-
-// Integration types
-interface Integration {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  status: 'connected' | 'disconnected';
-  category: 'communication' | 'payment' | 'calendar' | 'support' | 'productivity';
-}
 
 interface CalendlyUserInfo {
   uri: string;
@@ -47,6 +37,15 @@ interface CalendlyEventType {
   active: boolean;
 }
 
+interface Integration {
+  id: string;
+  name: string;
+  description: string;
+  icon: React.ReactNode;
+  available: boolean;
+  comingSoon?: boolean;
+}
+
 export default function IntegrationsPage() {
   const params = useParams();
   const workspaceSlug = params.workspace as string;
@@ -55,8 +54,7 @@ export default function IntegrationsPage() {
 
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
-  const [connecting, setConnecting] = useState<string | null>(null);
-  const [integrationStatuses, setIntegrationStatuses] = useState<Record<string, 'connected' | 'disconnected'>>({});
+  const [connecting, setConnecting] = useState(false);
   const [calendlyStatus, setCalendlyStatus] = useState<{
     connected: boolean;
     userInfo?: CalendlyUserInfo;
@@ -66,44 +64,52 @@ export default function IntegrationsPage() {
   // Available integrations
   const integrations: Integration[] = [
     {
+      id: 'calendly',
+      name: 'Calendly',
+      description: 'Enable AI-powered meeting scheduling with your Calendly account',
+      icon: <Calendar className="w-6 h-6" />,
+      available: true,
+      comingSoon: false
+    },
+    {
       id: 'slack',
       name: 'Slack',
-      description: 'Manage your Slack conversations.',
-      icon: '🔗',
-      status: integrationStatuses.slack || 'disconnected',
-      category: 'communication'
+      description: 'Send notifications and messages to Slack channels',
+      icon: <div className="w-6 h-6 flex items-center justify-center text-lg">#</div>,
+      available: false,
+      comingSoon: true
     },
     {
       id: 'stripe',
       name: 'Stripe',
-      description: 'Manage payments, billing, and automate financial operations.',
-      icon: 'S',
-      status: integrationStatuses.stripe || 'disconnected',
-      category: 'payment'
-    },
-    {
-      id: 'calendly',
-      name: 'Calendly',
-      description: 'Schedule meetings and manage your calendar events. Connect to enable AI-powered booking.',
-      icon: '📅',
-      status: integrationStatuses.calendly || 'disconnected',
-      category: 'calendar'
+      description: 'Process payments and manage billing',
+      icon: <div className="w-6 h-6 flex items-center justify-center text-lg font-bold">S</div>,
+      available: false,
+      comingSoon: true
     },
     {
       id: 'zendesk',
       name: 'Zendesk',
-      description: 'Create Zendesk tickets.',
-      icon: '🎫',
-      status: integrationStatuses.zendesk || 'disconnected',
-      category: 'support'
+      description: 'Create and manage support tickets',
+      icon: <div className="w-6 h-6 flex items-center justify-center text-lg">📋</div>,
+      available: false,
+      comingSoon: true
     },
     {
-      id: 'sunshine',
-      name: 'Sunshine',
-      description: 'Integrate with Sunshine conversations.',
-      icon: '☀️',
-      status: integrationStatuses.sunshine || 'disconnected',
-      category: 'productivity'
+      id: 'hubspot',
+      name: 'HubSpot',
+      description: 'Sync contacts and deals with HubSpot CRM',
+      icon: <div className="w-6 h-6 flex items-center justify-center text-lg">H</div>,
+      available: false,
+      comingSoon: true
+    },
+    {
+      id: 'salesforce',
+      name: 'Salesforce',
+      description: 'Connect with Salesforce CRM',
+      icon: <div className="w-6 h-6 flex items-center justify-center text-lg">☁</div>,
+      available: false,
+      comingSoon: true
     }
   ];
 
@@ -121,7 +127,7 @@ export default function IntegrationsPage() {
     try {
       setLoading(true);
       const response = await getAgent(agentId);
-      
+
       if (response.success) {
         setAgent(response.data);
       } else {
@@ -140,7 +146,6 @@ export default function IntegrationsPage() {
     if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
 
     try {
-      // Use Next.js API route instead of direct backend call
       const fetchResponse = await fetch(
         `/api/calendly/status?workspace_id=${workspaceContext?.currentWorkspace?.id}&agent_id=${agentId}`
       );
@@ -156,26 +161,12 @@ export default function IntegrationsPage() {
           userInfo: response.data.user_info,
           eventTypes: response.data.event_types
         });
-
-        // Update integration status
-        setIntegrationStatuses(prev => ({
-          ...prev,
-          calendly: 'connected'
-        }));
       } else {
         setCalendlyStatus({ connected: false });
-        setIntegrationStatuses(prev => ({
-          ...prev,
-          calendly: 'disconnected'
-        }));
       }
     } catch (error) {
       console.error('Error checking Calendly status:', error);
       setCalendlyStatus({ connected: false });
-      setIntegrationStatuses(prev => ({
-        ...prev,
-        calendly: 'disconnected'
-      }));
     }
   };
 
@@ -185,7 +176,7 @@ export default function IntegrationsPage() {
       return;
     }
 
-    setConnecting('calendly');
+    setConnecting(true);
 
     try {
       console.log('🔗 Initiating Calendly connection...', {
@@ -193,7 +184,6 @@ export default function IntegrationsPage() {
         agentId: agentId
       });
 
-      // Use Next.js API route instead of direct backend call
       const fetchResponse = await fetch('/api/calendly/connect', {
         method: 'POST',
         headers: {
@@ -214,14 +204,12 @@ export default function IntegrationsPage() {
 
       console.log('📥 Calendly connection response:', response);
 
-      // Handle nested response structure
       const backendData = response.data?.data || response.data;
       const authorizationUrl = backendData?.authorization_url || backendData?.oauth_url;
 
       if (response.success && authorizationUrl) {
         console.log('✅ Got authorization URL:', authorizationUrl);
-        
-        // Open Calendly OAuth in a new window
+
         const authWindow = window.open(
           authorizationUrl,
           'calendly-auth',
@@ -230,45 +218,40 @@ export default function IntegrationsPage() {
 
         if (!authWindow) {
           toast.error('Please allow popups to connect with Calendly');
-          setConnecting(null);
+          setConnecting(false);
           return;
         }
 
-        // Listen for the OAuth callback message
         const handleMessage = (event: MessageEvent) => {
           if (event.data?.type === 'CALENDLY_CONNECTED') {
             console.log('✅ Received Calendly connected message');
             window.removeEventListener('message', handleMessage);
-            setConnecting(null);
-            // Check status after OAuth flow
+            setConnecting(false);
             setTimeout(() => {
               checkCalendlyStatus();
             }, 1000);
           }
         };
-        
+
         window.addEventListener('message', handleMessage);
 
-        // Also listen for window close (fallback)
         const checkClosed = setInterval(() => {
           if (authWindow?.closed) {
             clearInterval(checkClosed);
             window.removeEventListener('message', handleMessage);
-            setConnecting(null);
-            // Check status after OAuth flow
+            setConnecting(false);
             setTimeout(() => {
               checkCalendlyStatus();
             }, 1000);
           }
         }, 1000);
 
-        // Set a timeout to stop checking after 5 minutes
         setTimeout(() => {
           clearInterval(checkClosed);
           if (authWindow && !authWindow.closed) {
             authWindow.close();
           }
-          setConnecting(null);
+          setConnecting(false);
         }, 300000);
 
       } else {
@@ -282,24 +265,22 @@ export default function IntegrationsPage() {
           hasAuthUrl: !!authorizationUrl
         });
         toast.error(errorMsg || 'Failed to initiate Calendly connection');
-        setConnecting(null);
+        setConnecting(false);
       }
     } catch (error: unknown) {
       console.error('❌ Error connecting to Calendly:', error);
       const errorMessage = error instanceof Error ? error.message : String(error);
       toast.error(`Connection error: ${errorMessage}`);
-      setConnecting(null);
+      setConnecting(false);
     }
   };
-
 
   const handleCalendlyDisconnect = async () => {
     if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
 
-    setConnecting('calendly');
-    
+    setConnecting(true);
+
     try {
-      // Use Next.js API route instead of direct backend call
       const fetchResponse = await fetch('/api/calendly/disconnect', {
         method: 'POST',
         headers: {
@@ -317,14 +298,10 @@ export default function IntegrationsPage() {
         data: responseData.data || responseData,
         error: responseData.error
       };
-      
+
       if (response.success) {
         toast.success('Calendly disconnected successfully');
         setCalendlyStatus({ connected: false });
-        setIntegrationStatuses(prev => ({
-          ...prev,
-          calendly: 'disconnected'
-        }));
       } else {
         toast.error('Failed to disconnect Calendly');
       }
@@ -332,69 +309,7 @@ export default function IntegrationsPage() {
       console.error('Error disconnecting Calendly:', error);
       toast.error('Failed to disconnect Calendly');
     } finally {
-      setConnecting(null);
-    }
-  };
-
-  const handleConnect = async (integrationId: string) => {
-    if (integrationId === 'calendly') {
-      if (integrationStatuses.calendly === 'connected') {
-        handleCalendlyDisconnect();
-      } else {
-        handleCalendlyConnect();
-      }
-      return;
-    }
-
-    setConnecting(integrationId);
-    
-    // Simulate connection process for other integrations
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast.success(`${integrations.find(i => i.id === integrationId)?.name} integration coming soon!`);
-    setConnecting(null);
-  };
-
-  const getIconComponent = (integration: Integration) => {
-    const iconStyle = "w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold text-lg";
-    
-    switch (integration.id) {
-      case 'slack':
-        return (
-          <div className={`${iconStyle} bg-gradient-to-br from-purple-500 to-pink-500`}>
-            {integration.icon}
-          </div>
-        );
-      case 'stripe':
-        return (
-          <div className={`${iconStyle} bg-gradient-to-br from-blue-500 to-purple-600`}>
-            {integration.icon}
-          </div>
-        );
-      case 'calendly':
-        return (
-          <div className={`${iconStyle} bg-gradient-to-br from-blue-400 to-blue-600`}>
-            {integration.icon}
-          </div>
-        );
-      case 'zendesk':
-        return (
-          <div className={`${iconStyle} bg-gradient-to-br from-teal-500 to-green-600`}>
-            {integration.icon}
-          </div>
-        );
-      case 'sunshine':
-        return (
-          <div className={`${iconStyle} bg-gradient-to-br from-yellow-400 to-orange-500`}>
-            {integration.icon}
-          </div>
-        );
-      default:
-        return (
-          <div className={`${iconStyle} bg-gradient-to-br from-gray-400 to-gray-600`}>
-            <Plug className="w-6 h-6" />
-          </div>
-        );
+      setConnecting(false);
     }
   };
 
@@ -411,9 +326,9 @@ export default function IntegrationsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-6 py-8">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <Link href={`/dashboard/${workspaceSlug}/agents/${agentId}/settings`}>
               <Button variant="outline" size="sm">
@@ -422,118 +337,135 @@ export default function IntegrationsPage() {
               </Button>
             </Link>
           </div>
-          <h1 className="text-2xl font-semibold text-foreground mb-2">Integrations</h1>
-          <p className="text-muted-foreground">Connect your Agent to external services to use integration-specific actions.</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Integrations</h1>
+          <p className="text-muted-foreground">Connect your agent to external services and tools</p>
         </div>
 
-        {/* Integrations Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {integrations.map((integration) => (
-            <Card key={integration.id} className="border border-border bg-card rounded-md hover:shadow-md transition-shadow">
-              <CardContent className="p-6">
+        {/* Active Integrations */}
+        <div className="mb-10">
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">Available Now</h2>
+
+          {/* Calendly Card - Featured */}
+          <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+            <CardHeader>
+              <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
-                  {getIconComponent(integration)}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="font-semibold text-foreground">{integration.name}</h3>
-                      {integration.status === 'connected' && (
-                        <Badge variant="default" className="text-xs">
+                  <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center text-white shadow-md">
+                    <Calendar className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-xl">Calendly</CardTitle>
+                      {calendlyStatus.connected && (
+                        <Badge variant="default" className="bg-green-500">
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Connected
                         </Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                      {integration.description}
-                    </p>
-                    
-                    {/* Calendly-specific connected info */}
-                    {integration.id === 'calendly' && calendlyStatus.connected && calendlyStatus.userInfo && (
-                      <div className="mb-4 p-3 bg-muted rounded-md">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CheckCircle className="w-4 h-4 text-green-600" />
-                          <span className="text-sm font-medium">Connected as {calendlyStatus.userInfo.name}</span>
-                        </div>
+                    <CardDescription className="text-base">
+                      Enable AI-powered meeting scheduling with your Calendly account
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {calendlyStatus.connected && calendlyStatus.userInfo ? (
+                <div className="space-y-4">
+                  {/* Connected Status */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-green-900">Connected as {calendlyStatus.userInfo.name}</p>
+                        <p className="text-sm text-green-700 mt-1">{calendlyStatus.userInfo.email}</p>
                         {calendlyStatus.eventTypes && calendlyStatus.eventTypes.length > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {calendlyStatus.eventTypes.length} event type{calendlyStatus.eventTypes.length !== 1 ? 's' : ''} available
+                          <div className="flex items-center gap-2 mt-2 text-sm text-green-700">
+                            <Clock className="w-4 h-4" />
+                            <span>{calendlyStatus.eventTypes.length} event type{calendlyStatus.eventTypes.length !== 1 ? 's' : ''} available</span>
                           </div>
                         )}
                       </div>
-                    )}
-
-                    {/* Calendly buttons */}
-                    {integration.id === 'calendly' && integration.status !== 'connected' ? (
-                      <Button
-                        onClick={() => handleConnect(integration.id)}
-                        disabled={connecting === integration.id}
-                        variant="default"
-                        className="w-full rounded-md"
-                      >
-                        {connecting === integration.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Connecting...
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Connect with OAuth
-                          </>
-                        )}
-                      </Button>
-                    ) : integration.id === 'calendly' && integration.status === 'connected' ? (
-                      <Button
-                        onClick={() => handleConnect(integration.id)}
-                        disabled={connecting === integration.id}
-                        variant="secondary"
-                        className="w-full rounded-md"
-                      >
-                        {connecting === integration.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Disconnecting...
-                          </>
-                        ) : (
-                          <>
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Disconnect
-                          </>
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        onClick={() => handleConnect(integration.id)}
-                        disabled={connecting === integration.id}
-                        variant={integration.status === 'connected' ? 'secondary' : 'default'}
-                        className="w-full rounded-md"
-                      >
-                        {connecting === integration.id ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            {integration.status === 'connected' ? 'Disconnecting...' : 'Connecting...'}
-                          </>
-                        ) : integration.status === 'connected' ? (
-                          'Connected'
-                        ) : (
-                          <>
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Connect
-                          </>
-                        )}
-                      </Button>
-                    )}
+                    </div>
                   </div>
+
+                  {/* Disconnect Button */}
+                  <Button
+                    onClick={handleCalendlyDisconnect}
+                    disabled={connecting}
+                    variant="outline"
+                    className="w-full sm:w-auto"
+                  >
+                    {connecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              ) : (
+                <Button
+                  onClick={handleCalendlyConnect}
+                  disabled={connecting}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                >
+                  {connecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Connect with OAuth
+                    </>
+                  )}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Coming Soon Notice */}
-        <div className="mt-8 p-4 bg-muted rounded-md">
+        {/* Coming Soon Integrations */}
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">Coming Soon</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {integrations.filter(i => i.comingSoon).map((integration) => (
+              <Card key={integration.id} className="opacity-60 hover:opacity-80 transition-opacity">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-600">
+                      {integration.icon}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CardTitle className="text-base">{integration.name}</CardTitle>
+                        <Badge variant="secondary" className="text-xs">
+                          Coming Soon
+                        </Badge>
+                      </div>
+                      <CardDescription className="text-sm">
+                        {integration.description}
+                      </CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer Info */}
+        <div className="mt-8 p-4 bg-muted/50 rounded-lg border border-border">
           <p className="text-sm text-muted-foreground text-center">
-            More integrations coming soon! Have a specific integration request? Let us know.
+            More integrations are on the way. Have a specific integration request? <Link href="#" className="text-primary hover:underline">Let us know</Link>
           </p>
         </div>
       </div>
