@@ -69,13 +69,6 @@ const settingsSections: SettingsSection[] = [
     href: 'security'
   },
   {
-    id: 'domains',
-    name: 'Custom Domains',
-    icon: <Globe className="w-5 h-5" />,
-    description: 'Custom domain configuration',
-    href: 'domains'
-  },
-  {
     id: 'integrations',
     name: 'Integrations',
     icon: <ExternalLink className="w-5 h-5" />,
@@ -694,7 +687,6 @@ export default function AgentSettingsPage() {
       case 'general': return renderGeneralSettings();
       case 'ai': return renderAISettings();
       case 'security': return renderSecuritySettings();
-      case 'domains': return renderDomainsSettings();
       case 'integrations': return renderIntegrationsSettings();
       default: return renderGeneralSettings();
     }
