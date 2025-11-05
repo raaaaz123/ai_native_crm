@@ -617,6 +617,23 @@ export default function PlaygroundPage() {
     actions: []
   })
 
+  // Prevent body scrolling when playground is mounted
+  useEffect(() => {
+    // Save original overflow style
+    const originalOverflow = document.body.style.overflow
+    const originalHeight = document.body.style.height
+
+    // Prevent scrolling
+    document.body.style.overflow = 'hidden'
+    document.body.style.height = '100vh'
+
+    // Restore on unmount
+    return () => {
+      document.body.style.overflow = originalOverflow
+      document.body.style.height = originalHeight
+    }
+  }, [])
+
   // Copy to clipboard function
   const copyToClipboard = async (text: string, codeId: string) => {
     try {
@@ -1599,17 +1616,13 @@ CALENDLY BOOKING ACTION: ${action.name}
         style={{
           height: '100vh',
           overflow: 'hidden',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+          backgroundColor: '#ffffff',
+          backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)',
+          backgroundSize: '20px 20px'
         }}
       >
-        {/* Decorative background elements */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl"></div>
-        </div>
-
-        {/* Chat Container - Fixed Layout */}
-        <div className="w-full max-w-2xl relative z-10"
+        {/* Chat Container - Fixed Layout (Portrait Style) */}
+        <div className="w-full max-w-md relative z-10"
           style={{
             height: 'calc(100vh - 4rem)',
             maxHeight: '800px'
