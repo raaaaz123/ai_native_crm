@@ -28,7 +28,9 @@ import {
   FileIcon,
   AlignLeft,
   FileText,
-  Sheet
+  Sheet,
+  CreditCard,
+  Building2
 } from 'lucide-react';
 import { getSubscriptionInfo } from '../../lib/subscription-utils';
 import {
@@ -80,9 +82,30 @@ const getNavigationItems = (workspaceSlug?: string): MenuItem[] => [
     icon: <Bot className="w-4 h-4" />
   },
   {
-    name: 'Settings',
-    href: workspaceSlug ? `/dashboard/${workspaceSlug}/settings` : '/dashboard/settings',
-    icon: <Settings className="w-4 h-4" />
+    name: 'Workspace Settings',
+    icon: <Settings className="w-4 h-4" />,
+    subItems: [
+      {
+        name: 'General',
+        href: workspaceSlug ? `/dashboard/${workspaceSlug}/settings/general` : '/dashboard/settings/general',
+        icon: <Building2 className="w-4 h-4" />
+      },
+      {
+        name: 'Members',
+        href: workspaceSlug ? `/dashboard/${workspaceSlug}/settings/members` : '/dashboard/settings/members',
+        icon: <Users className="w-4 h-4" />
+      },
+      {
+        name: 'Plans',
+        href: workspaceSlug ? `/dashboard/${workspaceSlug}/settings/plans` : '/dashboard/settings/plans',
+        icon: <Crown className="w-4 h-4" />
+      },
+      {
+        name: 'Billing',
+        href: workspaceSlug ? `/dashboard/${workspaceSlug}/settings/billing` : '/dashboard/settings/billing',
+        icon: <CreditCard className="w-4 h-4" />
+      }
+    ]
   }
 ];
 
@@ -571,33 +594,38 @@ export function AppSidebar() {
       <SidebarFooter className="mt-auto px-1 pb-3">
         {/* Subscription Plan Section */}
         {mounted && userData && (
-          <div className="px-2 py-2 mb-2 rounded-lg bg-primary/5 border border-primary/10">
+          <div className="px-3 py-3 mb-3 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
             <Link
-              href="/dashboard/settings"
-              className="flex items-center gap-3 group"
+              href={workspaceSlug ? `/dashboard/${workspaceSlug}/settings/plans` : '/dashboard/settings/plans'}
+              className="block group"
             >
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Crown className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="p-2 rounded-lg bg-primary/20 text-primary">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-foreground">
+                    {(() => {
+                      const subInfo = getSubscriptionInfo(userData);
+                      return subInfo.planDisplay;
+                    })()}
+                  </p>
                   {(() => {
                     const subInfo = getSubscriptionInfo(userData);
-                    return subInfo.planDisplay;
+                    return subInfo.isTrialActive ? (
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} remaining
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground font-medium">
+                        {subInfo.statusDisplay}
+                      </p>
+                    );
                   })()}
-                </p>
-                {(() => {
-                  const subInfo = getSubscriptionInfo(userData);
-                  return subInfo.isTrialActive ? (
-                    <p className="text-xs text-muted-foreground">
-                      {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} remaining
-                    </p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {subInfo.statusDisplay}
-                    </p>
-                  );
-                })()}
+                </div>
+              </div>
+              <div className="text-xs text-primary/70 group-hover:text-primary transition-colors">
+                View plan details →
               </div>
             </Link>
           </div>
@@ -605,36 +633,10 @@ export function AppSidebar() {
 
         <SidebarSeparator className="mb-3" />
 
-        {/* User Profile Section */}
+        {/* Sign Out Button */}
         <SidebarGroup className="px-0">
           <SidebarGroupContent>
             <SidebarMenu>
-              <SidebarMenuItem>
-                <div className="flex items-center gap-3 px-2.5 py-2 mb-1">
-                  {mounted && userData?.photoURL ? (
-                    <Image
-                      src={userData.photoURL}
-                      alt="Profile"
-                      width={36}
-                      height={36}
-                      className="w-9 h-9 rounded-lg ring-2 ring-border"
-                    />
-                  ) : (
-                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-white font-bold text-sm ring-2 ring-border">
-                      {mounted ? (userData?.firstName?.charAt(0) || userData?.displayName?.charAt(0) || 'U') : 'U'}
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" suppressHydrationWarning>
-                      {mounted ? (userData?.displayName || userData?.firstName || 'User') : 'User'}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate" suppressHydrationWarning>
-                      {mounted ? (userData?.email || 'No email') : 'Loading...'}
-                    </p>
-                  </div>
-                </div>
-              </SidebarMenuItem>
-
               <SidebarMenuItem>
                 <SidebarMenuButton onClick={handleSignOut} suppressHydrationWarning className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                   <LogOut className="w-4 h-4" />
