@@ -4,12 +4,13 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
-import { 
-  ChevronsUpDown, 
-  Plus, 
+import {
+  ChevronsUpDown,
+  Plus,
   Settings,
   Users,
-  Crown
+  Crown,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -64,14 +65,10 @@ export function WorkspaceSelector({ onCreateWorkspace }: WorkspaceSelectorProps)
   if (!currentWorkspace) {
     return (
       <div className="flex items-center space-x-2">
-        <Button
-          onClick={onCreateWorkspace}
-          className="bg-black hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-medium"
-          suppressHydrationWarning
-        >
-          <Plus className="w-4 h-4 mr-2" />
-          Create Workspace
-        </Button>
+        <div className="flex items-center space-x-2 px-3 py-2">
+          <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+          <span className="text-sm text-gray-500">Loading...</span>
+        </div>
       </div>
     );
   }
