@@ -283,16 +283,10 @@ export default function GoogleSheetsSourcePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="flex max-w-7xl mx-auto">
-          <div className="flex-1 p-8">
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading...</p>
-              </div>
-            </div>
-          </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
@@ -305,19 +299,21 @@ export default function GoogleSheetsSourcePage() {
 
     return (
       <div className="min-h-screen bg-background">
-        <div className="flex max-w-7xl mx-auto">
-          <div className="flex-1 p-8 pr-4">
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h1 className="text-2xl font-semibold text-foreground">Google Sheets Sources</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Connected to Google Account
-                  </p>
-                </div>
-                <Badge variant="default" className="bg-green-500">Connected</Badge>
+        <div className="max-w-5xl mx-auto px-6 py-10">
+          <div className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Google Sheets Sources</h1>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Connected to Google Account
+                </p>
               </div>
+              <Badge variant="default" className="bg-green-500 text-white px-3 py-1">
+                <CheckCircle2 className="w-3 h-3 mr-1" />
+                Connected
+              </Badge>
             </div>
+          </div>
 
             {/* Search */}
             <div className="mb-6">
@@ -334,23 +330,23 @@ export default function GoogleSheetsSourcePage() {
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-foreground">{spreadsheets.length}</div>
-                  <div className="text-sm text-muted-foreground">Total Sheets</div>
+            <div className="grid grid-cols-3 gap-6 mb-8">
+              <Card className="border-gray-200 shadow-sm">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-foreground mb-1">{spreadsheets.length}</div>
+                  <div className="text-sm text-muted-foreground font-medium">Total Sheets</div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-green-600">{importedSheets.size}</div>
-                  <div className="text-sm text-muted-foreground">In Knowledge Base</div>
+              <Card className="border-green-200 shadow-sm bg-green-50">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-green-600 mb-1">{importedSheets.size}</div>
+                  <div className="text-sm text-green-700 font-medium">In Knowledge Base</div>
                 </CardContent>
               </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-blue-600">{notImportedSheets.length}</div>
-                  <div className="text-sm text-muted-foreground">Available to Import</div>
+              <Card className="border-blue-200 shadow-sm bg-blue-50">
+                <CardContent className="p-6 text-center">
+                  <div className="text-3xl font-bold text-blue-600 mb-1">{notImportedSheets.length}</div>
+                  <div className="text-sm text-blue-700 font-medium">Available to Import</div>
                 </CardContent>
               </Card>
             </div>
@@ -512,71 +508,68 @@ export default function GoogleSheetsSourcePage() {
             )}
           </div>
         </div>
-      </div>
     );
   }
 
   // Not connected - show connect button
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex max-w-7xl mx-auto">
-        <div className="flex-1 p-8">
-          <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-foreground mb-2">Google Sheets Sources</h1>
-            <p className="text-muted-foreground">
-              Connect your Google account to import spreadsheets into your agent&apos;s knowledge base
-            </p>
-          </div>
+    <div className="min-h-screen bg-background flex items-center justify-center px-6">
+      <div className="max-w-2xl w-full">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-3">Google Sheets Sources</h1>
+          <p className="text-muted-foreground text-lg">
+            Connect your Google account to import spreadsheets into your agent&apos;s knowledge base
+          </p>
+        </div>
 
-          <Card className="max-w-2xl">
-            <CardContent className="p-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sheet className="w-8 h-8 text-green-600" />
+        <Card className="shadow-lg border-gray-200">
+          <CardContent className="p-10">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Sheet className="w-10 h-10 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-3">Connect Google Sheets</h2>
+              <p className="text-muted-foreground mb-8 text-base">
+                Import data from your Google Sheets to enhance your AI agent&apos;s knowledge
+              </p>
+
+              <Button
+                onClick={handleConnectGoogle}
+                disabled={connecting}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+                size="lg"
+              >
+                {connecting ? (
+                  <>
+                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Sheet className="w-5 h-5 mr-2" />
+                    Connect with Google
+                  </>
+                )}
+              </Button>
+
+              <div className="mt-10 text-left space-y-3">
+                <h3 className="font-semibold text-foreground mb-4 text-lg">What you can do:</h3>
+                <div className="flex items-start gap-3 text-sm text-muted-foreground">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span>Import spreadsheet data into your knowledge base</span>
                 </div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">Connect Google Sheets</h2>
-                <p className="text-muted-foreground mb-6">
-                  Import data from your Google Sheets to enhance your AI agent&apos;s knowledge
-                </p>
-
-                <Button
-                  onClick={handleConnectGoogle}
-                  disabled={connecting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
-                  {connecting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Sheet className="w-5 h-5 mr-2" />
-                      Connect with Google
-                    </>
-                  )}
-                </Button>
-
-                <div className="mt-8 text-left space-y-2">
-                  <h3 className="font-medium text-foreground mb-3">What you can do:</h3>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Import spreadsheet data into your knowledge base</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Enable AI to answer questions using your sheet data</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Automatically format data as searchable content</span>
-                  </div>
+                <div className="flex items-start gap-3 text-sm text-muted-foreground">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span>Enable AI to answer questions using your sheet data</span>
+                </div>
+                <div className="flex items-start gap-3 text-sm text-muted-foreground">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span>Automatically format data as searchable content</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
