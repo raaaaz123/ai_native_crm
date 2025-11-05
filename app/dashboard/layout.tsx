@@ -1,16 +1,18 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import { AppSidebar } from '../components/layout/Sidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
 import { useAuth } from '../lib/workspace-auth-context';
 import { WorkspaceSelector } from '../components/workspace/WorkspaceSelector';
+import { AgentWorkspaceSelector } from '../components/workspace/AgentWorkspaceSelector';
 import { CreateWorkspaceModal } from '../components/workspace/CreateWorkspaceModal';
 import { Button } from '@/components/ui/button';
-import { 
-  Bell, 
-  HelpCircle, 
-  Settings, 
+import {
+  Bell,
+  HelpCircle,
+  Settings,
   Search,
   User,
   ChevronDown,
@@ -19,16 +21,49 @@ import {
 import Image from 'next/image';
 import Link from 'next/link';
 import { Toaster } from '@/components/ui/sonner';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
+  const [currentAgentName, setCurrentAgentName] = useState<string | null>(null);
+  const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
   const { userData, signOut } = useAuth();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Check if we're on an agent page and extract agent info
+  useEffect(() => {
+    const agentPageMatch = pathname?.match(/\/dashboard\/([^\/]+)\/agents\/([^\/]+)/);
+    const isAgentPage = !!agentPageMatch && agentPageMatch[2] !== 'agents';
+
+    if (isAgentPage && agentPageMatch) {
+      const agentId = agentPageMatch[2];
+      setCurrentAgentId(agentId);
+
+      // Load agent name from Firestore
+      const loadAgentName = async () => {
+        try {
+          const agentDoc = await getDoc(doc(db, 'agents', agentId));
+          if (agentDoc.exists()) {
+            setCurrentAgentName(agentDoc.data().name || 'Agent');
+          }
+        } catch (error) {
+          console.error('Error loading agent:', error);
+        }
+      };
+
+      loadAgentName();
+    } else {
+      setCurrentAgentId(null);
+      setCurrentAgentName(null);
+    }
+  }, [pathname]);
 
   // Close user menu when clicking outside
   useEffect(() => {
@@ -52,11 +87,19 @@ export default function DashboardLayout({
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
           <div className="flex items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" suppressHydrationWarning />
-            
-            {/* Workspace Selector */}
-            <WorkspaceSelector 
-              onCreateWorkspace={() => setShowCreateWorkspace(true)}
-            />
+
+            {/* Conditional Selector - Show AgentWorkspaceSelector on agent pages */}
+            {currentAgentId && currentAgentName ? (
+              <AgentWorkspaceSelector
+                currentAgentId={currentAgentId}
+                currentAgentName={currentAgentName}
+                onCreateWorkspace={() => setShowCreateWorkspace(true)}
+              />
+            ) : (
+              <WorkspaceSelector
+                onCreateWorkspace={() => setShowCreateWorkspace(true)}
+              />
+            )}
           </div>
 
           {/* Right Side */}
