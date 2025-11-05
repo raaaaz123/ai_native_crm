@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../lib/auth-context';
+import { useAuth } from '../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 
 export default function DashboardPage() {
-  const { user, loading, companyContext } = useAuth();
+  const { user, loading, workspaceContext } = useAuth();
   const router = useRouter();
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
   const [, setLoadingWidgets] = useState(true);
@@ -108,18 +108,18 @@ export default function DashboardPage() {
 
   // Define functions before they are used
   const loadWidgets = async () => {
-    if (!user?.uid || !companyContext?.company?.id) {
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
       console.log('Missing required data for widget loading:', { 
         userId: !!user?.uid, 
-        companyId: !!companyContext?.company?.id 
+        workspaceId: !!workspaceContext?.currentWorkspace?.id 
       });
       setLoadingWidgets(false);
       return;
     }
     
     try {
-      console.log('Loading widgets for company:', companyContext.company.id);
-      const result = await getBusinessWidgets(companyContext.company.id);
+      console.log('Loading widgets for workspace:', workspaceContext?.currentWorkspace?.id);
+      const result = await getBusinessWidgets(workspaceContext?.currentWorkspace?.id);
       console.log('Widget loading result:', result);
       
       if (result.success) {
@@ -144,10 +144,10 @@ export default function DashboardPage() {
   };
 
   const loadDashboardData = async () => {
-    if (!user?.uid || !companyContext?.company?.id) {
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
       console.log('Missing required data for dashboard loading:', { 
         userId: !!user?.uid, 
-        companyId: !!companyContext?.company?.id 
+        workspaceId: !!workspaceContext?.currentWorkspace?.id 
       });
       setLoadingData(false);
       return;
@@ -159,8 +159,8 @@ export default function DashboardPage() {
       await loadWidgets();
       
       // Load review forms and calculate review metrics
-      console.log('Loading review forms for company:', companyContext.company.id);
-      const reviewResult = await getBusinessReviewForms(companyContext.company.id);
+      console.log('Loading review forms for workspace:', workspaceContext?.currentWorkspace?.id);
+      const reviewResult = await getBusinessReviewForms(workspaceContext?.currentWorkspace?.id);
       console.log('Review forms result:', reviewResult);
       
       if (reviewResult.success && reviewResult.data) {
@@ -221,11 +221,11 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    if (user?.uid && companyContext?.company?.id) {
+    if (user?.uid && workspaceContext?.currentWorkspace?.id) {
       loadDashboardData();
       
-      // Subscribe to real-time conversations for the company
-      const unsubscribeConversations = subscribeToConversations(companyContext.company.id, (conversations) => {
+      // Subscribe to real-time conversations for the workspace
+      const unsubscribeConversations = subscribeToConversations(workspaceContext?.currentWorkspace?.id, (conversations) => {
         setRecentConversations(conversations.slice(0, 5));
         
         // Update conversation metrics
@@ -244,7 +244,7 @@ export default function DashboardPage() {
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, companyContext?.company?.id]);
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id]);
 
   const handleCreateWidget = async () => {
     if (!user?.uid || creating) return;
@@ -319,13 +319,14 @@ export default function DashboardPage() {
     return null;
   }
 
-  // Show company setup guidance for users without a company
-  if (!companyContext) {
+  // Show workspace setup guidance for users without a workspace
+  if (!workspaceContext?.currentWorkspace) {
     return (
-      <Container>
+      <div className="pt-6">
+        <Container>
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-neutral-900 mb-2">Welcome to Your Dashboard</h1>
-          <p className="text-neutral-600">Get started by setting up your company or joining an existing team</p>
+          <p className="text-neutral-600">Get started by creating your first workspace</p>
         </div>
 
         <div className="max-w-4xl mx-auto">
@@ -334,17 +335,17 @@ export default function DashboardPage() {
               <div className="flex items-start space-x-4">
                 <Shield className="w-12 h-12 text-blue-600 mt-1" />
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-blue-900 mb-2">Complete Your Setup</h2>
+                  <h2 className="text-xl font-semibold text-blue-900 mb-2">Create Your Workspace</h2>
                   <p className="text-blue-700 mb-4">
-                    To access all dashboard features, you need to either create your own company or join an existing one.
+                    To access all dashboard features, you need to create a workspace. A workspace is where you&apos;ll manage your AI agents, conversations, and team.
                   </p>
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button 
-                      onClick={() => router.push('/dashboard/settings/team')}
+                      onClick={() => window.location.reload()}
                       className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <Users className="w-4 h-4 mr-2" />
-                      Set Up Company
+                      Create Workspace
                     </Button>
                   </div>
                 </div>
@@ -357,15 +358,15 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Shield className="w-5 h-5 text-primary-500" />
-                  <span>Create Company</span>
+                  <span>Create Workspace</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-neutral-600 mb-4">
-                  Start your own company and invite team members to collaborate on customer support and reviews.
+                  Start your own workspace and invite team members to collaborate on AI agents and customer support.
                 </p>
                 <ul className="text-sm text-neutral-600 space-y-1 mb-4">
-                  <li>• Create chat widgets for your website</li>
+                  <li>• Create AI agents for your website</li>
                   <li>• Manage customer conversations</li>
                   <li>• Collect and analyze reviews</li>
                   <li>• Invite team members</li>
@@ -377,15 +378,15 @@ export default function DashboardPage() {
               <CardHeader>
                 <CardTitle className="flex items-center space-x-2">
                   <Users className="w-5 h-5 text-primary-500" />
-                  <span>Join Company</span>
+                  <span>Join Workspace</span>
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-neutral-600 mb-4">
-                  Join an existing company team using an invitation token or link from your team leader.
+                  Join an existing workspace team using an invitation link from your team leader.
                 </p>
                 <ul className="text-sm text-neutral-600 space-y-1 mb-4">
-                  <li>• Access company chat widgets</li>
+                  <li>• Access workspace AI agents</li>
                   <li>• Respond to customer messages</li>
                   <li>• View team analytics</li>
                   <li>• Collaborate with teammates</li>
@@ -394,22 +395,24 @@ export default function DashboardPage() {
             </Card>
           </div>
         </div>
-      </Container>
+        </Container>
+      </div>
     );
   }
 
   return (
-    <Container>
+    <div className="pt-4 sm:pt-6">
+      <Container>
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-3xl font-bold text-neutral-900 mb-2">Dashboard</h1>
-            <p className="text-neutral-600">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-[--color-foreground] mb-1.5">Dashboard</h1>
+            <p className="text-[--color-muted]">
               Overview of your business performance and recent activities
-              {companyContext?.company && (
-                <span className="ml-2 text-sm text-neutral-500">
-                  • {companyContext.company.name}
+              {workspaceContext?.currentWorkspace && (
+                <span className="ml-2 text-sm text-[--color-muted-foreground]">
+                  • {workspaceContext.currentWorkspace.name}
                 </span>
               )}
             </p>
@@ -417,7 +420,7 @@ export default function DashboardPage() {
           <div className="flex space-x-3">
             <Button 
               onClick={() => setShowCreateWidget(true)}
-              className="bg-primary-500 hover:bg-primary-600 text-white flex items-center space-x-2"
+              className="bg-[--color-primary] hover:bg-[--color-primary-900] text-[--color-primary-foreground] flex items-center space-x-2"
             >
               <Plus className="w-4 h-4" />
               <span>Create Widget</span>
@@ -427,67 +430,75 @@ export default function DashboardPage() {
       </div>
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-          <CardContent className="p-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-600">Total Conversations</p>
-                <p className="text-2xl font-bold text-blue-900">{metrics.totalConversations}</p>
-                <p className="text-xs text-blue-600 flex items-center mt-1">
+                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Total Conversations</p>
+                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.totalConversations}</p>
+                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
                   <ArrowUpRight className="w-3 h-3 mr-1" />
                   {metrics.totalConversations > 0 ? '+12% from last month' : 'No conversations yet'}
                 </p>
               </div>
-              <MessageCircle className="w-8 h-8 text-blue-500" />
+              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
+                <MessageCircle className="w-5 h-5 text-[--color-muted]" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
-          <CardContent className="p-6">
+        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-green-600">Total Reviews</p>
-                <p className="text-2xl font-bold text-green-900">{metrics.totalReviews}</p>
-                <p className="text-xs text-green-600 flex items-center mt-1">
+                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Total Reviews</p>
+                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.totalReviews}</p>
+                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
                   <ArrowUpRight className="w-3 h-3 mr-1" />
                   {metrics.totalReviews > 0 ? '+8% from last month' : 'No reviews yet'}
                 </p>
               </div>
-              <Star className="w-8 h-8 text-green-500" />
+              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
+                <Star className="w-5 h-5 text-[--color-muted]" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-          <CardContent className="p-6">
+        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-purple-600">Average Rating</p>
-                <p className="text-2xl font-bold text-purple-900">{metrics.averageRating.toFixed(1)}</p>
-                <p className="text-xs text-purple-600 flex items-center mt-1">
+                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Average Rating</p>
+                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.averageRating.toFixed(1)}</p>
+                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
                   <TrendingUp className="w-3 h-3 mr-1" />
                   {metrics.averageRating > 0 ? '+0.3 from last month' : 'No ratings yet'}
                 </p>
               </div>
-              <TrendingUp className="w-8 h-8 text-purple-500" />
+              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-[--color-muted]" />
+              </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-          <CardContent className="p-6">
+        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
+          <CardContent className="p-5 sm:p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-orange-600">Response Time</p>
-                <p className="text-2xl font-bold text-orange-900">{metrics.responseTime}</p>
-                <p className="text-xs text-orange-600 flex items-center mt-1">
+                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Response Time</p>
+                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.responseTime}</p>
+                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
                   <ArrowDownRight className="w-3 h-3 mr-1" />
                   {metrics.totalConversations > 0 ? '-15% faster' : 'No data yet'}
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-orange-500" />
+              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
+                <Clock className="w-5 h-5 text-[--color-muted]" />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -498,11 +509,11 @@ export default function DashboardPage() {
         {/* Recent Activities */}
         <div className="lg:col-span-2 space-y-6">
           {/* Recent Reviews */}
-          <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <Star className="w-6 h-6 text-primary-500" />
+                  <Star className="w-6 h-6 text-[--color-muted]" />
                   <CardTitle>Recent Reviews</CardTitle>
                 </div>
                 <Button variant="outline" size="sm" onClick={loadDashboardData}>
@@ -513,38 +524,38 @@ export default function DashboardPage() {
             <CardContent>
               {loadingData ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-                  <p className="text-neutral-600 mt-2">Loading reviews...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-border] mx-auto"></div>
+                  <p className="text-[--color-muted] mt-2">Loading reviews...</p>
                 </div>
               ) : recentSubmissions.length === 0 ? (
                 <div className="text-center py-8">
-                  <Star className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-                  <p className="text-neutral-600 mb-4">No recent reviews</p>
-                  <p className="text-sm text-neutral-500">Reviews will appear here as customers submit feedback</p>
+                  <Star className="w-12 h-12 text-[--color-border] mx-auto mb-4" />
+                  <p className="text-[--color-muted] mb-2">No recent reviews</p>
+                  <p className="text-sm text-[--color-muted-foreground]">Reviews will appear here as customers submit feedback</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {recentSubmissions.map((submission, index) => (
-                    <div key={submission.id || `submission-${index}`} className="flex items-center space-x-4 p-4 bg-neutral-50 rounded-lg">
-                      <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                        <Star className="w-5 h-5 text-primary-600" />
+                    <div key={submission.id || `submission-${index}`} className="flex items-center gap-4 p-4 bg-[--color-surface] border border-[--color-border] rounded-lg">
+                      <div className="w-10 h-10 rounded-full bg-white border border-[--color-border] flex items-center justify-center">
+                        <Star className="w-5 h-5 text-[--color-muted]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-neutral-900">
+                        <p className="text-sm font-medium text-[--color-foreground]">
                           New review submission
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-[--color-muted-foreground]">
                           {new Date(submission.submittedAt).toLocaleString()}
                         </p>
                         {submission.userInfo && (
-                          <p className="text-xs text-neutral-600 mt-1">
+                          <p className="text-xs text-[--color-muted] mt-1">
                             From: {typeof submission.userInfo.location === 'string' ? submission.userInfo.location : 'Unknown location'}
                           </p>
                         )}
                       </div>
                       <div className="text-right">
                         <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4 text-yellow-500 fill-current" />
+                          <Star className="w-4 h-4 text-[--color-warning]" />
                           <span className="text-sm font-medium">
                             {submission.responses.find((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating')?.value || 'N/A'}
                           </span>
@@ -558,11 +569,11 @@ export default function DashboardPage() {
           </Card>
 
           {/* Recent Conversations */}
-          <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <MessageCircle className="w-6 h-6 text-primary-500" />
+                  <MessageCircle className="w-6 h-6 text-[--color-muted]" />
                   <CardTitle>Recent Conversations</CardTitle>
                 </div>
                 <Button variant="outline" size="sm" onClick={loadDashboardData}>
@@ -573,52 +584,52 @@ export default function DashboardPage() {
             <CardContent>
               {loadingData ? (
                 <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-                  <p className="text-neutral-600 mt-2">Loading conversations...</p>
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-border] mx-auto"></div>
+                  <p className="text-[--color-muted] mt-2">Loading conversations...</p>
                 </div>
               ) : recentConversations.length === 0 ? (
                 <div className="text-center py-8">
-                  <MessageCircle className="w-12 h-12 text-neutral-400 mx-auto mb-4" />
-                  <p className="text-neutral-600 mb-4">No recent conversations</p>
-                  <p className="text-sm text-neutral-500">Conversations will appear here as customers start chatting</p>
+                  <MessageCircle className="w-12 h-12 text-[--color-border] mx-auto mb-4" />
+                  <p className="text-[--color-muted] mb-2">No recent conversations</p>
+                  <p className="text-sm text-[--color-muted-foreground]">Conversations will appear here as customers start chatting</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {recentConversations.map((conversation, index) => (
                     <div 
                       key={conversation.id || `conversation-${index}`} 
-                      className="flex items-center space-x-4 p-4 bg-neutral-50 rounded-lg cursor-pointer hover:bg-neutral-100 transition-colors"
+                      className="flex items-center gap-4 p-4 bg-[--color-surface] border border-[--color-border] rounded-lg cursor-pointer hover:bg-white transition-colors"
                       onClick={() => router.push('/dashboard/conversations')}
                     >
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <MessageCircle className="w-5 h-5 text-blue-600" />
+                      <div className="w-10 h-10 rounded-full bg-white border border-[--color-border] flex items-center justify-center">
+                        <MessageCircle className="w-5 h-5 text-[--color-muted]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-neutral-900">
+                        <p className="text-sm font-medium text-[--color-foreground]">
                           {conversation.customerName}
                         </p>
-                        <p className="text-xs text-neutral-500">
+                        <p className="text-xs text-[--color-muted-foreground]">
                           {conversation.customerEmail}
                         </p>
                         {conversation.lastMessage && (
-                          <p className="text-xs text-neutral-600 mt-1 line-clamp-1">
+                          <p className="text-xs text-[--color-muted] mt-1 line-clamp-1">
                             {conversation.lastMessage}
                           </p>
                         )}
                       </div>
                       <div className="text-right">
                         <div className="flex items-center space-x-1">
-                          <span className="text-xs text-neutral-500">
+                          <span className="text-xs text-[--color-muted-foreground]">
                             {new Date(conversation.updatedAt).toLocaleDateString()}
                           </span>
                         </div>
                         <div className="mt-1">
                           <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            conversation.status === 'active' ? 'bg-green-100 text-green-800' :
-                            conversation.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            conversation.status === 'resolved' ? 'bg-blue-100 text-blue-800' :
-                            conversation.status === 'closed' ? 'bg-gray-100 text-gray-800' :
-                            'bg-gray-100 text-gray-800'
+                            conversation.status === 'active' ? 'bg-[--color-success]/10 text-[--color-success]' :
+                            conversation.status === 'pending' ? 'bg-[--color-warning]/10 text-[--color-warning]' :
+                            conversation.status === 'resolved' ? 'bg-[--color-info]/10 text-[--color-info]' :
+                            conversation.status === 'closed' ? 'bg-[--color-border] text-[--color-foreground]' :
+                            'bg-[--color-border] text-[--color-foreground]'
                           }`}>
                             {conversation.status}
                           </span>
@@ -635,26 +646,26 @@ export default function DashboardPage() {
         {/* Quick Stats */}
         <div className="space-y-6">
           {/* Review Forms Summary */}
-          <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
             <CardHeader>
               <div className="flex items-center space-x-3">
-                <BarChart3 className="w-6 h-6 text-primary-500" />
+                <BarChart3 className="w-6 h-6 text-[--color-muted]" />
                 <CardTitle>Review Forms</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-neutral-600">Active Forms</span>
-                  <span className="font-semibold text-neutral-900">{reviewForms.length}</span>
+                  <span className="text-sm text-[--color-muted]">Active Forms</span>
+                  <span className="font-medium text-[--color-foreground]">{reviewForms.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-neutral-600">Total Submissions</span>
-                  <span className="font-semibold text-neutral-900">{metrics.totalReviews}</span>
+                  <span className="text-sm text-[--color-muted]">Total Submissions</span>
+                  <span className="font-medium text-[--color-foreground]">{metrics.totalReviews}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-neutral-600">Avg Rating</span>
-                  <span className="font-semibold text-neutral-900">{metrics.averageRating.toFixed(1)} ⭐</span>
+                  <span className="text-sm text-[--color-muted]">Avg Rating</span>
+                  <span className="font-medium text-[--color-foreground]">{metrics.averageRating.toFixed(1)} ⭐</span>
                 </div>
                 <Button 
                   className="w-full" 
@@ -667,26 +678,26 @@ export default function DashboardPage() {
           </Card>
 
           {/* Chat Widgets Summary */}
-          <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
             <CardHeader>
               <div className="flex items-center space-x-3">
-                <MessageCircle className="w-6 h-6 text-primary-500" />
+                <MessageCircle className="w-6 h-6 text-[--color-muted]" />
                 <CardTitle>Chat Widgets</CardTitle>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-neutral-600">Active Widgets</span>
-                  <span className="font-semibold text-neutral-900">{widgets.length}</span>
+                  <span className="text-sm text-[--color-muted]">Active Widgets</span>
+                  <span className="font-medium text-[--color-foreground]">{widgets.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-neutral-600">Total Conversations</span>
-                  <span className="font-semibold text-neutral-900">{metrics.totalConversations}</span>
+                  <span className="text-sm text-[--color-muted]">Total Conversations</span>
+                  <span className="font-medium text-[--color-foreground]">{metrics.totalConversations}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-neutral-600">Response Time</span>
-                  <span className="font-semibold text-neutral-900">{metrics.responseTime}</span>
+                  <span className="text-sm text-[--color-muted]">Response Time</span>
+                  <span className="font-medium text-[--color-foreground]">{metrics.responseTime}</span>
                 </div>
                 <Button 
                   className="w-full" 
@@ -702,61 +713,62 @@ export default function DashboardPage() {
 
       {/* Create Widget Modal */}
       {showCreateWidget && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-[--color-card] border border-[--color-border] shadow-xl rounded-lg p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Create Chat Widget</h3>
+              <h3 className="text-lg font-semibold text-[--color-foreground]">Create Chat Widget</h3>
               <button
                 onClick={() => setShowCreateWidget(false)}
-                className="text-neutral-500 hover:text-neutral-700"
+                className="text-[--color-muted] hover:text-[--color-foreground]"
               >
                 ×
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-neutral-700 mb-1">Widget Name</label>
+                <label htmlFor="name" className="block text-sm font-medium text-[--color-foreground] mb-1">Widget Name</label>
                 <input
                   id="name"
                   type="text"
                   value={newWidget.name}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewWidget({ ...newWidget, name: e.target.value })}
                   placeholder="Customer Support Chat"
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-[--color-surface] border border-[--color-border] rounded-md focus:outline-none focus:ring-2 focus:ring-[--color-primary] focus:border-transparent"
                 />
               </div>
               <div>
-                <label htmlFor="welcomeMessage" className="block text-sm font-medium text-neutral-700 mb-1">Welcome Message</label>
+                <label htmlFor="welcomeMessage" className="block text-sm font-medium text-[--color-foreground] mb-1">Welcome Message</label>
                 <textarea
                   id="welcomeMessage"
                   value={newWidget.welcomeMessage}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewWidget({ ...newWidget, welcomeMessage: e.target.value })}
                   placeholder="Hello! How can we help you today?"
                   rows={3}
-                  className="w-full px-3 py-2 border border-neutral-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="w-full px-3 py-2 bg-[--color-surface] border border-[--color-border] rounded-md focus:outline-none focus:ring-2 focus:ring-[--color-primary] focus:border-transparent"
                 />
               </div>
               <div>
-                <label htmlFor="primaryColor" className="block text-sm font-medium text-neutral-700 mb-1">Primary Color</label>
+                <label htmlFor="primaryColor" className="block text-sm font-medium text-[--color-foreground] mb-1">Primary Color</label>
                 <input
                   id="primaryColor"
                   type="color"
                   value={newWidget.primaryColor}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewWidget({ ...newWidget, primaryColor: e.target.value })}
-                  className="w-full h-10 border border-neutral-300 rounded-md"
+                  className="w-full h-10 bg-[--color-surface] border border-[--color-border] rounded-md"
                 />
               </div>
             </div>
             <Button 
               onClick={handleCreateWidget} 
               disabled={!newWidget.name || creating}
-              className="w-full mt-4"
+              className="w-full mt-4 bg-[--color-primary] hover:bg-[--color-primary-900] text-[--color-primary-foreground]"
             >
               {creating ? 'Creating...' : 'Create Widget'}
             </Button>
           </div>
         </div>
       )}
-    </Container>
+      </Container>
+    </div>
   );
 }

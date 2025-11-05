@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from '../../lib/auth-context';
+import { useAuth } from '../../lib/workspace-auth-context';
 
 export function UserDebugInfo() {
   const { user, userData, loading } = useAuth();

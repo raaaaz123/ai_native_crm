@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '../lib/auth-context';
+import { useAuth } from '../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { BrandLogo } from '../components/brand';
 
@@ -23,18 +23,84 @@ function SignUpPageContent() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signInWithGoogle, signUpWithEmail, updateUserData, user, createCompany } = useAuth();
+  const { signInWithGoogle, signUpWithEmail, updateUserData, user, createWorkspace } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  const checkUserWorkspaces = useCallback(async (retryCount = 0) => {
+    if (!user) {
+      console.log('⚠️ [Signup Page] No user available, skipping workspace check');
+      return;
+    }
+    
+    // Wait a bit for auth context to fully load on first attempt
+    if (retryCount === 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    
+    try {
+      console.log(`🔄 [Signup Page] Checking user workspaces (attempt ${retryCount + 1})...`);
+      
+      const { getUserWorkspaces } = await import('../lib/workspace-firestore-utils');
+      const workspacesResult = await getUserWorkspaces(user.uid);
+      
+      if (workspacesResult.success && workspacesResult.data && workspacesResult.data.length > 0) {
+        console.log('✅ [Signup Page] User has workspaces, redirecting to dashboard');
+        router.push('/dashboard');
+      } else {
+        console.log('🆕 [Signup Page] User has no workspaces, creating default workspace...');
+        
+        // Create default workspace for existing user
+        const nameParts = user.displayName?.split(' ') || [];
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        const defaultWorkspaceName = `${firstName} ${lastName}'s Workspace`;
+        const defaultWorkspaceUrl = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${Date.now()}`;
+        
+        try {
+          await createWorkspace(defaultWorkspaceName, defaultWorkspaceUrl, 'Your default workspace');
+          console.log('✅ [Signup Page] Default workspace created for existing user, redirecting to dashboard');
+          router.push('/dashboard');
+        } catch (error) {
+          console.error('❌ [Signup Page] Error creating default workspace for existing user:', error);
+          
+          // If it's a permission error and we haven't retried too many times, try again
+          if ((error as Error).message.includes('permissions') && retryCount < 2) {
+            console.log(`🔄 [Signup Page] Retrying workspace creation (attempt ${retryCount + 2})...`);
+            setTimeout(() => checkUserWorkspaces(retryCount + 1), 1000);
+            return;
+          }
+          
+          setError('Failed to create workspace. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('❌ [Signup Page] Error checking user workspaces:', error);
+      
+      // If it's a permission error and we haven't retried too many times, try again
+      if ((error as Error).message.includes('permissions') && retryCount < 2) {
+        console.log(`🔄 [Signup Page] Retrying workspace check (attempt ${retryCount + 2})...`);
+        setTimeout(() => checkUserWorkspaces(retryCount + 1), 1000);
+        return;
+      }
+      
+      setError('Failed to check workspaces. Please try again.');
+    }
+  }, [user, router, createWorkspace]);
 
   useEffect(() => {
     const stepParam = searchParams.get('step');
     if (stepParam === 'complete' && user) {
       setStep('complete');
     } else if (user && stepParam !== 'complete') {
-      router.push('/dashboard');
+      // Add a small delay to ensure auth context is fully loaded
+      const timer = setTimeout(() => {
+        checkUserWorkspaces();
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
-  }, [user, router, searchParams]);
+  }, [user, router, searchParams, checkUserWorkspaces]);
 
   const handleGoogleSignUp = async () => {
     try {
@@ -63,8 +129,8 @@ function SignUpPageContent() {
         
         console.log('👤 [Signup Page] Parsed name from Google:', { firstName, lastName });
         
-        // If we have both first and last name from Google, go to dashboard
-        // Otherwise, go to profile completion
+        // If we have both first and last name from Google, redirect to dashboard
+        // The workspace will be created by the checkUserWorkspaces function
         if (firstName && lastName) {
           console.log('✅ [Signup Page] Complete profile data available, redirecting to dashboard');
           router.push('/dashboard');
@@ -130,7 +196,9 @@ function SignUpPageContent() {
       
       // Check if we have complete profile data
       if (formData.firstName && formData.lastName) {
-        // Profile is complete, go to dashboard
+        // Profile is complete, redirect to dashboard
+        // The workspace will be created by the checkUserWorkspaces function
+        console.log('✅ [Signup Page] Profile complete, redirecting to dashboard');
         router.push('/dashboard');
       } else {
         // Profile incomplete, go to complete step
@@ -171,9 +239,10 @@ function SignUpPageContent() {
       
       await updateUserData(profileData);
       
-      console.log('✅ [Profile Completion] Profile updated successfully, redirecting to dashboard');
-      // Instead of forcing company creation, redirect to dashboard
-      // Users can create or join companies from the team management page
+      console.log('✅ [Profile Completion] Profile updated successfully, creating default workspace...');
+      
+      // Redirect to dashboard - workspace will be created by checkUserWorkspaces function
+      console.log('✅ [Profile Completion] Profile updated, redirecting to dashboard');
       router.push('/dashboard');
     } catch (error: unknown) {
       console.error('❌ [Profile Completion] Error updating profile:', error);
@@ -188,7 +257,7 @@ function SignUpPageContent() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleCreateCompany = async (e: React.FormEvent) => {
+  const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.companyName) {
@@ -205,12 +274,6 @@ function SignUpPageContent() {
         description: formData.companyDescription,
         domain: formData.companyDomain
       });
-      
-      await createCompany(
-        formData.companyName,
-        formData.companyDescription || undefined,
-        formData.companyDomain || undefined
-      );
       
       console.log('✅ [Company Creation] Company created successfully, redirecting to dashboard');
       router.push('/dashboard');
@@ -245,10 +308,10 @@ function SignUpPageContent() {
               </div>
             )}
 
-            <form onSubmit={handleCreateCompany} className="space-y-4">
+            <form onSubmit={handleCreateWorkspace} className="space-y-4">
               <div>
                 <label htmlFor="companyName" className="block text-sm font-medium text-neutral-700 mb-2">
-                  Company name *
+                  Workspace name *
                 </label>
                 <input
                   id="companyName"
@@ -280,7 +343,7 @@ function SignUpPageContent() {
 
               <div>
                 <label htmlFor="companyDomain" className="block text-sm font-medium text-neutral-700 mb-2">
-                  Company domain
+                  Workspace URL
                 </label>
                 <input
                   id="companyDomain"
@@ -292,7 +355,7 @@ function SignUpPageContent() {
                   disabled={loading}
                   suppressHydrationWarning
                 />
-                <p className="text-xs text-neutral-500 mt-1">Optional: Your company&apos;s website domain</p>
+                <p className="text-xs text-neutral-500 mt-1">Optional: Your workspace URL slug</p>
               </div>
 
               <Button
@@ -301,7 +364,7 @@ function SignUpPageContent() {
                 size="lg"
                 className="w-full mt-6"
               >
-                {loading ? 'Creating company...' : 'Create Company'}
+                {loading ? 'Creating workspace...' : 'Create Workspace'}
               </Button>
             </form>
           </div>

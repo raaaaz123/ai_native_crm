@@ -1,13 +1,63 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Sonner Toast Styles for Better Contrast */
+[data-sonner-toaster] {
+  --normal-bg: hsl(var(--background));
+  --normal-text: hsl(var(--foreground));
+  --normal-border: hsl(var(--border));
+  --description-color: hsl(var(--muted-foreground));
+}
+
+[data-sonner-toast] {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  padding: 8px 12px !important;
+  font-size: 13px !important;
+  max-width: 320px !important;
+}
+
+[data-sonner-toast] [data-description] {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.3 !important;
+  margin-top: 2px !important;
+}
+
+[data-sonner-toast] [data-title] {
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+}
+
+[data-sonner-toast] [data-button] {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  border-radius: var(--radius) !important;
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  margin-top: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-sonner-toast] [data-button]:hover {
+  background: hsl(var(--primary) / 0.9) !important;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 :root {
   /* Enhanced theme system with modern design tokens */
 
-  /* Modern blue color palette for SaaS platform */
-  --color-primary: #3b82f6;
+  /* Minimal light theme with subtle colors */
+  --color-primary: #2563eb;
   --color-primary-50: #eff6ff;
   --color-primary-100: #dbeafe;
   --color-primary-200: #bfdbfe;
@@ -31,15 +81,15 @@
   --color-neutral-800: #1e293b;
   --color-neutral-900: #0f172a;
 
-  /* Enhanced semantic colors for blue theme */
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  /* Enhanced semantic colors for minimal theme */
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
   --color-card: #ffffff;
   --color-surface: #f8fafc;
   --color-border: #e2e8f0;
   --color-border-strong: #cbd5e1;
-  --color-muted: #64748b;
-  --color-muted-foreground: #475569;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
 
   /* Status colors for modern UI */
   --color-success: #10b981;
@@ -54,41 +104,41 @@
   --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 
   /* Glass morphism effects */
-  --glass-bg: rgba(255, 255, 255, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: rgba(226, 232, 240, 0.5);
   --glass-backdrop: blur(12px);
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.15 0.02 240);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.02 240);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.02 240);
-  --primary: oklch(0.55 0.15 240);
-  --primary-foreground: oklch(0.98 0.01 240);
-  --secondary: oklch(0.96 0.01 240);
-  --secondary-foreground: oklch(0.15 0.02 240);
-  --muted: oklch(0.96 0.01 240);
-  --muted-foreground: oklch(0.45 0.02 240);
-  --accent: oklch(0.96 0.01 240);
-  --accent-foreground: oklch(0.15 0.02 240);
-  --destructive: oklch(0.55 0.15 15);
-  --border: oklch(0.9 0.01 240);
-  --input: oklch(0.9 0.01 240);
-  --ring: oklch(0.55 0.15 240);
-  --chart-1: oklch(0.55 0.15 240);
-  --chart-2: oklch(0.6 0.12 200);
-  --chart-3: oklch(0.65 0.1 280);
-  --chart-4: oklch(0.7 0.08 160);
-  --chart-5: oklch(0.75 0.06 320);
-  --sidebar: oklch(0.98 0.01 240);
-  --sidebar-foreground: oklch(0.15 0.02 240);
-  --sidebar-primary: oklch(0.55 0.15 240);
-  --sidebar-primary-foreground: oklch(0.98 0.01 240);
-  --sidebar-accent: oklch(0.96 0.01 240);
-  --sidebar-accent-foreground: oklch(0.15 0.02 240);
-  --sidebar-border: oklch(0.9 0.01 240);
-  --sidebar-ring: oklch(0.55 0.15 240);
+  --background: 255 255 255;
+  --foreground: 15 23 42;
+  --card: 255 255 255;
+  --card-foreground: 15 23 42;
+  --popover: 255 255 255;
+  --popover-foreground: 15 23 42;
+  --primary: 37 99 235;
+  --primary-foreground: 255 255 255;
+  --secondary: 241 245 249;
+  --secondary-foreground: 15 23 42;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
+  --accent: 241 245 249;
+  --accent-foreground: 15 23 42;
+  --destructive: 239 68 68;
+  --border: 226 232 240;
+  --input: 226 232 240;
+  --ring: 37 99 235;
+  --chart-1: 37 99 235;
+  --chart-2: 59 130 246;
+  --chart-3: 147 197 253;
+  --chart-4: 191 219 254;
+  --chart-5: 219 234 254;
+  --sidebar: 248 250 252;
+  --sidebar-foreground: 15 23 42;
+  --sidebar-primary: 37 99 235;
+  --sidebar-primary-foreground: 255 255 255;
+  --sidebar-accent: 248 250 252;
+  --sidebar-accent-foreground: 15 23 42;
+  --sidebar-border: 226 232 240;
+  --sidebar-ring: 37 99 235;
 }
 
 @theme inline {
@@ -220,8 +270,8 @@ body {
 
 /* Modern selection styles */
 ::selection {
-  background: var(--color-primary-100);
-  color: var(--color-primary-600);
+  background: var(--color-primary-200);
+  color: var(--color-primary-800);
 }
 
 /* Utility classes for modern effects */
@@ -313,37 +363,37 @@ body {
 }
 
 .dark {
-  --background: oklch(0.08 0.01 240);
-  --foreground: oklch(0.95 0.01 240);
-  --card: oklch(0.12 0.01 240);
-  --card-foreground: oklch(0.95 0.01 240);
-  --popover: oklch(0.12 0.01 240);
-  --popover-foreground: oklch(0.95 0.01 240);
-  --primary: oklch(0.6 0.15 240);
-  --primary-foreground: oklch(0.08 0.01 240);
-  --secondary: oklch(0.15 0.01 240);
-  --secondary-foreground: oklch(0.95 0.01 240);
-  --muted: oklch(0.15 0.01 240);
-  --muted-foreground: oklch(0.6 0.01 240);
-  --accent: oklch(0.15 0.01 240);
-  --accent-foreground: oklch(0.95 0.01 240);
-  --destructive: oklch(0.6 0.15 15);
-  --border: oklch(0.2 0.01 240);
-  --input: oklch(0.2 0.01 240);
-  --ring: oklch(0.6 0.15 240);
-  --chart-1: oklch(0.6 0.15 240);
-  --chart-2: oklch(0.65 0.12 200);
-  --chart-3: oklch(0.7 0.1 280);
-  --chart-4: oklch(0.75 0.08 160);
-  --chart-5: oklch(0.8 0.06 320);
-  --sidebar: oklch(0.12 0.01 240);
-  --sidebar-foreground: oklch(0.95 0.01 240);
-  --sidebar-primary: oklch(0.6 0.15 240);
-  --sidebar-primary-foreground: oklch(0.08 0.01 240);
-  --sidebar-accent: oklch(0.15 0.01 240);
-  --sidebar-accent-foreground: oklch(0.95 0.01 240);
-  --sidebar-border: oklch(0.2 0.01 240);
-  --sidebar-ring: oklch(0.6 0.15 240);
+  --background: 15 23 42;
+  --foreground: 248 250 252;
+  --card: 30 41 59;
+  --card-foreground: 248 250 252;
+  --popover: 30 41 59;
+  --popover-foreground: 248 250 252;
+  --primary: 59 130 246;
+  --primary-foreground: 15 23 42;
+  --secondary: 51 65 85;
+  --secondary-foreground: 248 250 252;
+  --muted: 51 65 85;
+  --muted-foreground: 148 163 184;
+  --accent: 51 65 85;
+  --accent-foreground: 248 250 252;
+  --destructive: 239 68 68;
+  --border: 51 65 85;
+  --input: 51 65 85;
+  --ring: 59 130 246;
+  --chart-1: 59 130 246;
+  --chart-2: 147 197 253;
+  --chart-3: 191 219 254;
+  --chart-4: 219 234 254;
+  --chart-5: 239 246 255;
+  --sidebar: 30 41 59;
+  --sidebar-foreground: 248 250 252;
+  --sidebar-primary: 59 130 246;
+  --sidebar-primary-foreground: 15 23 42;
+  --sidebar-accent: 51 65 85;
+  --sidebar-accent-foreground: 248 250 252;
+  --sidebar-border: 51 65 85;
+  --sidebar-ring: 59 130 246;
 }
 
 @layer base {
@@ -355,6 +405,24 @@ body {
   }
 }
 
+/* Suppress hydration warnings for browser extension attributes */
+button[fdprocessedid],
+a[fdprocessedid],
+input[fdprocessedid],
+[fdprocessedid] {
+  /* This attribute is added by browser extensions and can cause hydration mismatches */
+}
+
+/* Additional hydration fixes for common browser extension attributes */
+[data-lastpass-icon-root],
+[data-1password-ignore],
+[data-bitwarden-watching],
+[data-dashlane-ignore],
+[data-form-type],
+[data-bwignore] {
+  /* These attributes are added by password managers and can cause hydration issues */
+}
+
 /* Custom animations for chat button */
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
@@ -363,8 +431,8 @@ body {
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
-  50% { box-shadow: 0 0 40px rgba(59, 130, 246, 0.8), 0 0 60px rgba(59, 130, 246, 0.6); }
+  0%, 100% { box-shadow: 0 0 20px rgba(9, 9, 11, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(9, 9, 11, 0.5), 0 0 60px rgba(9, 9, 11, 0.4); }
 }
 
 @keyframes shimmer {
@@ -387,4 +455,21 @@ body {
 
 .animation-delay-4000 {
   animation-delay: 4s;
+}
+
+/* Grid pattern background */
+.bg-grid-pattern {
+  background-image: radial-gradient(circle, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* Chat widget word breaking fixes */
+.break-words {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.break-all {
+  word-break: break-all;
 }

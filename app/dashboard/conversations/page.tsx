@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useAuth } from '../../lib/auth-context';
+import { useAuth } from '../../lib/workspace-auth-context';
 import {
   subscribeToConversations,
   subscribeToMessages,
@@ -39,7 +39,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns';
 
 function ConversationsContent() {
-  const { user, companyContext } = useAuth();
+  const { user, workspaceContext } = useAuth();
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -94,16 +94,16 @@ function ConversationsContent() {
   useEffect(() => {
     const loadWidgets = async () => {
       const userId = user?.uid;
-      const companyId = companyContext?.company?.id;
+      const workspaceId = workspaceContext?.currentWorkspace?.id;
       
-      if (!userId || !companyId) {
-        console.log('Missing required data for widget loading:', { userId: !!userId, companyId: !!companyId });
+      if (!userId || !workspaceId) {
+        console.log('Missing required data for widget loading:', { userId: !!userId, workspaceId: !!workspaceId });
         return;
       }
       
       try {
-        console.log('Loading widgets for company:', companyId);
-        const result = await getBusinessWidgets(companyId);
+        console.log('Loading widgets for workspace:', workspaceId);
+        const result = await getBusinessWidgets(workspaceId);
         console.log('Widget loading result:', result);
         
         if (result.success) {
@@ -131,26 +131,26 @@ function ConversationsContent() {
     };
 
     loadWidgets();
-  }, [user?.uid, companyContext?.company?.id]);
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id]);
 
   useEffect(() => {
-    if (!user?.uid || !companyContext?.company?.id) {
-      console.log('⏳ Waiting for user or company context...');
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
+      console.log('⏳ Waiting for user or workspace context...');
       console.log('  User ID:', user?.uid);
-      console.log('  Company ID:', companyContext?.company?.id);
+      console.log('  Workspace ID:', workspaceContext?.currentWorkspace?.id);
       return;
     }
 
     console.log('🔄 Setting up conversation subscription...');
     console.log('  User ID:', user.uid);
-    console.log('  Company ID:', companyContext.company.id);
-    console.log('  Company Name:', companyContext.company.name);
+    console.log('  Workspace ID:', workspaceContext?.currentWorkspace?.id);
+    console.log('  Workspace Name:', workspaceContext.currentWorkspace.name);
 
-    // Subscribe to real-time conversations using the company's businessId
+    // Subscribe to real-time conversations using the workspace's businessId
     let unsubscribe: (() => void) | undefined;
     
     try {
-      unsubscribe = subscribeToConversations(companyContext.company.id, (updatedConversations) => {
+      unsubscribe = subscribeToConversations(workspaceContext?.currentWorkspace?.id, (updatedConversations) => {
         console.log(`✅ Received ${updatedConversations.length} conversations from subscription`);
         setConversations(updatedConversations);
         setLoading(false);
@@ -176,7 +176,7 @@ function ConversationsContent() {
         unsubscribe();
       }
     };
-  }, [user?.uid, companyContext?.company?.id, companyContext?.company?.name, selectedConversation]);
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id, workspaceContext?.currentWorkspace?.name, selectedConversation]);
 
   useEffect(() => {
     // Filter conversations based on search, status, and widget

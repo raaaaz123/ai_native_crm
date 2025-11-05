@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../lib/auth-context';
+import { useAuth } from '../../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,7 +38,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 export default function CustomizeWidgetPage() {
   const params = useParams();
   const router = useRouter();
-  const { companyContext } = useAuth();
+  const { workspaceContext } = useAuth();
   const widgetId = params.id as string;
 
   const [widget, setWidget] = useState<ChatWidget | null>(null);
@@ -67,6 +67,9 @@ export default function CustomizeWidgetPage() {
     customIcon: '',
     widgetSize: 'standard' as 'compact' | 'standard' | 'large',
     borderRadius: '16',
+    // Mobile UI Settings
+    mobileLayout: 'expanded' as 'shrinked' | 'expanded' | 'fullscreen',
+    mobileFullScreen: false,
     showBranding: true,
     soundEnabled: true,
     messageSound: 'default',
@@ -124,8 +127,8 @@ export default function CustomizeWidgetPage() {
       handoverButtonText: 'Talk to Human Agent',
       handoverButtonPosition: 'bottom' as 'bottom' | 'top' | 'floating',
       includeInQuickReplies: true,
-      autoDetectKeywords: true,
-      detectionKeywords: ['human', 'agent', 'representative', 'person', 'support agent', 'real person', 'talk to someone'],
+      autoDetectKeywords: false,
+      detectionKeywords: ['talk to human', 'speak to agent', 'human representative', 'real person', 'support agent', 'customer service', 'live agent'],
       handoverMessage: "I'll connect you with a human agent right away. Please wait a moment.",
       notificationToAgent: true,
       allowCustomerToSwitch: true,
@@ -140,14 +143,14 @@ export default function CustomizeWidgetPage() {
   useEffect(() => {
     loadWidget();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [widgetId, companyContext]);
+  }, [widgetId, workspaceContext]);
 
   const loadWidget = async () => {
-    if (!companyContext?.company?.id) return;
+    if (!workspaceContext?.currentWorkspace?.id) return;
 
     try {
       setLoading(true);
-      const result = await getBusinessWidgets(companyContext.company.id);
+      const result = await getBusinessWidgets(workspaceContext.currentWorkspace.id);
       
       if (result.success) {
         const foundWidget = result.data.find(w => w.id === widgetId);
@@ -222,13 +225,16 @@ export default function CustomizeWidgetPage() {
               handoverButtonText: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverButtonText as string | undefined) || 'Talk to Human Agent',
               handoverButtonPosition: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverButtonPosition as 'bottom' | 'top' | 'floating' | undefined) || 'bottom' as 'bottom' | 'top' | 'floating',
               includeInQuickReplies: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.includeInQuickReplies !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).includeInQuickReplies as boolean) : true,
-              autoDetectKeywords: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.autoDetectKeywords !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).autoDetectKeywords as boolean) : true,
-              detectionKeywords: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.detectionKeywords as string[] | undefined) || ['human', 'agent', 'representative', 'person', 'support agent', 'real person', 'talk to someone'],
+              autoDetectKeywords: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.autoDetectKeywords !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).autoDetectKeywords as boolean) : false,
+              detectionKeywords: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.detectionKeywords as string[] | undefined) || ['talk to human', 'speak to agent', 'human representative', 'real person', 'support agent', 'customer service', 'live agent'],
               handoverMessage: ((extendedWidget.customerHandover as Record<string, unknown> | undefined)?.handoverMessage as string | undefined) || "I'll connect you with a human agent right away. Please wait a moment.",
               notificationToAgent: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.notificationToAgent !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).notificationToAgent as boolean) : true,
               allowCustomerToSwitch: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.allowCustomerToSwitch !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).allowCustomerToSwitch as boolean) : true,
               smartFallbackEnabled: (extendedWidget.customerHandover as Record<string, unknown> | undefined)?.smartFallbackEnabled !== undefined ? ((extendedWidget.customerHandover as Record<string, unknown>).smartFallbackEnabled as boolean) : true
-            }
+            },
+            // Mobile UI Settings
+            mobileLayout: (extendedWidget.mobileLayout as 'shrinked' | 'expanded' | 'fullscreen' | undefined) || 'expanded' as 'shrinked' | 'expanded' | 'fullscreen',
+            mobileFullScreen: (extendedWidget.mobileFullScreen as boolean | undefined) || false
           };
           setFormData(data);
           setOriginalData(data);
@@ -343,7 +349,7 @@ export default function CustomizeWidgetPage() {
 
   if (loading) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-blue-50/20 flex items-center justify-center">
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-blue-50/20 flex items-center justify-center z-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
           <p className="text-gray-600 font-medium">Loading widget...</p>
@@ -354,7 +360,7 @@ export default function CustomizeWidgetPage() {
 
   if (!widget) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-blue-50/20 flex items-center justify-center">
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-50 to-blue-50/20 flex items-center justify-center z-50">
         <div className="text-center">
           <p className="text-gray-600 mb-4">Widget not found</p>
           <Link href="/dashboard/widgets">
@@ -366,7 +372,7 @@ export default function CustomizeWidgetPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-white">
+    <div className="min-h-[calc(100vh-4rem)] bg-background">
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {
           width: 6px;
@@ -375,40 +381,42 @@ export default function CustomizeWidgetPage() {
           background: transparent;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
+          background: hsl(var(--border));
           border-radius: 10px;
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
+          background: hsl(var(--muted-foreground));
         }
       `}</style>
-      <div className="w-full h-full px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+      <div className="w-full h-full px-4 sm:px-6 lg:px-8 py-6">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
             <Link href="/dashboard/widgets">
-              <Button variant="outline" size="sm" className="h-8">
+              <Button variant="outline" size="sm" className="h-8 w-8 p-0 hover:bg-accent cursor-pointer">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             </Link>
             <div className="min-w-0 flex-1">
-              <h1 className="text-lg sm:text-xl font-bold text-gray-900 flex items-center gap-2 truncate">
-                <Settings className="w-4 h-4 text-blue-600 flex-shrink-0" />
-                <span className="truncate">Customise Widget</span>
+              <h1 className="text-xl font-bold text-foreground flex items-center gap-2 truncate">
+                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Settings className="w-4 h-4 text-primary" />
+                </div>
+                <span className="truncate">Customize Widget</span>
               </h1>
-              <p className="text-sm text-gray-600 truncate">{widget.name}</p>
+              <p className="text-sm text-muted-foreground truncate mt-1">{widget.name}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
             {/* Preview Mode Toggle */}
-            <div className="flex items-center gap-1 bg-white rounded-lg p-1 shadow-sm">
+            <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1 shadow-sm">
               <button
                 onClick={() => setViewMode('desktop')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors cursor-pointer ${
                   viewMode === 'desktop' 
-                    ? 'bg-blue-100 text-blue-600' 
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'text-muted-foreground hover:bg-accent'
                 }`}
                 title="Desktop View"
               >
@@ -416,10 +424,10 @@ export default function CustomizeWidgetPage() {
               </button>
               <button
                 onClick={() => setViewMode('mobile')}
-                className={`p-2 rounded transition-colors ${
+                className={`p-2 rounded transition-colors cursor-pointer ${
                   viewMode === 'mobile' 
-                    ? 'bg-blue-100 text-blue-600' 
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'text-muted-foreground hover:bg-accent'
                 }`}
                 title="Mobile View"
               >
@@ -428,8 +436,13 @@ export default function CustomizeWidgetPage() {
             </div>
 
             {hasChanges && (
-              <Button variant="outline" size="sm" onClick={handleReset} className="h-8">
-                <RotateCcw className="w-4 h-4 mr-1" />
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleReset} 
+                className="h-8 px-3 cursor-pointer"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
                 Reset
               </Button>
             )}
@@ -438,16 +451,16 @@ export default function CustomizeWidgetPage() {
               onClick={handleSave} 
               disabled={saving || !hasChanges}
               size="sm"
-              className="h-8 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:opacity-50"
+              className="h-8 bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-50 px-4 cursor-pointer"
             >
               {saving ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-1"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent mr-2"></div>
                   Saving...
                 </>
               ) : (
                 <>
-                  <Save className="w-4 h-4 mr-1" />
+                  <Save className="w-4 h-4 mr-2" />
                   Save Changes
                 </>
               )}
@@ -456,24 +469,32 @@ export default function CustomizeWidgetPage() {
         </div>
 
         {/* Mobile Preview Info - Shows at Top on Small Screens */}
-        <div className="xl:hidden mb-4">
-          <Card className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
+        <div className="xl:hidden mb-6">
+          <Card className="bg-accent border border-border rounded-lg shadow-sm">
             <CardContent className="p-4 text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Eye className="w-6 h-6 text-blue-600" />
+              <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Eye className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="text-base font-bold text-gray-900 mb-2">Live Preview</h3>
-              <p className="text-sm text-gray-600 mb-3">
+              <h3 className="text-base font-bold text-foreground mb-2">Live Preview</h3>
+              <p className="text-sm text-muted-foreground mb-3">
                 Click the chat button at the {formData.position === 'bottom-right' ? 'bottom-right' : 'bottom-left'} corner to test.
               </p>
-              <div className="bg-white rounded-lg p-3 space-y-2 text-left text-xs">
+              <div className="bg-card border border-border rounded-lg p-3 space-y-2 text-left text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Mode:</span>
-                  <span className="font-semibold">{viewMode === 'mobile' ? '📱 Mobile' : '💻 Desktop'}</span>
+                  <span className="text-muted-foreground">Mode:</span>
+                  <span className="font-semibold text-foreground">{viewMode === 'mobile' ? '📱 Mobile' : '💻 Desktop'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Size:</span>
-                  <span className="font-semibold">{formData.widgetSize === 'compact' ? 'Compact' : formData.widgetSize === 'standard' ? 'Standard' : 'Large'}</span>
+                  <span className="text-muted-foreground">Size:</span>
+                  <span className="font-semibold text-foreground">{formData.widgetSize === 'compact' ? 'Compact' : formData.widgetSize === 'standard' ? 'Standard' : 'Large'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Mobile:</span>
+                  <span className="font-semibold text-foreground">
+                    {formData.mobileLayout === 'shrinked' ? '📱 Shrinked' : 
+                     formData.mobileLayout === 'expanded' ? '📲 Expanded' : 
+                     formData.mobileFullScreen ? '🖥️ Full Screen' : '📲 Full Screen'}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -485,74 +506,74 @@ export default function CustomizeWidgetPage() {
           widget={{
             ...formData,
             id: widgetId,
-            businessId: companyContext?.company?.id || ''
+            businessId: workspaceContext?.currentWorkspace?.id || ''
           }} 
           viewMode={viewMode} 
         />
 
         {/* Main Content - Tabbed Interface with Preview */}
-        <div className="grid grid-cols-1 xl:grid-cols-[1fr,450px] gap-4 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr,450px] gap-6 items-start">
           {/* Left Side - Tabbed Settings */}
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6 mb-4 h-auto p-1 bg-gray-100">
-              <TabsTrigger value="basic" className="text-xs sm:text-sm py-2 data-[state=active]:bg-white">
-                <Settings className="w-4 h-4 mr-1" />
-                Basic
+            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 mb-6 h-auto p-1 bg-muted overflow-x-auto">
+              <TabsTrigger value="basic" className="text-sm py-3 px-3 data-[state=active]:bg-background flex items-center gap-2 min-w-0 cursor-pointer">
+                <Settings className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Basic</span>
               </TabsTrigger>
-              <TabsTrigger value="button" className="text-xs sm:text-sm py-2 data-[state=active]:bg-white">
-                <MessageCircle className="w-4 h-4 mr-1" />
-                Button
+              <TabsTrigger value="button" className="text-sm py-3 px-3 data-[state=active]:bg-background flex items-center gap-2 min-w-0 cursor-pointer">
+                <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Button</span>
               </TabsTrigger>
-              <TabsTrigger value="appearance" className="text-xs sm:text-sm py-2 data-[state=active]:bg-white">
-                <Palette className="w-4 h-4 mr-1" />
-                Style
+              <TabsTrigger value="appearance" className="text-sm py-3 px-3 data-[state=active]:bg-background flex items-center gap-2 min-w-0 cursor-pointer">
+                <Palette className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Style</span>
               </TabsTrigger>
-              <TabsTrigger value="ai" className="text-xs sm:text-sm py-2 data-[state=active]:bg-white">
-                <Bot className="w-4 h-4 mr-1" />
-                AI
+              <TabsTrigger value="ai" className="text-sm py-3 px-3 data-[state=active]:bg-background flex items-center gap-2 min-w-0 cursor-pointer">
+                <Bot className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">AI</span>
               </TabsTrigger>
-              <TabsTrigger value="contact" className="text-xs sm:text-sm py-2 data-[state=active]:bg-white">
-                <User className="w-4 h-4 mr-1" />
-                Contact
+              <TabsTrigger value="contact" className="text-sm py-3 px-3 data-[state=active]:bg-background flex items-center gap-2 min-w-0 cursor-pointer">
+                <User className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Contact</span>
               </TabsTrigger>
-              <TabsTrigger value="hours" className="text-xs sm:text-sm py-2 data-[state=active]:bg-white">
-                <Clock className="w-4 h-4 mr-1" />
-                Hours
+              <TabsTrigger value="hours" className="text-sm py-3 px-3 data-[state=active]:bg-background flex items-center gap-2 min-w-0 cursor-pointer">
+                <Clock className="w-4 h-4 flex-shrink-0" />
+                <span className="truncate">Hours</span>
               </TabsTrigger>
             </TabsList>
 
             {/* Basic Settings Tab */}
-            <TabsContent value="basic" className="space-y-3 mt-0">
-              <Card className="bg-white border border-gray-200 rounded-xl shadow-sm">
-                <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-t-xl border-b border-blue-100">
-                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                    <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-                      <Settings className="w-4 h-4 text-white" />
+            <TabsContent value="basic" className="space-y-4 mt-0">
+              <Card className="bg-card border border-border rounded-lg shadow-sm">
+                <CardHeader className="pb-4 bg-accent rounded-t-lg border-b border-border">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
+                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                      <Settings className="w-4 h-4 text-primary-foreground" />
                     </div>
                     Basic Settings
                   </CardTitle>
-                  <p className="text-xs text-gray-600 mt-1">Essential widget configuration and messages</p>
+                  <p className="text-sm text-muted-foreground mt-1">Essential widget configuration and messages</p>
                 </CardHeader>
                 <CardContent className="p-5 space-y-5">
                   {/* Widget Name */}
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <Label htmlFor="name" className="text-sm font-semibold text-gray-900 mb-2 block">
-                      Widget Name <span className="text-red-500">*</span>
+                  <div className="p-4 bg-accent rounded-lg border border-border">
+                    <Label htmlFor="name" className="text-sm font-semibold text-foreground mb-2 block">
+                      Widget Name <span className="text-destructive">*</span>
                     </Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => handleInputChange('name', e.target.value)}
                       placeholder="e.g., Support Chat Widget"
-                      className="h-9 text-sm bg-white border-2 border-gray-200 focus:border-blue-500"
+                      className="h-9 text-sm bg-background border-border focus:border-primary cursor-pointer"
                       required
                     />
-                    <p className="text-xs text-gray-600 mt-2">Internal name for identifying this widget</p>
+                    <p className="text-xs text-muted-foreground mt-2">Internal name for identifying this widget</p>
                   </div>
 
                   {/* Welcome Message */}
-                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                    <Label htmlFor="welcomeMessage" className="text-sm font-semibold text-gray-900 mb-2 block">
+                  <div className="p-4 bg-accent rounded-lg border border-border">
+                    <Label htmlFor="welcomeMessage" className="text-sm font-semibold text-foreground mb-2 block">
                       Welcome Message
                     </Label>
                     <Textarea
@@ -561,36 +582,66 @@ export default function CustomizeWidgetPage() {
                       onChange={(e) => handleInputChange('welcomeMessage', e.target.value)}
                       placeholder="Welcome! How can we help you today?"
                       rows={2}
-                      className="text-sm bg-white border-2 border-gray-200 resize-none focus:border-green-500"
+                      className="text-sm bg-background border-border resize-none focus:border-primary cursor-pointer"
                     />
-                    <p className="text-xs text-gray-600 mt-2">First message customers see when opening chat</p>
+                    <p className="text-xs text-muted-foreground mt-2">First message customers see when opening chat</p>
                   </div>
 
                   {/* AI Agent Type / System Prompt */}
-                  <div className="p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
-                    <Label htmlFor="systemPrompt" className="text-sm font-semibold text-gray-900 mb-3 block">
+                  <div className="p-3 sm:p-4 bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                    <Label htmlFor="systemPrompt" className="text-xs sm:text-sm font-semibold text-gray-900 mb-2 sm:mb-3 block">
                       🤖 AI Agent Type
                     </Label>
                     <Select
                       value={formData.aiConfig.systemPrompt}
                       onValueChange={(value) => handleNestedChange('aiConfig', 'systemPrompt', value)}
                     >
-                      <SelectTrigger className="h-10 bg-white border-2 border-gray-200 focus:border-indigo-500">
+                      <SelectTrigger className="h-9 sm:h-10 bg-white border-2 border-gray-200 focus:border-indigo-500 text-xs sm:text-sm">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="support">💬 Support Assistant - Help customers with questions & issues</SelectItem>
-                        <SelectItem value="sales">💰 Sales Assistant - Help with product info & purchasing</SelectItem>
-                        <SelectItem value="booking">📅 Booking Assistant - Schedule appointments & reservations</SelectItem>
-                        <SelectItem value="technical">🔧 Technical Support - Handle technical troubleshooting</SelectItem>
-                        <SelectItem value="general">🌟 General Assistant - Versatile helper for all queries</SelectItem>
-                        <SelectItem value="custom">✏️ Custom - Write your own system prompt</SelectItem>
+                      <SelectContent className="max-h-60 overflow-y-auto">
+                        <SelectItem value="support" className="text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                            <span>💬 Support Assistant</span>
+                            <span className="text-gray-500 text-xs">Help customers with questions & issues</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="sales" className="text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                            <span>💰 Sales Assistant</span>
+                            <span className="text-gray-500 text-xs">Help with product info & purchasing</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="booking" className="text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                            <span>📅 Booking Assistant</span>
+                            <span className="text-gray-500 text-xs">Schedule appointments & reservations</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="technical" className="text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                            <span>🔧 Technical Support</span>
+                            <span className="text-gray-500 text-xs">Handle technical troubleshooting</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="general" className="text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                            <span>🌟 General Assistant</span>
+                            <span className="text-gray-500 text-xs">Versatile helper for all queries</span>
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="custom" className="text-xs sm:text-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                            <span>✏️ Custom</span>
+                            <span className="text-gray-500 text-xs">Write your own system prompt</span>
+                          </div>
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     
                     {formData.aiConfig.systemPrompt === 'custom' && (
-                      <div className="mt-3">
-                        <Label htmlFor="customSystemPrompt" className="text-xs font-medium text-gray-700 mb-2 block">
+                      <div className="mt-2 sm:mt-3">
+                        <Label htmlFor="customSystemPrompt" className="text-xs font-medium text-gray-700 mb-1.5 sm:mb-2 block">
                           Custom System Prompt
                         </Label>
                         <Textarea
@@ -598,14 +649,14 @@ export default function CustomizeWidgetPage() {
                           value={formData.aiConfig.customSystemPrompt}
                           onChange={(e) => handleNestedChange('aiConfig', 'customSystemPrompt', e.target.value)}
                           placeholder="You are a helpful assistant that..."
-                          rows={4}
-                          className="text-sm bg-white border-2 border-gray-200 resize-none focus:border-indigo-500"
+                          rows={3}
+                          className="text-xs sm:text-sm bg-white border-2 border-gray-200 resize-none focus:border-indigo-500"
                         />
                         <p className="text-xs text-gray-500 mt-1">Define how your AI agent should behave</p>
                       </div>
                     )}
                     
-                    <p className="text-xs text-gray-600 mt-2">
+                    <p className="text-xs text-gray-600 mt-2 leading-relaxed">
                       This defines your AI agent&apos;s personality and behavior. The agent will act according to this role.
                     </p>
                   </div>
@@ -1184,6 +1235,91 @@ export default function CustomizeWidgetPage() {
                     </div>
                   </div>
 
+                  {/* Mobile UI Settings */}
+                  <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <Label className="text-sm font-semibold text-gray-900 mb-3 block">📱 Mobile UI Settings</Label>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="mobileLayout" className="text-xs font-medium text-gray-700 mb-2 block">Mobile Layout</Label>
+                        <Select
+                          value={formData.mobileLayout}
+                          onValueChange={(value: 'shrinked' | 'expanded' | 'fullscreen') => 
+                            handleInputChange('mobileLayout', value)
+                          }
+                        >
+                          <SelectTrigger className="h-10 text-sm bg-white border-2 border-green-300">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="shrinked">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                                <span>📱 Shrinked</span>
+                                <span className="text-gray-500 text-xs">Compact mobile view</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="expanded">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                                <span>📲 Expanded</span>
+                                <span className="text-gray-500 text-xs">Full mobile experience</span>
+                              </div>
+                            </SelectItem>
+                            <SelectItem value="fullscreen">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-1">
+                                <span>🖥️ Full Screen</span>
+                                <span className="text-gray-500 text-xs">App-like full screen</span>
+                              </div>
+                            </SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-gray-600 mt-2">
+                          Choose how your widget appears on mobile devices
+                        </p>
+                      </div>
+
+                      {formData.mobileLayout === 'fullscreen' && (
+                        <div className="bg-white rounded-lg p-3 border border-green-200">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <Label htmlFor="mobileFullScreen" className="text-sm font-semibold text-gray-900">Enable Full Screen</Label>
+                              <p className="text-xs text-gray-600 mt-0.5">Make mobile widget take full viewport</p>
+                            </div>
+                            <Switch
+                              id="mobileFullScreen"
+                              checked={formData.mobileFullScreen}
+                              onCheckedChange={(checked) => handleInputChange('mobileFullScreen', checked)}
+                            />
+                          </div>
+                          {formData.mobileFullScreen && (
+                            <div className="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                              <p className="text-xs text-green-800 font-medium mb-1">✨ Full Screen Benefits:</p>
+                              <ul className="text-xs text-green-700 space-y-1 ml-4 list-disc">
+                                <li>Native app-like experience</li>
+                                <li>Maximum screen utilization</li>
+                                <li>Better mobile engagement</li>
+                                <li>Professional mobile presence</li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <p className="text-xs text-blue-800 font-medium mb-1">📱 Mobile Layout Preview:</p>
+                        <div className="text-xs text-blue-700 space-y-1">
+                          {formData.mobileLayout === 'shrinked' && (
+                            <p>• <strong>Shrinked:</strong> Compact widget with standard mobile sizing</p>
+                          )}
+                          {formData.mobileLayout === 'expanded' && (
+                            <p>• <strong>Expanded:</strong> Larger mobile widget with better content visibility</p>
+                          )}
+                          {formData.mobileLayout === 'fullscreen' && (
+                            <p>• <strong>Full Screen:</strong> {formData.mobileFullScreen ? 'Full viewport coverage for app-like experience' : 'Standard full screen with some margins'}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Badge & Notifications */}
                   <div className="p-4 bg-gradient-to-br from-red-50 to-orange-50 rounded-lg border border-red-200">
                     <div className="flex items-center justify-between mb-3">
@@ -1695,31 +1831,7 @@ export default function CustomizeWidgetPage() {
                           <p className="text-xs text-gray-600 mt-2">Add to quick replies</p>
                         </div>
 
-                        {/* Keyword Detection */}
-                        <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 sm:col-span-2">
-                          <div className="flex items-center justify-between mb-3">
-                            <Label htmlFor="autoDetectKeywords" className="text-sm font-semibold">Keyword Detection</Label>
-                            <Switch
-                              id="autoDetectKeywords"
-                              checked={formData.customerHandover.autoDetectKeywords}
-                              onCheckedChange={(checked) => 
-                                handleNestedChange('customerHandover', 'autoDetectKeywords', checked)
-                              }
-                            />
-                          </div>
-                          {formData.customerHandover.autoDetectKeywords && (
-                            <Textarea
-                              value={formData.customerHandover.detectionKeywords.join(', ')}
-                              onChange={(e) => {
-                                const keywords = e.target.value.split(',').map(k => k.trim()).filter(k => k);
-                                handleNestedChange('customerHandover', 'detectionKeywords', keywords);
-                              }}
-                              placeholder="human, agent, representative"
-                              rows={2}
-                              className="text-xs bg-white resize-none"
-                            />
-                          )}
-                        </div>
+                        {/* Keyword Detection removed - only manual handover button and AI smart handover allowed */}
 
                         {/* Smart AI Fallback */}
                         <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200 sm:col-span-2">
@@ -1821,15 +1933,15 @@ export default function CustomizeWidgetPage() {
           <div className="hidden xl:block">
             <div className="sticky top-4 space-y-3 lg:max-w-md xl:max-w-none lg:mx-auto xl:mx-0">
             <Card className="bg-blue-50 border border-blue-200 rounded-lg shadow-sm">
-              <CardContent className="p-4 text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Eye className="w-5 h-5 text-blue-600" />
+              <CardContent className="p-3 sm:p-4 text-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                 </div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-1">Live Preview</h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <h3 className="text-xs sm:text-sm font-semibold text-gray-900 mb-1">Live Preview</h3>
+                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
                   Click the chat button at the {formData.position === 'bottom-right' ? 'bottom-right' : 'bottom-left'} corner of your screen to test the widget.
                 </p>
-                <div className="bg-white rounded-lg p-4 space-y-2 text-left">
+                <div className="bg-white rounded-lg p-3 sm:p-4 space-y-1.5 sm:space-y-2 text-left">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Mode:</span>
                     <span className="font-semibold text-gray-900">{viewMode === 'mobile' ? '📱 Mobile' : '💻 Desktop'}</span>
@@ -1844,40 +1956,40 @@ export default function CustomizeWidgetPage() {
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Color:</span>
-                    <span className="flex items-center gap-2">
-                      <span className="inline-block w-4 h-4 rounded border" style={{ backgroundColor: formData.primaryColor }}></span>
-                      <span className="font-mono text-gray-900">{formData.primaryColor}</span>
+                    <span className="flex items-center gap-1 sm:gap-2">
+                      <span className="inline-block w-3 h-3 sm:w-4 sm:h-4 rounded border" style={{ backgroundColor: formData.primaryColor }}></span>
+                      <span className="font-mono text-gray-900 text-xs">{formData.primaryColor}</span>
                     </span>
                   </div>
-                  <div className="flex items-center justify-between text-xs border-t border-gray-200 pt-2 mt-2">
+                  <div className="flex items-center justify-between text-xs border-t border-gray-200 pt-1.5 sm:pt-2 mt-1.5 sm:mt-2">
                     <span className="text-gray-600">Button Style:</span>
-                    <span className="font-semibold text-gray-900 capitalize">{formData.buttonStyle}</span>
+                    <span className="font-semibold text-gray-900 capitalize text-xs">{formData.buttonStyle}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Button Size:</span>
-                    <span className="font-semibold text-gray-900 capitalize">{formData.buttonSize}</span>
+                    <span className="font-semibold text-gray-900 capitalize text-xs">{formData.buttonSize}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-gray-600">Animation:</span>
-                    <span className="font-semibold text-gray-900 capitalize">{formData.buttonAnimation}</span>
+                    <span className="font-semibold text-gray-900 capitalize text-xs">{formData.buttonAnimation}</span>
                   </div>
                   {formData.showBadge && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">Badge:</span>
                       <span className="flex items-center gap-1">
-                        <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: formData.badgeColor }}></span>
-                        <span className="font-semibold text-gray-900">{formData.badgeCount > 0 ? formData.badgeCount : 'Dot'}</span>
+                        <span className="inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: formData.badgeColor }}></span>
+                        <span className="font-semibold text-gray-900 text-xs">{formData.badgeCount > 0 ? formData.badgeCount : 'Dot'}</span>
                       </span>
                     </div>
                   )}
                   {formData.showOnlineDot && !formData.showBadge && (
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-gray-600">Online Dot:</span>
-                      <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: formData.onlineDotColor }}></span>
+                      <span className="inline-block w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: formData.onlineDotColor }}></span>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-500 mt-4">
+                <p className="text-xs text-gray-500 mt-3 sm:mt-4">
                   ⚠ Changes update in real-time. Don&apos;t forget to save!
                 </p>
               </CardContent>

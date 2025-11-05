@@ -1,12 +1,15 @@
 'use client';
 
-import { useAuth } from '@/app/lib/auth-context';
+export const dynamic = 'force-dynamic';
+
+import { useAuth } from '@/app/lib/workspace-auth-context';
 import { useState } from 'react';
-import { ensureUserMembership, checkUserMembership } from '@/app/lib/ensure-membership';
+import { db } from '@/app/lib/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function DebugMembershipPage() {
-  const { user, companyContext } = useAuth();
-  const [membershipData, setMembershipData] = useState<Record<string, unknown> | null>(null);
+  const { user, workspaceContext } = useAuth();
+  const [membershipData, setMembershipData] = useState<{ exists: boolean; data?: unknown; docId?: string; message?: string } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,27 +23,31 @@ export default function DebugMembershipPage() {
     setError(null);
 
     try {
-      const result = await checkUserMembership(user.uid);
-      
-      if (!result.exists) {
+      // Check if user exists in companyMembers collection
+      const membersRef = collection(db, 'companyMembers');
+      const q = query(membersRef, where('userId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+
+      if (querySnapshot.empty) {
         setMembershipData({ exists: false, message: 'User not found in companyMembers collection' });
       } else {
+        const memberDoc = querySnapshot.docs[0];
         setMembershipData({
           exists: true,
-          data: result.memberData,
-          docId: result.memberData?.id
+          data: memberDoc.data(),
+          docId: memberDoc.id
         });
       }
-    } catch (err) {
-      setError(`Error checking membership: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } catch (err: unknown) {
+      setError(`Error checking membership: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
   };
 
   const addUserToCompany = async () => {
-    if (!user?.uid) {
-      setError('Missing user ID');
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
+      setError('Missing user ID or company ID');
       return;
     }
 
@@ -48,28 +55,27 @@ export default function DebugMembershipPage() {
     setError(null);
 
     try {
-      const result = await ensureUserMembership(user.uid);
+      const { addDoc, collection } = await import('firebase/firestore');
       
-      if (result.success) {
-        if (result.wasAdded) {
-          setMembershipData({
-            exists: true,
-            message: 'Successfully added user to companyMembers collection'
-          });
-        } else {
-          setMembershipData({
-            exists: true,
-            message: 'User already exists in companyMembers collection'
-          });
-        }
-        
-        // Refresh membership data
-        await checkMembership();
-      } else {
-        setError(result.error || 'Failed to ensure membership');
-      }
-    } catch (err) {
-      setError(`Error adding user to company: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      const memberData = {
+        userId: user.uid,
+        companyId: workspaceContext.currentWorkspace.id,
+        role: 'admin', // Assuming admin role for now
+        status: 'active',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const docRef = await addDoc(collection(db, 'companyMembers'), memberData);
+      
+      setMembershipData({
+        exists: true,
+        data: memberData,
+        docId: docRef.id,
+        message: 'Successfully added user to companyMembers collection'
+      });
+    } catch (err: unknown) {
+      setError(`Error adding user to company: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setLoading(false);
     }
@@ -87,9 +93,9 @@ export default function DebugMembershipPage() {
         </div>
 
         <div className="bg-gray-100 p-4 rounded">
-          <h2 className="font-semibold mb-2">Company Context:</h2>
-          <p><strong>Company ID:</strong> {companyContext?.company?.id || 'No company'}</p>
-          <p><strong>Company Name:</strong> {companyContext?.company?.name || 'N/A'}</p>
+          <h2 className="font-semibold mb-2">Workspace Context:</h2>
+          <p><strong>Workspace ID:</strong> {workspaceContext?.currentWorkspace?.id || 'No workspace'}</p>
+          <p><strong>Workspace Name:</strong> {workspaceContext?.currentWorkspace?.name || 'N/A'}</p>
         </div>
 
         <div className="space-x-4">
@@ -103,7 +109,7 @@ export default function DebugMembershipPage() {
 
           <button
             onClick={addUserToCompany}
-            disabled={loading || !user?.uid || (membershipData?.exists as boolean)}
+            disabled={loading || !user?.uid || !workspaceContext?.currentWorkspace?.id || membershipData?.exists}
             className="bg-green-500 text-white px-4 py-2 rounded disabled:opacity-50"
           >
             {loading ? 'Adding...' : 'Add to Company'}

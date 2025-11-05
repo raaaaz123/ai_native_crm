@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "./lib/auth-context";
+import { AuthProvider } from "./lib/workspace-auth-context";
 import { LayoutWrapper } from "./components/layout/LayoutWrapper";
 
 const inter = Inter({
@@ -25,7 +25,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body className={`${inter.variable} font-sans antialiased bg-white text-gray-900`}>
+      <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
         <AuthProvider>
           <LayoutWrapper>
             {children}

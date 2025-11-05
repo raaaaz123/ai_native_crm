@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../lib/auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
@@ -11,7 +10,8 @@ import { Shield, ArrowLeft } from 'lucide-react';
 
 export default function CompanyCreationPage() {
   const router = useRouter();
-  const { createCompany } = useAuth();
+  // TODO: Legacy company code - createCompany function no longer exists in workspace-based auth
+  // const { createCompany } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -38,15 +38,11 @@ export default function CompanyCreationPage() {
       setError('');
       setSuccess('');
 
-      await createCompany(
-        formData.name.trim(),
-        formData.description.trim() || undefined,
-        formData.domain.trim() || undefined
-      );
+      // TODO: Legacy company code - workspace system has replaced company creation
+      // Users should create workspaces instead
+      setError('Company creation is no longer supported. Please create a workspace instead.');
 
-      setSuccess('Company created successfully! Redirecting to dashboard...');
-      
-      // Redirect to dashboard after a short delay
+      // Redirect to workspace creation or dashboard
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);

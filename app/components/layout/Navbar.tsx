@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useAuth } from '../../lib/auth-context';
+import { useAuth } from '../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { BrandLogo } from '../brand';
 import { Menu, X, ChevronDown } from 'lucide-react';
@@ -22,22 +22,22 @@ export function Navbar() {
   }, []);
   
   return (
-    <nav className={`border-b bg-white/95 backdrop-blur-md sticky top-0 z-50 transition-all duration-300 ${
-      scrolled ? 'border-gray-200 shadow-lg' : 'border-gray-100 shadow-sm'
+    <nav className={`border-b bg-background/95 backdrop-blur-md sticky top-0 z-50 transition-all duration-300 ${
+      scrolled ? 'border-border shadow-lg' : 'border-border/50 shadow-sm'
     }`}>
-      <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="flex h-20 items-center justify-between">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex h-14 items-center justify-between">
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <BrandLogo className="h-8 w-auto" />
             </Link>
             
             {/* Desktop Navigation */}
-            <div className="hidden md:ml-12 md:flex md:items-center md:space-x-10">
+            <div className="hidden md:ml-10 md:flex md:items-center md:space-x-8">
               <div className="relative">
                 <button 
                   suppressHydrationWarning
-                  className="flex items-center text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200"
+                  className="flex items-center text-foreground/70 hover:text-foreground font-medium transition-all duration-200 hover:scale-105"
                   onClick={() => setProductDropdownOpen(!productDropdownOpen)}
                 >
                   Product
@@ -45,15 +45,15 @@ export function Navbar() {
                 </button>
                 
                 {productDropdownOpen && (
-                  <div className="absolute left-0 mt-3 w-56 rounded-xl shadow-xl bg-white border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute left-0 mt-3 w-56 rounded-xl shadow-xl bg-card border border-border overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-2">
-                      <Link href="#features" className="block px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors">
+                      <Link href="#features" className="block px-4 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-all duration-200 hover:scale-105">
                         Features
                       </Link>
-                      <Link href="#pricing" className="block px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors">
+                      <Link href="/pricing" className="block px-4 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-all duration-200 hover:scale-105">
                         Pricing
                       </Link>
-                      <Link href="#docs" className="block px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors">
+                      <Link href="#docs" className="block px-4 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-all duration-200 hover:scale-105">
                         Documentation
                       </Link>
                     </div>
@@ -61,27 +61,27 @@ export function Navbar() {
                 )}
               </div>
               
-              <Link href="#pricing" className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200">
+              <Link href="/pricing" className="text-foreground/70 hover:text-foreground font-medium transition-all duration-200 hover:scale-105">
                 Pricing
               </Link>
               
-              <Link href="#docs" className="text-gray-700 hover:text-blue-600 font-medium transition-colors duration-200">
+              <Link href="#docs" className="text-foreground/70 hover:text-foreground font-medium transition-all duration-200 hover:scale-105">
                 Documentation
               </Link>
             </div>
           </div>
           
           {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex md:items-center md:space-x-4">
+          <div className="hidden md:flex md:items-center md:space-x-2">
             {user ? (
               <>
                 <Link href="/dashboard">
-                  <Button variant="ghost" className="text-gray-700 hover:text-blue-600 font-medium hover:bg-blue-50/50">Dashboard</Button>
+                  <Button variant="ghost" className="text-foreground/70 hover:text-foreground font-semibold hover:bg-muted/50 transition-all duration-200 hover:scale-105 cursor-pointer">Dashboard</Button>
                 </Link>
                 <Button 
                   variant="outline" 
                   onClick={signOut}
-                  className="border-2 border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 rounded-lg font-medium"
+                  className="border-2 border-border text-foreground/70 hover:bg-muted hover:border-border/80 rounded-md font-semibold transition-all duration-200 hover:scale-105 cursor-pointer"
                 >
                   Sign Out
                 </Button>
@@ -89,10 +89,10 @@ export function Navbar() {
             ) : (
               <>
                 <Link href="/signin">
-                  <Button variant="ghost" className="text-gray-700 hover:text-blue-600 font-medium hover:bg-blue-50/50">Sign In</Button>
+                  <Button variant="ghost" className="text-foreground/70 hover:text-foreground font-bold hover:bg-muted/50 transition-all duration-200 hover:scale-105 cursor-pointer">Sign In</Button>
                 </Link>
                 <Link href="/signup">
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold shadow-md hover:shadow-lg transition-all duration-300 rounded-lg px-6">Get Started</Button>
+                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md hover:shadow-lg transition-all duration-300 rounded-md px-5 hover:scale-105 cursor-pointer">Try for Free</Button>
                 </Link>
               </>
             )}
@@ -103,13 +103,13 @@ export function Navbar() {
             <button
               suppressHydrationWarning
               type="button"
-              className="inline-flex items-center justify-center p-2.5 rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+              className="inline-flex items-center justify-center p-2 rounded-lg text-foreground/60 hover:text-foreground hover:bg-muted transition-all duration-200 hover:scale-110 active:scale-95"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               ) : (
-                <Menu className="h-6 w-6" />
+                <Menu className="h-5 w-5" />
               )}
             </button>
           </div>
@@ -118,12 +118,12 @@ export function Navbar() {
       
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-100 shadow-lg">
-          <div className="px-6 pt-4 pb-6 space-y-2">
-            <div className="py-2">
+        <div className="md:hidden bg-background border-t border-border shadow-lg">
+          <div className="px-4 pt-3 pb-4 space-y-1">
+            <div className="py-1">
               <button 
                 suppressHydrationWarning
-                className="w-full text-left px-4 py-3 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                className="w-full text-left px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
                 onClick={() => setProductDropdownOpen(!productDropdownOpen)}
               >
                 <div className="flex justify-between items-center">
@@ -133,49 +133,49 @@ export function Navbar() {
               </button>
               
               {productDropdownOpen && (
-                <div className="pl-4 mt-2 space-y-1">
-                  <Link href="#features" className="block px-4 py-3 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                <div className="pl-3 mt-1 space-y-1">
+                  <Link href="#features" className="block px-3 py-2 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
                     Features
                   </Link>
-                  <Link href="#pricing" className="block px-4 py-3 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <Link href="/pricing" className="block px-3 py-2 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
                     Pricing
                   </Link>
-                  <Link href="#docs" className="block px-4 py-3 text-base font-medium text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <Link href="#docs" className="block px-3 py-2 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
                     Documentation
                   </Link>
                 </div>
               )}
             </div>
             
-            <Link href="#pricing" className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+            <Link href="/pricing" className="block px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
               Pricing
             </Link>
             
-            <Link href="#docs" className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+            <Link href="#docs" className="block px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
               Documentation
             </Link>
             
-            <div className="pt-6 mt-4 border-t border-gray-200 space-y-2">
+            <div className="pt-4 mt-3 border-t border-border space-y-1">
               {user ? (
                 <>
-                  <Link href="/dashboard" className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <Link href="/dashboard" className="block px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105 cursor-pointer">
                     Dashboard
                   </Link>
                   <button 
                     suppressHydrationWarning
                     onClick={signOut}
-                    className="block w-full text-left px-4 py-3 text-base font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="block w-full text-left px-3 py-2 text-sm font-medium text-foreground/70 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
                   >
                     Sign Out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/signin" className="block px-4 py-3 text-base font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                  <Link href="/signin" className="block px-3 py-2 text-sm font-bold text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105 cursor-pointer">
                     Sign In
                   </Link>
-                  <Link href="/signup" className="block px-4 py-3 mt-2 text-base font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 rounded-lg text-center shadow-md transition-all">
-                    Get Started
+                  <Link href="/signup" className="block px-3 py-2 mt-2 text-sm font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-md text-center shadow-md transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer">
+                    Try for Free
                   </Link>
                 </>
               )}

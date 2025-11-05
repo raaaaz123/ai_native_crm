@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../../lib/auth-context';
+import { useAuth } from '../../../lib/workspace-auth-context';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,27 +27,27 @@ import Link from 'next/link';
 import { getBusinessWidgets, type ChatWidget } from '@/app/lib/chat-utils';
 
 export default function ShareWidgetPage() {
-  const { companyContext } = useAuth();
+  const { workspaceContext } = useAuth();
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
   const [selectedWidget, setSelectedWidget] = useState<ChatWidget | null>(null);
   const [loading, setLoading] = useState(true);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   useEffect(() => {
-    if (companyContext?.company?.id) {
+    if (workspaceContext?.currentWorkspace?.id) {
       loadWidgets();
     } else {
       setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyContext]);
+  }, [workspaceContext]);
 
   const loadWidgets = async () => {
-    if (!companyContext?.company?.id) return;
+    if (!workspaceContext?.currentWorkspace?.id) return;
 
     try {
       setLoading(true);
-      const result = await getBusinessWidgets(companyContext.company.id);
+      const result = await getBusinessWidgets(workspaceContext.currentWorkspace.id);
 
       if (result.success) {
         setWidgets(result.data);
@@ -184,7 +184,7 @@ export default function RootLayout({ children }) {
     return `${baseUrl}/widget/${widgetId}`;
   };
 
-  if (!companyContext?.company) {
+  if (!workspaceContext?.currentWorkspace) {
     return (
       <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-blue-50/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

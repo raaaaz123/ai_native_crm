@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../lib/auth-context';
+import { useAuth } from '../lib/workspace-auth-context';
 import { 
   subscribeToConversations,
   ChatConversation 
@@ -22,7 +22,7 @@ import { formatDistanceToNow } from 'date-fns';
 import Link from 'next/link';
 
 export default function ConversationsPage() {
-  const { user, companyContext } = useAuth();
+  const { user, workspaceContext } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [filteredConversations, setFilteredConversations] = useState<ChatConversation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,16 +30,16 @@ export default function ConversationsPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'closed'>('all');
 
   useEffect(() => {
-    if (!user?.uid || !companyContext?.company?.id) return;
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) return;
 
-    // Subscribe to real-time conversations using the company's businessId
-    const unsubscribe = subscribeToConversations(companyContext.company.id, (updatedConversations) => {
+    // Subscribe to real-time conversations using the workspace's businessId
+    const unsubscribe = subscribeToConversations(workspaceContext.currentWorkspace.id, (updatedConversations) => {
       setConversations(updatedConversations);
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [user?.uid, companyContext?.company?.id]);
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id]);
 
   useEffect(() => {
     // Filter conversations based on search and status

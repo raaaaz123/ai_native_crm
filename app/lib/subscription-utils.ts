@@ -23,7 +23,20 @@ export function getSubscriptionInfo(userData: {
   trialStartDate?: Date | { toDate?: () => Date } | unknown;
   trialEndDate?: Date | { toDate?: () => Date } | unknown;
   subscriptionEndDate?: Date | { toDate?: () => Date } | unknown;
-}): SubscriptionInfo {
+} | null | undefined): SubscriptionInfo {
+  // Handle null/undefined userData
+  if (!userData) {
+    return {
+      plan: 'free_trial',
+      planDisplay: 'Free Trial',
+      status: 'active',
+      statusDisplay: 'Active',
+      isTrialActive: false,
+      trialDaysRemaining: 0,
+      isPaid: false
+    };
+  }
+
   const plan = userData.subscriptionPlan || 'free_trial';
   const status = (userData.subscriptionStatus || 'active') as 'active' | 'expired' | 'cancelled';
   
@@ -31,10 +44,46 @@ export function getSubscriptionInfo(userData: {
   const convertToDate = (value: unknown): Date | undefined => {
     if (!value) return undefined;
     if (value instanceof Date) return value;
-    if (typeof value === 'object' && value !== null && 'toDate' in value) {
-      const toDate = (value as { toDate?: () => Date }).toDate;
-      return toDate ? toDate() : undefined;
+    
+    // Handle Firestore Timestamp objects
+    if (typeof value === 'object' && value !== null) {
+      try {
+        // Check if it's a Firestore Timestamp with toDate method
+        if ('toDate' in value && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+          return (value as { toDate: () => Date }).toDate();
+        }
+        
+        // Check if it's a Firestore Timestamp with toMillis method
+        if ('toMillis' in value && typeof (value as { toMillis?: () => number }).toMillis === 'function') {
+          const millis = (value as { toMillis: () => number }).toMillis();
+          return new Date(millis);
+        }
+        
+        // Check if it has seconds and nanoseconds (Firestore Timestamp structure)
+        if ('seconds' in value && 'nanoseconds' in value) {
+          const timestampValue = value as { seconds?: unknown; nanoseconds?: unknown };
+          const seconds = timestampValue.seconds;
+          const nanoseconds = timestampValue.nanoseconds;
+          if (typeof seconds === 'number' && typeof nanoseconds === 'number') {
+            return new Date(seconds * 1000 + nanoseconds / 1000000);
+          }
+        }
+        
+        // Check if it's a plain object with timestamp properties
+        if ('_seconds' in value && '_nanoseconds' in value) {
+          const timestampValue = value as { _seconds?: unknown; _nanoseconds?: unknown };
+          const seconds = timestampValue._seconds;
+          const nanoseconds = timestampValue._nanoseconds;
+          if (typeof seconds === 'number' && typeof nanoseconds === 'number') {
+            return new Date(seconds * 1000 + nanoseconds / 1000000);
+          }
+        }
+      } catch (error) {
+        console.warn('Error converting Firestore timestamp to Date:', error, value);
+        return undefined;
+      }
     }
+    
     return undefined;
   };
 

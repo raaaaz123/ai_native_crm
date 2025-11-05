@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '../../../../lib/auth-context';
+import { useAuth } from '../../../../lib/workspace-auth-context';
 import { Container } from '@/components/layout';
 import ReviewAnalytics from '@/app/components/review/ReviewAnalytics';
 import { 
@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 export default function ReviewAnalyticsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, loading: authLoading, companyContext } = useAuth();
+  const { user, loading: authLoading, workspaceContext } = useAuth();
   const formId = params.formId as string;
   
   const [form, setForm] = useState<ReviewForm | null>(null);
@@ -31,17 +31,17 @@ export default function ReviewAnalyticsPage() {
       return;
     }
 
-    if (user && formId && companyContext?.company?.id) {
+    if (user && formId && workspaceContext?.currentWorkspace?.id) {
       loadData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, authLoading, formId, router, companyContext?.company?.id]);
+  }, [user, authLoading, formId, router, workspaceContext?.currentWorkspace?.id]);
 
   const loadData = async () => {
-    if (!formId || !companyContext?.company?.id) {
+    if (!formId || !workspaceContext?.currentWorkspace?.id) {
       console.log('Missing required data for analytics loading:', { 
         formId: !!formId, 
-        companyId: !!companyContext?.company?.id 
+        workspaceId: !!workspaceContext?.currentWorkspace?.id 
       });
       setLoading(false);
       return;
@@ -53,7 +53,7 @@ export default function ReviewAnalyticsPage() {
       const formResult = await getReviewForm(formId);
       if (formResult.success && formResult.data) {
         // Validate that the form belongs to the current company
-        if (formResult.data.businessId !== companyContext.company.id) {
+        if (formResult.data.businessId !== workspaceContext?.currentWorkspace?.id) {
           console.error('Form does not belong to current company');
           setForm(null);
           setLoading(false);

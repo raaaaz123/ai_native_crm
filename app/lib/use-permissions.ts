@@ -1,26 +1,34 @@
-import { useAuth } from './auth-context';
+import { useAuth } from './workspace-auth-context';
 import { Permission } from './company-types';
 
 export function usePermissions() {
-  const { companyContext } = useAuth();
+  const { user, workspaceContext } = useAuth();
+
+  const permissions: string[] = (() => {
+    const member = workspaceContext?.currentWorkspace?.members?.find(m => m.userId === user?.uid);
+    return member?.permissions || [];
+  })();
+
+  const adminLike = (() => {
+    const member = workspaceContext?.currentWorkspace?.members?.find(m => m.userId === user?.uid);
+    const role = member?.role;
+    return role === 'admin' || role === 'owner';
+  })();
 
   const hasPermission = (permission: Permission): boolean => {
-    if (!companyContext) return false;
-    return companyContext.permissions.includes(permission);
+    return permissions.includes(permission);
   };
 
-  const hasAnyPermission = (permissions: Permission[]): boolean => {
-    if (!companyContext) return false;
-    return permissions.some(permission => companyContext.permissions.includes(permission));
+  const hasAnyPermission = (perms: Permission[]): boolean => {
+    return perms.some(permission => permissions.includes(permission));
   };
 
-  const hasAllPermissions = (permissions: Permission[]): boolean => {
-    if (!companyContext) return false;
-    return permissions.every(permission => companyContext.permissions.includes(permission));
+  const hasAllPermissions = (perms: Permission[]): boolean => {
+    return perms.every(permission => permissions.includes(permission));
   };
 
   const isAdmin = (): boolean => {
-    return companyContext?.isAdmin || false;
+    return adminLike;
   };
 
   const canManageTeam = (): boolean => {
@@ -58,7 +66,8 @@ export function usePermissions() {
     canManageReviews,
     canViewAnalytics,
     canManageSettings,
-    permissions: companyContext?.permissions || [],
-    companyContext
+    permissions,
+    // Compat alias for legacy consumers expecting companyContext shape
+    companyContext: { permissions, isAdmin: adminLike } as unknown as { permissions: string[]; isAdmin: boolean }
   };
 }

@@ -1,8 +1,10 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../lib/auth-context';
+import { useAuth } from '../../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
@@ -47,11 +49,11 @@ import { usePermissions } from '../../../lib/use-permissions';
 
 export default function TeamManagementPage() {
   const router = useRouter();
-  const { user, userData, companyContext, createCompany, refreshCompanyContext } = useAuth();
+  const { user, userData, workspaceContext, createWorkspace, refreshWorkspaceContext } = useAuth();
   const { canManageTeam, canInviteUsers } = usePermissions();
   
   // Debug permissions
-  console.log('🔐 [Team Management] User permissions:', companyContext?.permissions);
+  console.log('🔐 [Team Management] Workspace context:', workspaceContext);
   console.log('🔐 [Team Management] Can manage team:', canManageTeam);
   console.log('🔐 [Team Management] Can invite users:', canInviteUsers);
   const [members, setMembers] = useState<CompanyMember[]>([]);
@@ -119,17 +121,17 @@ export default function TeamManagementPage() {
 
   // Load team data
   useEffect(() => {
-    console.log('Team Management - Company Context:', companyContext);
+    console.log('Team Management - Workspace Context:', workspaceContext);
     
     // Wait for auth to complete before showing UI
     if (loading) {
       return;
     }
     
-    if (companyContext?.company.id) {
+    if (workspaceContext?.currentWorkspace?.id) {
       loadTeamData();
     } else {
-      // If no company context, stop loading but load user invitations
+      // If no workspace context, stop loading but load user invitations
       setLoading(false);
       setInitialLoadComplete(true);
       if (user?.email) {
@@ -137,15 +139,15 @@ export default function TeamManagementPage() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [companyContext, user]);
+  }, [workspaceContext, user]);
 
   // Reload sent invites when filter changes
   useEffect(() => {
-    if (companyContext?.company.id && canInviteUsers()) {
+    if (workspaceContext?.currentWorkspace?.id && canInviteUsers()) {
       loadSentInvites();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inviteStatusFilter, companyContext]);
+  }, [inviteStatusFilter, workspaceContext]);
 
   // Load user invitations when no company
   const loadUserInvitations = async () => {
@@ -189,14 +191,14 @@ export default function TeamManagementPage() {
   }, [loading]);
 
   const loadTeamData = async () => {
-    if (!companyContext?.company.id) return;
+    if (!workspaceContext?.currentWorkspace?.id) return;
 
     try {
       setLoading(true);
       setError('');
 
-      // Load company members
-      const membersResult = await getCompanyMembers(companyContext.company.id);
+      // Load workspace members
+      const membersResult = await getCompanyMembers(workspaceContext.currentWorkspace.id);
       if (membersResult.success && membersResult.data) {
         setMembers(membersResult.data);
       }
@@ -223,11 +225,11 @@ export default function TeamManagementPage() {
   };
 
   const loadSentInvites = async () => {
-    if (!companyContext?.company.id) return;
+    if (!workspaceContext?.currentWorkspace?.id) return;
 
     try {
       setLoadingSentInvites(true);
-      const result = await getCompanyInvites(companyContext.company.id, inviteStatusFilter);
+      const result = await getCompanyInvites(workspaceContext.currentWorkspace.id, inviteStatusFilter);
       
       if (result.success && result.data) {
         setSentInvites(result.data);
@@ -242,7 +244,7 @@ export default function TeamManagementPage() {
   const handleInviteUser = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!inviteEmail || !companyContext?.company.id || !user?.uid) {
+    if (!inviteEmail || !workspaceContext?.currentWorkspace?.id || !user?.uid) {
       setError('Missing required information');
       return;
     }
@@ -253,12 +255,12 @@ export default function TeamManagementPage() {
       setSuccess('');
 
       const result = await inviteUserToCompany(
-        companyContext.company.id,
+        workspaceContext.currentWorkspace.id,
         inviteEmail,
         inviteRole,
         invitePermissions,
         user.uid,
-        companyContext.company.name,
+        workspaceContext.currentWorkspace.name,
         userData?.displayName || userData?.firstName || 'Admin'
       );
 
@@ -282,16 +284,18 @@ export default function TeamManagementPage() {
   };
 
   const handleRemoveMember = async (memberId: string, memberEmail: string) => {
-    if (!companyContext?.company.id || !user?.uid) return;
+    if (!workspaceContext?.currentWorkspace?.id || !user?.uid) return;
 
     showConfirmation(
       'remove',
       'Remove Team Member',
       `Are you sure you want to remove ${memberEmail} from the team? This action cannot be undone.`,
       async () => {
+        const workspaceId = workspaceContext?.currentWorkspace?.id;
+        if (!workspaceId || !user?.uid) return;
         try {
           const result = await removeCompanyMember(
-            companyContext.company.id,
+            workspaceId,
             memberId,
             user.uid
           );
@@ -325,8 +329,8 @@ export default function TeamManagementPage() {
           if (result.success) {
             setSuccess('Invitation accepted! Welcome to the team!');
             
-            // Refresh company context without page reload
-            await refreshCompanyContext();
+            // Refresh workspace context without page reload
+            await refreshWorkspaceContext();
             
             // Reload team data
             await loadTeamData();
@@ -381,8 +385,8 @@ export default function TeamManagementPage() {
         setSuccess('Admin permissions updated successfully! Refreshing context...');
         console.log('✅ [Update Permissions] Permissions updated, refreshing company context...');
         
-        // Refresh the company context to get updated permissions
-        await refreshCompanyContext();
+        // Refresh the workspace context to get updated permissions
+        await refreshWorkspaceContext();
         
         // Reload team data to get updated permissions
         await loadTeamData();
@@ -400,11 +404,11 @@ export default function TeamManagementPage() {
     }
   };
 
-  const handleCreateCompany = async (e: React.FormEvent) => {
+  const handleCreateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!companyFormData.name.trim()) {
-      setError('Company name is required');
+      setError('Workspace name is required');
       return;
     }
 
@@ -413,17 +417,17 @@ export default function TeamManagementPage() {
       setError('');
       setSuccess('');
 
-      await createCompany(
+      await createWorkspace(
         companyFormData.name.trim(),
-        companyFormData.description.trim() || undefined,
-        companyFormData.domain.trim() || undefined
+        companyFormData.domain.trim() || `${companyFormData.name.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+        companyFormData.description.trim() || undefined
       );
 
-      setSuccess('Company created successfully!');
+      setSuccess('Workspace created successfully!');
       setShowCreateCompanyModal(false);
       
-      // Refresh company context without page reload
-      await refreshCompanyContext();
+      // Refresh workspace context without page reload
+      await refreshWorkspaceContext();
       
       // Reload team data
       await loadTeamData();
@@ -431,8 +435,8 @@ export default function TeamManagementPage() {
       // Navigate to dashboard
       router.push('/dashboard');
     } catch (error) {
-      console.error('Error creating company:', error);
-      setError((error as Error).message || 'Failed to create company');
+      console.error('Error creating workspace:', error);
+      setError((error as Error).message || 'Failed to create workspace');
     } finally {
       setCreatingCompany(false);
     }
@@ -445,7 +449,7 @@ export default function TeamManagementPage() {
   const handleQuickInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!quickInviteEmail || !companyContext?.company.id || !user?.uid) {
+    if (!quickInviteEmail || !workspaceContext?.currentWorkspace?.id || !user?.uid) {
       setError('Missing required information');
       return;
     }
@@ -456,12 +460,12 @@ export default function TeamManagementPage() {
       setSuccess('');
 
       const result = await inviteUserToCompany(
-        companyContext.company.id,
+        workspaceContext.currentWorkspace.id,
         quickInviteEmail,
         'member', // Default to member role for quick invite
         PERMISSION_SETS.member.permissions, // Default member permissions
         user.uid,
-        companyContext.company.name,
+        workspaceContext.currentWorkspace.name,
         userData?.displayName || userData?.firstName || 'Admin'
       );
 
@@ -725,9 +729,9 @@ export default function TeamManagementPage() {
     );
   }
 
-  // If user is not a member of any company
-  console.log('Team Management - Rendering with companyContext:', companyContext);
-  if (!companyContext) {
+  // If user is not a member of any workspace
+  console.log('Team Management - Rendering with workspaceContext:', workspaceContext);
+  if (!workspaceContext?.currentWorkspace) {
     return (
       <Container>
         <div className="mb-8">
@@ -735,78 +739,78 @@ export default function TeamManagementPage() {
           <p className="text-neutral-600">Choose how you&apos;d like to get started with your team</p>
           <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-blue-800 text-sm">
-              <strong>New to the platform?</strong> You can either create your own company or join an existing one using an invitation.
+              <strong>New to the platform?</strong> You can either create your own workspace or join an existing one using an invitation.
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Create Company */}
+          {/* Create Workspace */}
           <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Shield className="w-5 h-5 text-primary-500" />
-                <span>Create a Company</span>
+                <span>Create a Workspace</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-neutral-600 mb-6">
-                <strong>For business owners and team leaders:</strong> Create your company profile and start inviting team members to collaborate.
+                <strong>For business owners and team leaders:</strong> Create your workspace profile and start inviting team members to collaborate.
               </p>
               <Dialog open={showCreateCompanyModal} onOpenChange={setShowCreateCompanyModal}>
                 <DialogTrigger asChild>
                   <Button className="w-full">
-                    Create Company
+                    Create Workspace
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Create Company</DialogTitle>
+                    <DialogTitle>Create Workspace</DialogTitle>
                   </DialogHeader>
-                  <form onSubmit={handleCreateCompany} className="space-y-4">
+                  <form onSubmit={handleCreateWorkspace} className="space-y-4">
                     <div>
-                      <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-2">
-                        Company Name *
+                      <label htmlFor="workspaceName" className="block text-sm font-medium text-gray-700 mb-2">
+                        Workspace Name *
                       </label>
                       <Input
-                        id="companyName"
+                        id="workspaceName"
                         type="text"
                         value={companyFormData.name}
                         onChange={(e) => handleCompanyInputChange('name', e.target.value)}
-                        placeholder="Acme Inc."
+                        placeholder="My Team Workspace"
                         disabled={creatingCompany}
                         required
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="companyDescription" className="block text-sm font-medium text-gray-700 mb-2">
+                      <label htmlFor="workspaceDescription" className="block text-sm font-medium text-gray-700 mb-2">
                         Description
                       </label>
                       <textarea
-                        id="companyDescription"
+                        id="workspaceDescription"
                         value={companyFormData.description}
                         onChange={(e) => handleCompanyInputChange('description', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Brief description of your company..."
+                        placeholder="Brief description of your workspace..."
                         rows={3}
                         disabled={creatingCompany}
                       />
                     </div>
 
                     <div>
-                      <label htmlFor="companyDomain" className="block text-sm font-medium text-gray-700 mb-2">
-                        Company Domain
+                      <label htmlFor="workspaceUrl" className="block text-sm font-medium text-gray-700 mb-2">
+                        Workspace URL
                       </label>
                       <Input
-                        id="companyDomain"
+                        id="workspaceUrl"
                         type="text"
                         value={companyFormData.domain}
                         onChange={(e) => handleCompanyInputChange('domain', e.target.value)}
-                        placeholder="acme.com"
+                        placeholder="my-team-workspace"
                         disabled={creatingCompany}
                       />
-                      <p className="text-xs text-gray-500 mt-1">Optional: Your company&apos;s website domain</p>
+                      <p className="text-xs text-gray-500 mt-1">Optional: Your workspace URL identifier</p>
                     </div>
 
                     <div className="flex space-x-3">
@@ -815,7 +819,7 @@ export default function TeamManagementPage() {
                         disabled={creatingCompany}
                         className="flex-1"
                       >
-                        {creatingCompany ? 'Creating...' : 'Create Company'}
+                        {creatingCompany ? 'Creating...' : 'Create Workspace'}
                       </Button>
                       <Button
                         type="button"
@@ -833,17 +837,17 @@ export default function TeamManagementPage() {
             </CardContent>
           </Card>
 
-          {/* Join Company */}
+          {/* Join Workspace */}
           <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Users className="w-5 h-5 text-primary-500" />
-                <span>Join a Company</span>
+                <span>Join a Workspace</span>
               </CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-neutral-600 mb-6">
-                <strong>For team members:</strong> If you&apos;ve been invited to join a company, your invitations will appear below.
+                <strong>For team members:</strong> If you&apos;ve been invited to join a workspace, your invitations will appear below.
               </p>
 
               {/* Received Invitations */}
@@ -866,7 +870,7 @@ export default function TeamManagementPage() {
                             </div>
                             <div className="min-w-0">
                               <p className="text-base font-semibold text-neutral-900">
-                                {company?.name || 'Company'}
+                                {company?.name || 'Workspace'}
                               </p>
                               {company?.description && (
                                 <p className="text-xs text-neutral-600 mt-1 line-clamp-2">
@@ -918,7 +922,7 @@ export default function TeamManagementPage() {
                 <div className="text-center py-6 px-4 bg-neutral-50 rounded-lg border border-neutral-200 mb-6">
                   <Mail className="w-12 h-12 text-neutral-400 mx-auto mb-3" />
                   <p className="text-neutral-600 text-sm font-medium mb-1">No pending invitations</p>
-                  <p className="text-neutral-500 text-xs">Invitations from companies will appear here</p>
+                  <p className="text-neutral-500 text-xs">Invitations from workspaces will appear here</p>
                 </div>
               )}
 
@@ -982,13 +986,13 @@ export default function TeamManagementPage() {
         <p className="text-neutral-600">Manage your team members and invitations</p>
         
         {/* Debug and Fix Permissions */}
-        {companyContext?.member?.role === 'admin' && (
+        {workspaceContext?.currentWorkspace && (
           <div className="mt-4 p-4 bg-primary-50 border border-primary-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <h3 className="text-sm font-medium text-primary-800">Admin Permissions</h3>
+                <h3 className="text-sm font-medium text-primary-800">Workspace Info</h3>
                 <p className="text-sm text-primary-700">
-                  Current permissions: {companyContext.permissions.length} items
+                  Current workspace: {workspaceContext.currentWorkspace.name}
                 </p>
                 {!canManageTeam() && (
                   <div className="mt-2">
@@ -996,10 +1000,7 @@ export default function TeamManagementPage() {
                       ⚠️ Missing team management permissions
                     </p>
                     <p className="text-xs text-primary-600 mt-1">
-                      Expected: team:manage, team:invite, company:manage
-                    </p>
-                    <p className="text-xs text-primary-600">
-                      Current: {companyContext.permissions.join(', ') || 'None'}
+                      Expected: team:manage, team:invite, workspace:manage
                     </p>
                   </div>
                 )}
@@ -1101,7 +1102,7 @@ export default function TeamManagementPage() {
                       <span className="text-xs text-neutral-500">
                         {getPermissionSetName(member.permissions)}
                       </span>
-                      {companyContext?.isAdmin && (
+                      {workspaceContext?.currentWorkspace && (
                         <div className="flex items-center space-x-1">
                           <Button
                             size="sm"

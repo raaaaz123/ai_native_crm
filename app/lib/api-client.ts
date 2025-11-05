@@ -415,6 +415,80 @@ class ApiClient {
   async healthCheck(): Promise<ApiResponse> {
     return this.request('/health');
   }
+
+  // Calendly API methods
+  async initiateCalendlyConnection(workspaceId: string, agentId: string): Promise<ApiResponse> {
+    return this.request('/api/calendly/connect', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        agent_id: agentId
+      })
+    });
+  }
+
+  async handleCalendlyCallback(
+    code: string, 
+    workspaceId: string, 
+    agentId: string, 
+    state?: string
+  ): Promise<ApiResponse> {
+    return this.request('/api/calendly/callback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code,
+        workspace_id: workspaceId,
+        agent_id: agentId,
+        state
+      })
+    });
+  }
+
+  async getCalendlyStatus(workspaceId: string, agentId: string): Promise<ApiResponse> {
+    return this.request(`/api/calendly/status?workspace_id=${workspaceId}&agent_id=${agentId}`);
+  }
+
+  async getCalendlyEventTypes(workspaceId: string, agentId: string): Promise<ApiResponse> {
+    return this.request(`/api/calendly/event-types?workspace_id=${workspaceId}&agent_id=${agentId}`);
+  }
+
+  async disconnectCalendly(workspaceId: string, agentId: string): Promise<ApiResponse> {
+    return this.request('/api/calendly/disconnect', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        agent_id: agentId
+      })
+    });
+  }
+
+  async refreshCalendlyToken(workspaceId: string, agentId: string): Promise<ApiResponse> {
+    return this.request(`/api/calendly/refresh-token?workspace_id=${workspaceId}&agent_id=${agentId}`, {
+      method: 'POST'
+    });
+  }
+
+  async createDummyCalendlyConnection(workspaceId: string, agentId: string): Promise<ApiResponse> {
+    return this.request('/api/calendly/connect-dummy', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        agent_id: agentId
+      })
+    });
+  }
 }
 
 // Create and export a singleton instance

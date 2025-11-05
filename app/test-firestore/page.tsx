@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useAuth } from '../lib/auth-context';
+import { useAuth } from '../lib/workspace-auth-context';
 import { createReviewForm, getBusinessReviewForms } from '../lib/review-utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

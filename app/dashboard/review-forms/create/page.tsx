@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../lib/auth-context';
+import { useAuth } from '../../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function CreateReviewFormPage() {
-  const { user, loading, companyContext } = useAuth();
+  const { user, loading, workspaceContext } = useAuth();
   const router = useRouter();
   const [creating, setCreating] = useState(false);
 
@@ -30,19 +30,19 @@ export default function CreateReviewFormPage() {
     fields: ReviewField[];
     settings: ReviewFormSettings;
   }) => {
-    if (!user?.uid || !companyContext?.company?.id || creating) {
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id || creating) {
       console.log('Missing required data for form creation:', { 
         userId: !!user?.uid, 
-        companyId: !!companyContext?.company?.id 
+        workspaceId: !!workspaceContext?.currentWorkspace?.id 
       });
-      alert('Unable to create form. Please ensure you have proper company access.');
+      alert('Unable to create form. Please ensure you have proper workspace access.');
       return;
     }
     
     setCreating(true);
     try {
       console.log('Creating review form with data:', formData);
-      console.log('Using company ID:', companyContext.company.id);
+      console.log('Using workspace ID:', workspaceContext.currentWorkspace.id);
       
       // Convert fields to Omit<ReviewField, 'id'>[] format
       const createFormData: CreateReviewFormData = {
@@ -53,7 +53,7 @@ export default function CreateReviewFormPage() {
         settings: formData.settings
       };
       
-      const result = await createReviewForm(companyContext.company.id, createFormData);
+      const result = await createReviewForm(workspaceContext.currentWorkspace.id, createFormData);
       console.log('Review form creation result:', result);
       
       if (result.success) {

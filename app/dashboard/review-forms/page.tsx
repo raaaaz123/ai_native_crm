@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '../../lib/auth-context';
+import { useAuth } from '../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Container } from '@/components/layout';
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function ReviewFormsPage() {
-  const { user, loading, companyContext } = useAuth();
+  const { user, loading, workspaceContext } = useAuth();
   const router = useRouter();
   
   // Review Forms State
@@ -31,10 +31,10 @@ export default function ReviewFormsPage() {
   }, [user, loading, router]);
 
   const loadReviewForms = async () => {
-    if (!user?.uid || !companyContext?.company?.id) {
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
       console.log('Missing required data for review forms loading:', { 
         userId: !!user?.uid, 
-        companyId: !!companyContext?.company?.id 
+        workspaceId: !!workspaceContext?.currentWorkspace?.id 
       });
       setLoadingReviewForms(false);
       return;
@@ -42,8 +42,8 @@ export default function ReviewFormsPage() {
     
     setLoadingReviewForms(true);
     try {
-      console.log('Loading review forms for company:', companyContext.company.id);
-      const result = await getBusinessReviewForms(companyContext.company.id);
+      console.log('Loading review forms for workspace:', workspaceContext.currentWorkspace.id);
+      const result = await getBusinessReviewForms(workspaceContext.currentWorkspace.id);
       console.log('Review forms result:', result);
       
       if (result.success && result.data) {
@@ -61,11 +61,11 @@ export default function ReviewFormsPage() {
   };
 
   useEffect(() => {
-    if (user?.uid && companyContext?.company?.id) {
+    if (user?.uid && workspaceContext?.currentWorkspace?.id) {
       loadReviewForms();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, companyContext?.company?.id]);
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id]);
 
 
   if (loading) {

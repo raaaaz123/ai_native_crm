@@ -4,38 +4,49 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../lib/auth-context';
-import { 
-  Home, 
-  Settings, 
-  ChevronLeft,
-  ChevronDown,
+import { useAuth } from '../../lib/workspace-auth-context';
+import {
+  Home,
+  Settings,
   ChevronRight,
   MessageCircle,
-  BookOpen,
   Bot,
-  Star,
   LogOut,
   Users,
-  Share2,
   BarChart3,
-  UserCog,
-  Building2,
-  Mail,
-  Bell,
   Shield,
-  Palette,
   MessageSquare,
   Activity,
   Crown,
-  Clock
+  Play,
+  Rocket,
+  UserPlus,
+  ArrowLeft,
+  Zap,
+  Globe,
+  ExternalLink,
+  FileIcon,
+  AlignLeft,
+  FileText,
+  Sheet
 } from 'lucide-react';
 import { getSubscriptionInfo } from '../../lib/subscription-utils';
-
-interface SidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarSeparator,
+} from '@/components/ui/sidebar';
 
 interface SubMenuItem {
   name: string;
@@ -52,126 +63,245 @@ interface MenuItem {
   badge?: string;
 }
 
-const navigationItems: MenuItem[] = [
+const getNavigationItems = (workspaceSlug?: string): MenuItem[] => [
   {
     name: 'Dashboard',
-    href: '/dashboard',
-    icon: <Home className="w-5 h-5" />
+    href: workspaceSlug ? `/dashboard/${workspaceSlug}` : '/dashboard',
+    icon: <Home className="w-4 h-4" />
   },
   {
     name: 'Conversations',
-    href: '/dashboard/conversations',
-    icon: <MessageCircle className="w-5 h-5" />,
-    subItems: [
-      {
-        name: 'All Conversations',
-        href: '/dashboard/conversations',
-        icon: <MessageSquare className="w-4 h-4" />
-      },
-      {
-        name: 'Active Chats',
-        href: '/dashboard/conversations?status=active',
-        icon: <Activity className="w-4 h-4" />,
-        badge: 'Live'
-      },
-      {
-        name: 'Pending',
-        href: '/dashboard/conversations?status=pending',
-        icon: <MessageCircle className="w-4 h-4" />
-      },
-      {
-        name: 'Resolved',
-        href: '/dashboard/conversations?status=resolved',
-        icon: <MessageCircle className="w-4 h-4" />
-      }
-    ]
+    href: workspaceSlug ? `/dashboard/${workspaceSlug}/conversations` : '/dashboard/conversations',
+    icon: <MessageCircle className="w-4 h-4" />
   },
   {
-    name: 'Chat Widgets',
-    icon: <Bot className="w-5 h-5" />,
-    subItems: [
-      {
-        name: 'All Widgets',
-        href: '/dashboard/widgets',
-        icon: <Bot className="w-4 h-4" />
-      },
-      {
-        name: 'Share Widget',
-        href: '/dashboard/widgets/share',
-        icon: <Share2 className="w-4 h-4" />
-      },
-      {
-        name: 'Widget Analytics',
-        href: '/dashboard/widgets?tab=analytics',
-        icon: <BarChart3 className="w-4 h-4" />
-      },
-      {
-        name: 'Customize',
-        href: '/dashboard/widgets?tab=customize',
-        icon: <Palette className="w-4 h-4" />
-      }
-    ]
-  },
-  {
-    name: 'Knowledge Base',
-    href: '/dashboard/knowledge-base',
-    icon: <BookOpen className="w-5 h-5" />
-  },
-  {
-    name: 'Review Forms',
-    href: '/dashboard/review-forms',
-    icon: <Star className="w-5 h-5" />
+    name: 'Agents',
+    href: workspaceSlug ? `/dashboard/${workspaceSlug}/agents` : '/dashboard/agents',
+    icon: <Bot className="w-4 h-4" />
   },
   {
     name: 'Settings',
+    href: workspaceSlug ? `/dashboard/${workspaceSlug}/settings` : '/dashboard/settings',
+    icon: <Settings className="w-4 h-4" />
+  }
+];
+
+// Widget-specific menu items
+const widgetMenuItems: MenuItem[] = [
+  {
+    name: 'Playground',
+    href: '#', // Will be dynamically set based on current widget
+    icon: <Play className="w-5 h-5" />
+  },
+  {
+    name: 'Deploy',
+    href: '#', // Will be dynamically set based on current widget
+    icon: <Rocket className="w-5 h-5" />
+  },
+  {
+    name: 'Contacts',
+    href: '#', // Will be dynamically set based on current widget
+    icon: <UserPlus className="w-5 h-5" />
+  }
+];
+
+// Agent-specific menu items
+const agentMenuItems: MenuItem[] = [
+  {
+    name: 'Playground',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <Play className="w-5 h-5" />
+  },
+  {
+    name: 'Conversations',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <MessageCircle className="w-5 h-5" />
+  },
+  {
+    name: 'Deploy',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <Rocket className="w-5 h-5" />
+  },
+  {
+    name: 'Actions',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <Activity className="w-5 h-5" />
+  },
+  {
+    name: 'Contacts',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <Users className="w-5 h-5" />
+  },
+  {
+    name: 'Sources',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <FileText className="w-5 h-5" />,
+    subItems: [
+      {
+        name: 'Files',
+        href: '#', // Will be dynamically set
+        icon: <FileIcon className="w-4 h-4" />
+      },
+      {
+        name: 'Text',
+        href: '#', // Will be dynamically set
+        icon: <AlignLeft className="w-4 h-4" />
+      },
+      {
+        name: 'Website',
+        href: '#', // Will be dynamically set
+        icon: <Globe className="w-4 h-4" />
+      },
+      {
+        name: 'FAQ',
+        href: '#', // Will be dynamically set
+        icon: <MessageSquare className="w-4 h-4" />
+      },
+      {
+        name: 'Notion',
+        href: '#', // Will be dynamically set
+        icon: <FileText className="w-4 h-4" />
+      },
+      {
+        name: 'Google Sheets',
+        href: '#', // Will be dynamically set
+        icon: <Sheet className="w-4 h-4" />
+      }
+    ]
+  },
+  {
+    name: 'Settings',
+    href: '#', // Will be dynamically set based on current agent
     icon: <Settings className="w-5 h-5" />,
     subItems: [
       {
         name: 'General',
-        href: '/dashboard/settings',
+        href: '#', // Will be dynamically set
         icon: <Settings className="w-4 h-4" />
       },
       {
-        name: 'Team Management',
-        href: '/dashboard/settings/team',
-        icon: <Users className="w-4 h-4" />
-      },
-      {
-        name: 'Company Profile',
-        href: '/dashboard/settings/company',
-        icon: <Building2 className="w-4 h-4" />
-      },
-      {
-        name: 'User Profile',
-        href: '/dashboard/settings/profile',
-        icon: <UserCog className="w-4 h-4" />
-      },
-      {
-        name: 'Notifications',
-        href: '/dashboard/settings/notifications',
-        icon: <Bell className="w-4 h-4" />
-      },
-      {
-        name: 'Email Settings',
-        href: '/dashboard/settings/email',
-        icon: <Mail className="w-4 h-4" />
+        name: 'AI Configuration',
+        href: '#', // Will be dynamically set
+        icon: <Zap className="w-4 h-4" />
       },
       {
         name: 'Security',
-        href: '/dashboard/settings/security',
+        href: '#', // Will be dynamically set
         icon: <Shield className="w-4 h-4" />
+      },
+      {
+        name: 'Custom Domains',
+        href: '#', // Will be dynamically set
+        icon: <Globe className="w-4 h-4" />
+      },
+      {
+        name: 'Integrations',
+        href: '#', // Will be dynamically set
+        icon: <ExternalLink className="w-4 h-4" />
       }
     ]
+  },
+  {
+    name: 'Analytics',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <BarChart3 className="w-5 h-5" />
   }
 ];
 
-export function Sidebar({ isOpen, onClose }: SidebarProps) {
+export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const { userData, signOut } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
   const [currentSearch, setCurrentSearch] = useState('');
+
+  // Extract workspace slug from URL
+  const workspaceSlug = pathname?.match(/\/dashboard\/([^\/]+)/)?.[1];
+  
+  // Check if we're in a widget-specific page
+  const isWidgetPage = pathname?.includes('/dashboard/widgets/') && pathname !== '/dashboard/widgets';
+  const currentWidgetId = isWidgetPage ? pathname.split('/').pop() : null;
+
+  // Check if we're in an agent-specific page (including sub-pages like playground, deploy, settings, analytics)
+  // Pattern: /dashboard/[workspace]/agents/[agentId] or /dashboard/[workspace]/agents/[agentId]/[subpage]
+  const agentPageMatch = pathname?.match(/\/dashboard\/([^\/]+)\/agents\/([^\/]+)/);
+  const isAgentPage = !!agentPageMatch && agentPageMatch[2] !== 'agents';
+  const currentAgentId = isAgentPage ? agentPageMatch[2] : null;
+
+  // Check if we're on the knowledge base creation page
+  const isKnowledgeBasePage = pathname?.includes('/create-new-agent/knowledgebase');
+
+  // Update widget menu items with proper URLs
+  const getWidgetMenuItems = () => {
+    if (!currentWidgetId) return widgetMenuItems;
+    
+    return widgetMenuItems.map(item => ({
+      ...item,
+      href: workspaceSlug 
+        ? `/dashboard/${workspaceSlug}/widgets/${currentWidgetId}/${item.name.toLowerCase()}`
+        : `/dashboard/widgets/${currentWidgetId}/${item.name.toLowerCase()}`
+    }));
+  };
+
+  // Update agent menu items with proper URLs
+  const getAgentMenuItems = () => {
+    if (!currentAgentId) return agentMenuItems;
+    
+    return agentMenuItems.map(item => {
+      const baseHref = workspaceSlug 
+        ? `/dashboard/${workspaceSlug}/agents/${currentAgentId}`
+        : `/dashboard/agents/${currentAgentId}`;
+      
+      // Handle Sources with sub-items
+      if (item.name === 'Sources' && item.subItems) {
+        const subItemSlugMap: Record<string, string> = {
+          'Files': 'files',
+          'Text': 'text',
+          'Website': 'website',
+          'FAQ': 'faq',
+          'Notion': 'notion',
+          'Google Sheets': 'google-sheets'
+        };
+
+        return {
+          ...item,
+          href: `${baseHref}/sources`,
+          subItems: item.subItems.map(subItem => ({
+            ...subItem,
+            href: `${baseHref}/sources/${subItemSlugMap[subItem.name] || subItem.name.toLowerCase()}`
+          }))
+        };
+      }
+
+      // Handle Settings with sub-items
+      if (item.name === 'Settings' && item.subItems) {
+        // Map sub-item names to their URL slugs
+        const subItemSlugMap: Record<string, string> = {
+          'General': 'general',
+          'AI Configuration': 'ai',
+          'Security': 'security',
+          'Custom Domains': 'domains',
+          'Integrations': 'integrations'
+        };
+
+        return {
+          ...item,
+          href: `${baseHref}/settings`,
+          subItems: item.subItems.map(subItem => ({
+            ...subItem,
+            href: `${baseHref}/settings/${subItemSlugMap[subItem.name] || subItem.name.toLowerCase().replace(/\s+/g, '-')}`
+          }))
+        };
+      }
+      
+      // Regular items
+      return {
+        ...item,
+        href: `${baseHref}/${item.name.toLowerCase()}`
+      };
+    });
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -196,6 +326,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
   useEffect(() => {
     // Auto-expand menu items that contain the current path or query params
     const itemsToExpand: string[] = [];
+    const navigationItems = getNavigationItems(workspaceSlug);
     navigationItems.forEach(item => {
       if (item.subItems) {
         const hasActiveChild = item.subItems.some(subItem => {
@@ -218,7 +349,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       }
     });
     setExpandedItems(itemsToExpand);
-  }, [pathname, currentSearch]);
+  }, [pathname, currentSearch, workspaceSlug]);
 
   const handleSignOut = async () => {
     try {
@@ -239,19 +370,19 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   const isActive = (href: string) => {
     if (!pathname) return false;
-    
+
     // For paths with query params
     if (href.includes('?')) {
       const [path, query] = href.split('?');
-      
+
       // Check if pathname matches
       if (pathname !== path) return false;
-      
+
       // Check if query params match
       if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
         const hrefParams = new URLSearchParams(query);
-        
+
         // If href has params, all must match
         for (const [key, value] of hrefParams.entries()) {
           if (urlParams.get(key) !== value) return false;
@@ -259,7 +390,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         return true;
       }
     }
-    
+
     // For exact path matches (no query params in href)
     if (pathname === href) {
       // If we're at /dashboard/conversations with no params, only match /dashboard/conversations (not query variants)
@@ -268,303 +399,259 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       }
       return true;
     }
-    
-    // For parent routes (but not dashboard to avoid always highlighting it)
-    if (href !== '/dashboard' && pathname.startsWith(href + '/')) return true;
-    
+
+    // For parent routes - exclude all dashboard routes to avoid always highlighting them
+    // This includes both '/dashboard' and '/dashboard/[workspace]'
+    const isDashboardRoute = href === '/dashboard' || href.match(/^\/dashboard\/[^\/]+$/);
+    if (!isDashboardRoute && pathname.startsWith(href + '/')) return true;
+
     return false;
   };
 
+  // Knowledge base source types
+  const knowledgeSourceTypes = [
+    { id: 'files', label: 'Files', icon: <FileIcon className="w-4 h-4" /> },
+    { id: 'text', label: 'Text', icon: <AlignLeft className="w-4 h-4" /> },
+    { id: 'website', label: 'Website', icon: <Globe className="w-4 h-4" /> },
+    { id: 'faq', label: 'FAQ', icon: <MessageCircle className="w-4 h-4" /> },
+    { id: 'notion', label: 'Notion', icon: <FileText className="w-4 h-4" /> },
+    { id: 'google-sheets', label: 'Google Sheets', icon: <Sheet className="w-4 h-4" /> }
+  ];
+
   return (
-    <>
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300"
-          onClick={onClose}
-        />
-      )}
+    <Sidebar>
+      <SidebarHeader className="pt-16 pb-3 px-1">
+        {/* Back to Agents button when in widget or agent page */}
+        {(isWidgetPage || isAgentPage) && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild className="text-muted-foreground hover:text-foreground">
+                <Link href={workspaceSlug ? `/dashboard/${workspaceSlug}/agents` : '/dashboard/agents'}>
+                  <ArrowLeft className="w-4 h-4" />
+                  <span>Back to Agents</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
+      </SidebarHeader>
 
-      {/* Sidebar */}
-      <div className={`
-        fixed top-0 left-0 h-full w-72 bg-white shadow-2xl z-50 transform transition-all duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:shadow-lg lg:border-r lg:border-gray-200
-      `}>
-        <div className="flex flex-col h-full">
-          {/* Modern Header */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-50">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md">
-                <Home className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900">Rexa CRM</p>
-                <p className="text-xs text-gray-500 font-medium">AI-Powered</p>
-              </div>
-            </div>
-            <button
-              onClick={onClose}
-              className="lg:hidden p-2 rounded-lg hover:bg-white/80 transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5 text-gray-600" />
-            </button>
-          </div>
+      <SidebarContent className="pt-0 px-1">
+        <SidebarGroup className="px-0">
+          {/* Show Knowledge Base Types on knowledgebase page */}
+          {isKnowledgeBasePage ? (
+            <>
+              <SidebarGroupLabel className="mb-1">Knowledge Sources</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {knowledgeSourceTypes.map((type) => {
+                    const currentType = mounted && typeof window !== 'undefined'
+                      ? new URLSearchParams(window.location.search).get('type') || 'website'
+                      : 'website';
+                    const isTypeActive = currentType === type.id;
 
-          {/* Navigation with Sub-menus */}
-          <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto custom-scrollbar">
-            {navigationItems.map((item) => {
-              const hasSubItems = item.subItems && item.subItems.length > 0;
-              const isExpanded = expandedItems.includes(item.name);
-              const isItemActive = item.href ? isActive(item.href) : false;
-
-              return (
-                <div key={item.name}>
-                  {/* Main Menu Item */}
-                  {hasSubItems ? (
-                    item.href ? (
-                      // Has href - clickable with toggle
-                      <div className="flex items-center gap-1">
-                        <Link
-                          href={item.href}
-                          onClick={onClose}
-                          className={`
-                            group flex-1 flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                            ${isItemActive
-                              ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700' 
-                              : isExpanded
-                              ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700'
-                              : 'text-gray-700 hover:bg-gray-50'
-                            }
-                          `}
+                    return (
+                      <SidebarMenuItem key={type.id}>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={isTypeActive}
+                          suppressHydrationWarning
                         >
-                          <div className="flex items-center space-x-3">
-                            <span className={`transition-colors ${isItemActive || isExpanded ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
-                              {item.icon}
-                            </span>
-                            <span>{item.name}</span>
-                          </div>
-                        </Link>
-                        <button
+                          <Link
+                            href={`${pathname}?type=${type.id}`}
+                            suppressHydrationWarning
+                          >
+                            {type.icon}
+                            <span>{type.label}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </>
+          ) : (
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {/* Show different menus based on context */}
+                {(() => {
+                  let menuItems;
+                  if (isWidgetPage) {
+                    menuItems = getWidgetMenuItems();
+                  } else if (isAgentPage) {
+                    menuItems = getAgentMenuItems();
+                  } else {
+                    menuItems = getNavigationItems(workspaceSlug);
+                  }
+
+                  return menuItems.map((item) => {
+                  const isItemActive = item.href ? isActive(item.href) : false;
+                  const hasSubItems = item.subItems && item.subItems.length > 0;
+                  
+                  // Check if any sub-item is active
+                  const hasActiveSubItem = hasSubItems && item.subItems?.some(subItem => 
+                    subItem.href && (pathname === subItem.href || pathname?.startsWith(subItem.href + '/'))
+                  );
+                  
+                  // Auto-expand if sub-item is active
+                  const isExpanded = hasSubItems && (expandedItems.includes(item.name) || hasActiveSubItem);
+
+                  // If item has sub-items, render expandable menu
+                  if (hasSubItems) {
+                    return (
+                      <SidebarMenuItem key={item.name}>
+                        <SidebarMenuButton 
                           onClick={() => toggleExpand(item.name)}
-                          className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                          isActive={isItemActive || hasActiveSubItem}
                         >
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      // No href - just toggle
-                      <button
-                        onClick={() => toggleExpand(item.name)}
-                        className={`
-                          group w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                          ${isExpanded
-                            ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700' 
-                            : 'text-gray-700 hover:bg-gray-50'
-                          }
-                        `}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <span className={`transition-colors ${isExpanded ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
-                            {item.icon}
-                          </span>
+                          {item.icon}
                           <span>{item.name}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
                           {item.badge && (
-                            <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                            <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-primary/10 text-primary rounded-full">
                               {item.badge}
                             </span>
                           )}
-                          {isExpanded ? (
-                            <ChevronDown className="w-4 h-4 text-gray-500" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                          )}
-                        </div>
-                      </button>
-                    )
-                  ) : (
-                    <Link
-                      href={item.href || '#'}
-                      onClick={onClose}
-                      className={`
-                        group flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200
-                        ${isItemActive
-                          ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 shadow-sm' 
-                          : 'text-gray-700 hover:bg-gray-50'
-                        }
-                      `}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <span className={`transition-colors ${isItemActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
+                          <ChevronRight 
+                            className={`ml-auto transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                          />
+                        </SidebarMenuButton>
+                        {isExpanded && (
+                          <SidebarMenuSub>
+                            {item.subItems?.map((subItem) => {
+                              const isSubItemActive = !!(subItem.href && (
+                                pathname === subItem.href || pathname?.startsWith(subItem.href + '/')
+                              ));
+                              return (
+                                <SidebarMenuSubItem key={subItem.name}>
+                                  <SidebarMenuSubButton asChild isActive={isSubItemActive}>
+                                    <Link href={subItem.href || '#'}>
+                                      {subItem.icon}
+                                      <span>{subItem.name}</span>
+                                      {subItem.badge && (
+                                        <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-primary/10 text-primary rounded-full">
+                                          {subItem.badge}
+                                        </span>
+                                      )}
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </SidebarMenuSub>
+                        )}
+                      </SidebarMenuItem>
+                    );
+                  }
+
+                  // Regular item without sub-items
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton asChild isActive={isItemActive}>
+                        <Link href={item.href || '#'}>
                           {item.icon}
-                        </span>
-                        <span>{item.name}</span>
-                      </div>
-                      {item.badge && (
-                        <span className="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                          {item.badge}
-                        </span>
-                      )}
-                    </Link>
-                  )}
+                          <span>{item.name}</span>
+                          {item.badge && (
+                            <span className="ml-auto px-2 py-0.5 text-xs font-semibold bg-primary/10 text-primary rounded-full">
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                });
+              })()}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          )}
+        </SidebarGroup>
+      </SidebarContent>
 
-                  {/* Sub Menu Items */}
-                  {hasSubItems && isExpanded && (
-                    <div className="mt-1 ml-4 pl-4 border-l-2 border-blue-200 space-y-1">
-                      {item.subItems!.map((subItem) => {
-                        const isSubItemActive = isActive(subItem.href);
-                        return (
-                          <Link
-                            key={subItem.href}
-                            href={subItem.href}
-                            onClick={onClose}
-                            className={`
-                              group flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-200
-                              ${isSubItemActive
-                                ? 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 font-medium shadow-sm border-l-2 border-blue-600' 
-                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900 border-l-2 border-transparent'
-                              }
-                            `}
-                          >
-                            <div className="flex items-center space-x-2.5">
-                              <span className={`transition-colors ${isSubItemActive ? 'text-blue-600' : 'text-gray-400 group-hover:text-gray-600'}`}>
-                                {subItem.icon}
-                              </span>
-                              <span className="text-xs">{subItem.name}</span>
-                            </div>
-                            {subItem.badge && (
-                              <span className={`px-1.5 py-0.5 text-xs font-semibold rounded-full ${
-                                subItem.badge === 'Live' 
-                                  ? 'bg-green-100 text-green-700 animate-pulse'
-                                  : subItem.badge === 'New'
-                                  ? 'bg-orange-100 text-orange-700'
-                                  : 'bg-gray-100 text-gray-700'
-                              }`}>
-                                {subItem.badge}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </nav>
-
-          {/* Subscription Plan Section */}
-          {mounted && userData && (
-            <div className="px-3 py-3 border-t border-gray-100">
-              <Link href="/dashboard/settings">
-                <div className="px-3 py-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 hover:border-blue-300 transition-all cursor-pointer hover:shadow-md">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Crown className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-blue-900">
-                        {(() => {
-                          const subInfo = getSubscriptionInfo(userData);
-                          return subInfo.planDisplay;
-                        })()}
-                      </span>
-                    </div>
-                    {(() => {
-                      const subInfo = getSubscriptionInfo(userData);
-                      return subInfo.isTrialActive && (
-                        <span className="text-xs font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
-                          Trial
-                        </span>
-                      );
-                    })()}
-                  </div>
+      <SidebarFooter className="mt-auto px-1 pb-3">
+        {/* Subscription Plan Section */}
+        {mounted && userData && (
+          <div className="px-2 py-2 mb-2 rounded-lg bg-primary/5 border border-primary/10">
+            <Link
+              href="/dashboard/settings"
+              className="flex items-center gap-3 group"
+            >
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <Crown className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground">
                   {(() => {
                     const subInfo = getSubscriptionInfo(userData);
-                    return subInfo.isTrialActive ? (
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-blue-600" />
-                        <span className="text-xs text-blue-700">
-                          {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} remaining
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-blue-700">
-                        {subInfo.statusDisplay}
-                      </div>
-                    );
+                    return subInfo.planDisplay;
                   })()}
-                </div>
-              </Link>
-            </div>
-          )}
-
-          {/* User Profile Section */}
-          <div className="px-3 py-4 border-t border-gray-100 bg-gradient-to-b from-transparent to-gray-50/50">
-            <div className="flex items-center space-x-3 mb-3 px-3 py-3 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-              {mounted && userData?.photoURL ? (
-                <Image
-                  src={userData.photoURL}
-                  alt="Profile"
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 rounded-xl border-2 border-blue-100 shadow-sm"
-                />
-              ) : (
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-base shadow-md">
-                  {mounted ? (userData?.firstName?.charAt(0) || userData?.displayName?.charAt(0) || 'U') : 'U'}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-gray-900 truncate">
-                  {mounted ? (userData?.displayName || userData?.firstName || 'User') : 'User'}
                 </p>
-                <p className="text-xs text-gray-500 truncate">
-                  {mounted ? (userData?.email || 'No email') : 'Loading...'}
-                </p>
+                {(() => {
+                  const subInfo = getSubscriptionInfo(userData);
+                  return subInfo.isTrialActive ? (
+                    <p className="text-xs text-muted-foreground">
+                      {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} remaining
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {subInfo.statusDisplay}
+                    </p>
+                  );
+                })()}
               </div>
-            </div>
-            
-            {/* Sign Out Button */}
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 hover:border-red-300 transition-all shadow-sm hover:shadow-md"
-              suppressHydrationWarning
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
-            </button>
+            </Link>
           </div>
+        )}
 
-          {/* Footer */}
-          <div className="px-6 py-3 border-t border-gray-100">
-            <div className="text-xs text-gray-400 text-center font-medium">
-              AI Native CRM v1.0
-            </div>
+        <SidebarSeparator className="mb-3" />
+
+        {/* User Profile Section */}
+        <SidebarGroup className="px-0">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <div className="flex items-center gap-3 px-2.5 py-2 mb-1">
+                  {mounted && userData?.photoURL ? (
+                    <Image
+                      src={userData.photoURL}
+                      alt="Profile"
+                      width={36}
+                      height={36}
+                      className="w-9 h-9 rounded-lg ring-2 ring-border"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary/80 to-primary flex items-center justify-center text-white font-bold text-sm ring-2 ring-border">
+                      {mounted ? (userData?.firstName?.charAt(0) || userData?.displayName?.charAt(0) || 'U') : 'U'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate" suppressHydrationWarning>
+                      {mounted ? (userData?.displayName || userData?.firstName || 'User') : 'User'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate" suppressHydrationWarning>
+                      {mounted ? (userData?.email || 'No email') : 'Loading...'}
+                    </p>
+                  </div>
+                </div>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton onClick={handleSignOut} suppressHydrationWarning className="text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                  <LogOut className="w-4 h-4" />
+                  <span>Sign Out</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Footer */}
+        <div className="px-3 py-2 mt-2">
+          <div className="text-xs text-muted-foreground/60 text-center font-medium">
+            Rexa Engage v1.0
           </div>
         </div>
-      </div>
-
-      {/* Custom Scrollbar Styles */}
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 6px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
-      `}</style>
-    </>
+      </SidebarFooter>
+    </Sidebar>
   );
 }

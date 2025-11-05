@@ -11,13 +11,12 @@ import {
   getDocs,
   Timestamp
 } from 'firebase/firestore';
-import { db, auth } from './firebase';
+import { db } from './firebase';
 import { ReviewForm, ReviewSubmission, ReviewField, ReviewFormSettings } from './review-types';
-import { ensureUserMembership } from './ensure-membership';
 
 // Helper function to convert Firestore timestamps to JavaScript dates
-export const convertTimestamps = <T extends Record<string, unknown>>(data: T): T => {
-  if (!data) return data;
+export const convertTimestamps = <T = Record<string, unknown>>(data: Record<string, unknown> | undefined): T => {
+  if (!data) return data as T;
   
   const converted = { ...data };
   
@@ -25,11 +24,11 @@ export const convertTimestamps = <T extends Record<string, unknown>>(data: T): T
   Object.keys(converted).forEach(key => {
     const value = converted[key];
     if (value instanceof Timestamp) {
-      (converted as Record<string, unknown>)[key] = value.toDate().toISOString();
+      converted[key] = value.toDate().toISOString();
     }
   });
   
-  return converted;
+  return converted as T;
 };
 
 // Review Form Operations
@@ -42,16 +41,6 @@ export const createReviewForm = async (businessId: string, formData: {
   try {
     console.log('Creating review form for businessId:', businessId);
     console.log('Form data:', formData);
-    
-    // Ensure user is in companyMembers collection before creating form
-    const currentUser = auth.currentUser;
-    if (currentUser) {
-      console.log('🔧 [Create Review Form] Ensuring user membership for:', currentUser.uid);
-      const membershipResult = await ensureUserMembership(currentUser.uid);
-      if (membershipResult.success && membershipResult.wasAdded) {
-        console.log('✅ [Create Review Form] User added to companyMembers collection');
-      }
-    }
     
     const formRef = doc(collection(db, 'reviewForms'));
     const formId = formRef.id;
@@ -79,16 +68,17 @@ export const createReviewForm = async (businessId: string, formData: {
     return { success: true, data: form };
   } catch (error) {
     console.error('Error creating review form:', error);
-    const err = error as { code?: string; message?: string };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorCode = error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined;
     console.error('Error details:', {
-      code: err.code,
-      message: err.message,
+      code: errorCode,
+      message: errorMessage,
       businessId,
       formData
     });
     return { 
       success: false, 
-      error: `Failed to create review form: ${err.message || 'Unknown error'}` 
+      error: `Failed to create review form: ${errorMessage}` 
     };
   }
 };
@@ -114,7 +104,7 @@ export const getBusinessReviewForms = async (businessId: string): Promise<{ succ
       const forms = querySnapshot.docs.map(doc => {
         const data = doc.data();
         console.log('Form data from Firestore:', data);
-        return convertTimestamps(data) as ReviewForm;
+        return convertTimestamps<ReviewForm>(data);
       });
 
       console.log('Converted forms:', forms);
@@ -133,7 +123,7 @@ export const getBusinessReviewForms = async (businessId: string): Promise<{ succ
       
       const forms = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        return convertTimestamps(data) as ReviewForm;
+        return convertTimestamps<ReviewForm>(data);
       });
 
       // Sort manually since we can't use orderBy without index
@@ -144,15 +134,16 @@ export const getBusinessReviewForms = async (businessId: string): Promise<{ succ
     }
   } catch (error) {
     console.error('Error fetching review forms:', error);
-    const err = error as { code?: string; message?: string };
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorCode = error && typeof error === 'object' && 'code' in error ? String(error.code) : undefined;
     console.error('Error details:', {
-      code: err.code,
-      message: err.message,
+      code: errorCode,
+      message: errorMessage,
       businessId
     });
     return { 
       success: false, 
-      error: `Failed to fetch review forms: ${err.message || 'Unknown error'}` 
+      error: `Failed to fetch review forms: ${errorMessage}` 
     };
   }
 };
@@ -186,11 +177,10 @@ export const updateReviewForm = async (formId: string, updates: Partial<ReviewFo
     
     // Fetch updated form
     const formSnap = await getDoc(formRef);
-    const data = formSnap.data();
-    if (!data) {
-      return { success: false, error: 'Failed to fetch updated form' };
+    if (!formSnap.exists()) {
+      return { success: false, error: 'Review form not found after update' };
     }
-    const formData = convertTimestamps(data) as unknown as ReviewForm;
+    const formData = convertTimestamps<ReviewForm>(formSnap.data());
     
     return { success: true, data: formData };
   } catch (error) {
@@ -220,11 +210,18 @@ export const deleteReviewForm = async (formId: string): Promise<{ success: boole
 };
 
 // Review Submission Operations
-export const submitReviewForm = async (formId: string, responses: { fieldId: string; value: string | number | boolean | string[] }[], userInfo?: {
+interface DeviceInfo {
+  platform?: string;
+  browser?: string;
+  os?: string;
+  [key: string]: unknown;
+}
+
+export const submitReviewForm = async (formId: string, responses: { fieldId: string; value: unknown }[], userInfo?: {
   email?: string;
   name?: string;
   phone?: string;
-}, deviceInfo?: Record<string, unknown>): Promise<{ success: boolean; data?: { submissionId: string }; error?: string }> => {
+}, deviceInfo?: DeviceInfo): Promise<{ success: boolean; data?: { submissionId: string }; error?: string }> => {
   try {
     // First, get the form to validate it exists and is active
     const formResult = await getReviewForm(formId);
@@ -246,24 +243,37 @@ export const submitReviewForm = async (formId: string, responses: { fieldId: str
       submittedAt: new Date().toISOString(),
       userInfo: {
         ...userInfo,
-        device: deviceInfo as {
-          userAgent: string;
-          platform: string;
-          browser: string;
-          screenResolution: string;
-          timezone: string;
-        },
+        device: deviceInfo ? {
+          userAgent: typeof deviceInfo.userAgent === 'string' ? deviceInfo.userAgent : 'Unknown',
+          platform: typeof deviceInfo.platform === 'string' ? deviceInfo.platform : 'Unknown',
+          browser: typeof deviceInfo.browser === 'string' ? deviceInfo.browser : 'Unknown',
+          screenResolution: typeof deviceInfo.screenResolution === 'string' ? deviceInfo.screenResolution : 'Unknown',
+          timezone: typeof deviceInfo.timezone === 'string' ? deviceInfo.timezone : 'Unknown'
+        } : undefined,
         location: {
           country: 'Unknown', // In production, get from IP geolocation
           region: 'Unknown',
           city: 'Unknown'
         }
       },
-      responses: responses.map(response => ({
-        fieldId: response.fieldId,
-        value: response.value,
-        fieldType: formResult.data!.fields.find(f => f.id === response.fieldId)?.type || 'text'
-      })),
+      responses: responses.map(response => {
+        const fieldType = formResult.data!.fields.find(f => f.id === response.fieldId)?.type || 'text';
+        // Validate and convert value based on field type
+        let typedValue: string | number | boolean | string[] = String(response.value);
+        if (fieldType === 'rating' && typeof response.value === 'number') {
+          typedValue = response.value;
+        } else if (fieldType === 'checkbox' && Array.isArray(response.value)) {
+          typedValue = response.value as string[];
+        } else if (fieldType === 'checkbox' && typeof response.value === 'boolean') {
+          typedValue = response.value;
+        }
+        
+        return {
+          fieldId: response.fieldId,
+          value: typedValue,
+          fieldType
+        };
+      }),
       isAnonymous: !userInfo?.email && !userInfo?.name
     };
 
@@ -290,7 +300,7 @@ export const getReviewFormSubmissions = async (formId: string): Promise<{ succes
       const querySnapshot = await getDocs(q);
       const submissions = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        return convertTimestamps(data) as ReviewSubmission;
+        return convertTimestamps<ReviewSubmission>(data || {});
       });
 
       return { success: true, data: submissions };
@@ -306,7 +316,7 @@ export const getReviewFormSubmissions = async (formId: string): Promise<{ succes
       const querySnapshot = await getDocs(simpleQuery);
       const submissions = querySnapshot.docs.map(doc => {
         const data = doc.data();
-        return convertTimestamps(data) as ReviewSubmission;
+        return convertTimestamps<ReviewSubmission>(data || {});
       });
 
       // Sort manually since we can't use orderBy without index
@@ -320,7 +330,24 @@ export const getReviewFormSubmissions = async (formId: string): Promise<{ succes
   }
 };
 
-export const getReviewFormAnalytics = async (formId: string): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> => {
+interface ReviewFormAnalytics {
+  totalSubmissions: number;
+  completionRate: number;
+  averageRating: number;
+  fieldAnalytics: Array<{
+    fieldId: string;
+    fieldLabel: string;
+    fieldType: string;
+    responseCount: number;
+    averageValue: number | null;
+    commonResponses: unknown[];
+  }>;
+  locationStats: Array<{ country: string; count: number }>;
+  deviceStats: Array<{ platform: string; browser: string; count: number }>;
+  timeStats: unknown[];
+}
+
+export const getReviewFormAnalytics = async (formId: string): Promise<{ success: boolean; data?: ReviewFormAnalytics; error?: string }> => {
   try {
     const formResult = await getReviewForm(formId);
     if (!formResult.success || !formResult.data) {
@@ -356,7 +383,7 @@ export const getReviewFormAnalytics = async (formId: string): Promise<{ success:
 
     // Field analytics
     const fieldAnalytics = form.fields.map(field => {
-      const fieldResponses: (string | number | boolean | string[])[] = [];
+      const fieldResponses: unknown[] = [];
       submissions.forEach(submission => {
         const response = submission.responses.find(r => r.fieldId === field.id);
         if (response) {
@@ -364,14 +391,21 @@ export const getReviewFormAnalytics = async (formId: string): Promise<{ success:
         }
       });
 
+      // Calculate average for rating fields
+      let averageValue: number | null = null;
+      if (field.type === 'rating' && fieldResponses.length > 0) {
+        const numericResponses = fieldResponses.filter((val): val is number => typeof val === 'number');
+        if (numericResponses.length > 0) {
+          averageValue = numericResponses.reduce((sum, val) => sum + val, 0) / numericResponses.length;
+        }
+      }
+
       return {
         fieldId: field.id,
         fieldLabel: field.label,
         fieldType: field.type,
         responseCount: fieldResponses.length,
-        averageValue: field.type === 'rating' && fieldResponses.length > 0 
-          ? (fieldResponses as number[]).reduce((sum: number, val: number) => sum + val, 0) / fieldResponses.length 
-          : null,
+        averageValue,
         commonResponses: []
       };
     });

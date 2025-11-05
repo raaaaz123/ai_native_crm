@@ -1,32 +1,23 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../lib/auth-context';
+import { useAuth } from '../../lib/workspace-auth-context';
 import { sendArticleNotificationEmail } from '../../lib/email-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { LoadingDialog } from '../../components/ui/loading-dialog';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import AddArticleDialog from '../../components/knowledge-base/AddArticleDialog';
 import { 
   Database, 
   Plus, 
   Search, 
   FileText, 
-  Upload, 
   Trash2, 
   Edit,
   Loader2,
-  AlertCircle,
   CheckCircle,
 } from 'lucide-react';
 import { getBusinessWidgets, type ChatWidget } from '@/app/lib/chat-utils';
@@ -62,6 +53,7 @@ interface ChunkData {
 
 
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const documentTypes = [
   { value: 'manual', label: 'Manual Text Entry', description: 'Type or paste content directly' },
   { value: 'faq', label: 'FAQ / Q&A', description: 'Add question and answer pairs' },
@@ -72,7 +64,7 @@ const documentTypes = [
 ] as const;
 
 export default function KnowledgeBasePage() {
-  const { user, companyContext } = useAuth();
+  const { user, workspaceContext } = useAuth();
   const [knowledgeItems, setKnowledgeItems] = useState<KnowledgeItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -82,11 +74,14 @@ export default function KnowledgeBasePage() {
   const [editingItem, setEditingItem] = useState<KnowledgeItem | null>(null);
   const [widgets, setWidgets] = useState<ChatWidget[]>([]);
   const [selectedWidget, setSelectedWidget] = useState<string>('');
+  const [totalChunks] = useState(0);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [uploadMessage, setUploadMessage] = useState('');
   const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false);
   const [deleteAllLoading, setDeleteAllLoading] = useState(false);
-  const [showSecretButton, setShowSecretButton] = useState(false);
+  const [showSecretButton] = useState(false);
   const [cleanPineconeLoading, setCleanPineconeLoading] = useState(false);
   const [crawledData, setCrawledData] = useState<{
     url: string;
@@ -96,15 +91,17 @@ export default function KnowledgeBasePage() {
     chunks: ChunkData[];
     [key: string]: unknown;
   } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showPreview, setShowPreview] = useState(false);
   const [editableChunks, setEditableChunks] = useState<ChunkData[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [saveProgress, setSaveProgress] = useState({ current: 0, total: 0 });
 
   const [formData, setFormData] = useState({
     title: '',
     content: '',
     tags: '',
-    type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion',
+    type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion',
     file: null as File | null,
     websiteUrl: '',
     isSitemap: false,
@@ -115,8 +112,11 @@ export default function KnowledgeBasePage() {
     notionImportType: 'page' as 'page' | 'database'
   });
   
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [notionPages, setNotionPages] = useState<Array<{id: string, title: string, url: string}>>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [notionSearching, setNotionSearching] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [notionConnected, setNotionConnected] = useState(false);
 
   // Helper function to send article notification email
@@ -143,14 +143,14 @@ export default function KnowledgeBasePage() {
   };
 
   useEffect(() => {
-    if (user && companyContext?.company?.id) {
+    if (user && workspaceContext?.currentWorkspace?.id) {
       loadWidgets();
     } else {
       setIsLoading(false);
       setInitialLoadComplete(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, companyContext]);
+  }, [user, workspaceContext]);
 
   useEffect(() => {
     if (selectedWidget) {
@@ -162,12 +162,12 @@ export default function KnowledgeBasePage() {
   }, [selectedWidget]);
 
   const loadWidgets = async () => {
-    if (!user?.uid || !companyContext?.company?.id) {
+    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
       return;
     }
 
     try {
-      const businessId = companyContext.company.id;
+      const businessId = workspaceContext?.currentWorkspace?.id;
       const result = await getBusinessWidgets(businessId);
       
       if (result.success && result.data.length > 0) {
@@ -214,7 +214,7 @@ export default function KnowledgeBasePage() {
       console.error('Error loading widgets:', error);
       
       // Create a default widget on error
-      const businessId = companyContext.company.id;
+      const businessId = workspaceContext?.currentWorkspace?.id;
       const defaultWidget: ChatWidget = {
         id: 'default-widget',
         name: 'Default Widget',
@@ -284,6 +284,7 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleNotionConnect = async () => {
     if (!formData.notionApiKey.trim()) {
       alert('Please enter your Notion API key');
@@ -354,7 +355,22 @@ export default function KnowledgeBasePage() {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  type KnowledgeBaseFormData = {
+    title: string;
+    content: string;
+    tags: string;
+    type: 'faq' | 'text' | 'pdf' | 'website' | 'notion';
+    file: File | null;
+    websiteUrl: string;
+    isSitemap: boolean;
+    question: string;
+    answer: string;
+    notionApiKey: string;
+    notionPageId: string;
+    notionImportType: 'page' | 'database';
+  };
+
+  const handleSubmitWithData = async (data: KnowledgeBaseFormData, e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedWidget) {
@@ -366,19 +382,19 @@ export default function KnowledgeBasePage() {
       setIsSubmitting(true);
       setUploadStatus('uploading');
 
-      let content = formData.content;
+      let content = data.content;
       const fileName = '';
       const fileSize = 0;
 
       // Handle FAQ
-      if (formData.type === 'faq') {
-        if (!formData.question.trim() || !formData.answer.trim()) {
+      if (data.type === 'faq') {
+        if (!data.question?.trim() || !data.answer?.trim()) {
           alert('Please enter both question and answer');
           return;
         }
 
         // Format FAQ content
-        content = `Q: ${formData.question.trim()}\n\nA: ${formData.answer.trim()}`;
+        content = `Q: ${data.question.trim()}\n\nA: ${data.answer.trim()}`;
         
         // Get widget's embedding configuration
         const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
@@ -394,15 +410,19 @@ export default function KnowledgeBasePage() {
         // Store FAQ in Qdrant via backend
         const faqRequest = {
           widget_id: selectedWidget,
-          title: formData.title || formData.question.substring(0, 50),
-          question: formData.question.trim(),
-          answer: formData.answer.trim(),
+          title: data.title || data.question.substring(0, 50),
+          question: data.question.trim(),
+          answer: data.answer.trim(),
           type: 'faq',
           embedding_provider: embeddingProvider,
           embedding_model: embeddingModel,
           metadata: {
-            business_id: companyContext?.company?.id ?? '',
-            tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+            business_id: workspaceContext?.currentWorkspace?.id ?? '',
+            tags: typeof data.tags === 'string' 
+              ? data.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+              : Array.isArray(data.tags) 
+                ? data.tags 
+                : []
           }
         };
 
@@ -428,13 +448,13 @@ export default function KnowledgeBasePage() {
           const { db } = await import('@/app/lib/firebase');
           
           const docData = {
-            businessId: companyContext!.company.id,
+            businessId: workspaceContext!.currentWorkspace!.id,
             widgetId: selectedWidget,
-            title: formData.title || formData.question.substring(0, 50),
+            title: data.title || data.question.substring(0, 50),
             content: content, // Already formatted as Q: ... A: ...
             type: 'text', // Store FAQs as text type for consistency
-            faqQuestion: formData.question,
-            faqAnswer: formData.answer,
+            faqQuestion: data.question,
+            faqAnswer: data.answer,
             embeddingProvider: embeddingProvider,
             embeddingModel: embeddingModel,
             createdAt: serverTimestamp(),
@@ -447,7 +467,7 @@ export default function KnowledgeBasePage() {
           setUploadMessage(`FAQ added to Qdrant and saved to Firestore successfully!`);
           
           // Send email notification
-          await sendArticleEmail(formData.title || formData.question.substring(0, 50), 'faq');
+          await sendArticleEmail(data.title || data.question.substring(0, 50), 'faq');
           
           // Reload knowledge items
           await loadKnowledgeItems();
@@ -457,7 +477,7 @@ export default function KnowledgeBasePage() {
             title: '', 
             content: '', 
             tags: '', 
-            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+            type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
             file: null,
             websiteUrl: '',
             isSitemap: false,
@@ -477,13 +497,13 @@ export default function KnowledgeBasePage() {
       }
 
       // Handle Notion import
-      if (formData.type === 'notion') {
-        if (!formData.notionApiKey.trim()) {
+      if (data.type === 'notion') {
+        if (!data.notionApiKey?.trim()) {
           alert('Please enter your Notion API key');
           return;
         }
         
-        if (!formData.notionPageId.trim()) {
+        if (!data.notionPageId?.trim()) {
           alert('Please select a Notion page or enter a page/database ID');
           return;
         }
@@ -495,19 +515,19 @@ export default function KnowledgeBasePage() {
         
         setUploadMessage('Importing from Notion...');
         
-        const endpoint = formData.notionImportType === 'database' 
+        const endpoint = data.notionImportType === 'database' 
           ? '/api/notion/import-database'
           : '/api/notion/import-page';
         
         const notionRequest = {
-          api_key: formData.notionApiKey,
-          [formData.notionImportType === 'database' ? 'database_id' : 'page_id']: formData.notionPageId,
+          api_key: data.notionApiKey,
+          [data.notionImportType === 'database' ? 'database_id' : 'page_id']: data.notionPageId,
           widget_id: selectedWidget,
-          title: formData.title,
+          title: data.title,
           embedding_provider: embeddingProvider,
           embedding_model: embeddingModel,
           metadata: {
-            business_id: companyContext?.company?.id ?? ''
+            business_id: workspaceContext?.currentWorkspace?.id ?? ''
           }
         };
         
@@ -530,12 +550,12 @@ export default function KnowledgeBasePage() {
           const { db } = await import('@/app/lib/firebase');
           
           const docData = {
-            businessId: companyContext!.company.id,
+            businessId: workspaceContext!.currentWorkspace!.id,
             widgetId: selectedWidget,
-            title: notionResult.title || formData.title,
-            content: `Notion ${formData.notionImportType === 'database' ? 'database' : 'page'} imported: ${notionResult.title || formData.title}`,
+            title: notionResult.title || data.title,
+            content: `Notion ${data.notionImportType === 'database' ? 'database' : 'page'} imported: ${notionResult.title || data.title}`,
             type: 'text',
-            notionPageId: formData.notionPageId,
+            notionPageId: data.notionPageId,
             notionUrl: notionResult.url,
             chunksCreated: notionResult.chunks_created,
             embeddingProvider: embeddingProvider,
@@ -547,14 +567,14 @@ export default function KnowledgeBasePage() {
           await addDoc(firestoreCollection(db, 'knowledgeBase'), docData);
           
           setUploadStatus('success');
-          if (formData.notionImportType === 'database') {
+          if (data.notionImportType === 'database') {
             setUploadMessage(`✅ Imported ${notionResult.imported || 0} pages from Notion database!`);
           } else {
             setUploadMessage(`✅ Imported Notion page with ${notionResult.chunks_created || 0} chunks!`);
           }
           
           // Send email notification
-          await sendArticleEmail(notionResult.title || formData.title, 'notion', notionResult.chunks_created);
+          await sendArticleEmail(notionResult.title || data.title, 'notion', notionResult.chunks_created);
           
           // Reload knowledge items
           await loadKnowledgeItems();
@@ -564,7 +584,7 @@ export default function KnowledgeBasePage() {
             title: '', 
             content: '', 
             tags: '', 
-            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+            type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
             file: null,
             websiteUrl: '',
             isSitemap: false,
@@ -586,21 +606,21 @@ export default function KnowledgeBasePage() {
       }
 
       // Handle website scraping
-      if (formData.type === 'website') {
-        if (!formData.websiteUrl.trim()) {
+      if (data.type === 'website') {
+        if (!data.websiteUrl?.trim()) {
           alert('Please enter a website URL');
           return;
         }
 
         const crawlRequest = {
-          url: formData.websiteUrl,
+          url: data.websiteUrl,
           widget_id: selectedWidget,
-          title: formData.title,
+          title: data.title,
           max_pages: 100,
           max_depth: 3,
-          is_sitemap: formData.isSitemap,
+          is_sitemap: data.isSitemap,
           metadata: {
-            business_id: companyContext?.company?.id ?? ''
+            business_id: workspaceContext?.currentWorkspace?.id ?? ''
           }
         };
 
@@ -636,12 +656,12 @@ export default function KnowledgeBasePage() {
       }
 
       // Handle file upload for PDF and text files
-      if ((formData.type === 'pdf' || formData.type === 'text') && formData.file) {
+      if ((data.type === 'pdf' || data.type === 'text') && data.file) {
         const uploadFormData = new FormData();
-        uploadFormData.append('file', formData.file);
+        uploadFormData.append('file', data.file);
         uploadFormData.append('widget_id', selectedWidget);
-        uploadFormData.append('title', formData.title);
-        uploadFormData.append('document_type', formData.type);
+        uploadFormData.append('title', data.title);
+        uploadFormData.append('document_type', data.type);
         
         // Get widget's embedding configuration
         const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
@@ -651,7 +671,7 @@ export default function KnowledgeBasePage() {
         uploadFormData.append('embedding_provider', embeddingProvider);
         uploadFormData.append('embedding_model', embeddingModel);
         uploadFormData.append('metadata', JSON.stringify({
-          business_id: companyContext?.company?.id ?? ''
+          business_id: workspaceContext?.currentWorkspace?.id ?? ''
         }));
 
         // Upload file to backend
@@ -675,13 +695,13 @@ export default function KnowledgeBasePage() {
           const { db } = await import('@/app/lib/firebase');
           
           const docData = {
-            businessId: companyContext!.company.id,
+            businessId: workspaceContext!.currentWorkspace!.id,
             widgetId: selectedWidget,
-            title: formData.title,
-            content: `${formData.type.toUpperCase()} file uploaded: ${formData.file.name} (${(formData.file.size / 1024 / 1024).toFixed(2)} MB)`,
-            type: formData.type,
-            fileName: formData.file.name,
-            fileSize: formData.file.size,
+            title: data.title,
+            content: `${data.type.toUpperCase()} file uploaded: ${data.file.name} (${(data.file.size / 1024 / 1024).toFixed(2)} MB)`,
+            type: data.type,
+            fileName: data.file.name,
+            fileSize: data.file.size,
             embeddingProvider: embeddingProvider,
             embeddingModel: embeddingModel,
             createdAt: serverTimestamp(),
@@ -691,10 +711,10 @@ export default function KnowledgeBasePage() {
           await addDoc(firestoreCollection(db, 'knowledgeBase'), docData);
           
           setUploadStatus('success');
-          setUploadMessage(`${formData.type.toUpperCase()} file uploaded to Qdrant and saved to Firestore successfully!`);
+          setUploadMessage(`${data.type.toUpperCase()} file uploaded to Qdrant and saved to Firestore successfully!`);
           
           // Send email notification
-          await sendArticleEmail(formData.title, formData.type);
+          await sendArticleEmail(data.title, data.type);
           
           // Reload knowledge items
           await loadKnowledgeItems();
@@ -704,7 +724,7 @@ export default function KnowledgeBasePage() {
             title: '', 
             content: '', 
             tags: '', 
-            type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+            type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
             file: null,
             websiteUrl: '',
             isSitemap: false,
@@ -721,11 +741,8 @@ export default function KnowledgeBasePage() {
         } else {
           throw new Error(uploadResult.error || 'Upload failed');
         }
-      } else if (formData.type === 'manual' && !formData.content.trim()) {
-        alert('Please enter content for manual entry');
-        return;
-      } else if ((formData.type === 'pdf' || formData.type === 'text') && !formData.file) {
-        alert(`Please select a ${formData.type.toUpperCase()} file to upload`);
+      } else if ((data.type === 'pdf' || data.type === 'text') && !data.file) {
+        alert(`Please select a ${data.type.toUpperCase()} file to upload`);
         return;
       }
 
@@ -742,9 +759,9 @@ export default function KnowledgeBasePage() {
 
       // Create knowledge base item
       const itemData = {
-        title: formData.title,
+        title: data.title,
         content: content,
-        type: formData.type as 'text' | 'pdf' | 'website',
+        type: data.type as 'text' | 'pdf' | 'website',
         fileName: fileName || undefined,
         fileSize: fileSize || undefined,
         embeddingProvider: embeddingProvider,
@@ -754,15 +771,15 @@ export default function KnowledgeBasePage() {
       let result;
       if (editingItem) {
         const knowledgeData: Partial<KnowledgeBaseItem> = {
-          title: formData.title,
+          title: data.title,
           content: content,
-          type: formData.type as 'text' | 'pdf' | 'website',
+          type: data.type as 'text' | 'pdf' | 'website',
           fileName: fileName || undefined,
           fileSize: fileSize || undefined,
         };
         result = await updateKnowledgeBaseItem(editingItem.id, knowledgeData);
       } else {
-        result = await createKnowledgeBaseItem(companyContext!.company.id, selectedWidget, itemData);
+        result = await createKnowledgeBaseItem(workspaceContext!.currentWorkspace!.id, selectedWidget, itemData);
       }
 
       if (result.success) {
@@ -774,7 +791,7 @@ export default function KnowledgeBasePage() {
           title: '', 
           content: '', 
           tags: '', 
-          type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+          type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
           file: null,
           websiteUrl: '',
           isSitemap: false,
@@ -800,6 +817,13 @@ export default function KnowledgeBasePage() {
     }
   };
 
+  // Keep original handleSubmit for backward compatibility
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const handleSubmit = async (e: React.FormEvent) => {
+    await handleSubmitWithData(formData, e);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const handleSubmitChunks = async () => {
     if (!crawledData || !editableChunks.length) return;
     
@@ -836,7 +860,7 @@ export default function KnowledgeBasePage() {
             is_last_batch: i + BATCH_SIZE >= totalChunks
           },
           metadata: {
-            business_id: companyContext?.company?.id ?? ''
+            business_id: workspaceContext?.currentWorkspace?.id ?? ''
           }
         };
         
@@ -883,7 +907,7 @@ export default function KnowledgeBasePage() {
         title: '', 
         content: '', 
         tags: '', 
-        type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+        type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
         file: null,
         websiteUrl: '',
         isSitemap: false,
@@ -911,7 +935,7 @@ export default function KnowledgeBasePage() {
       title: item.title,
       content: item.content,
       tags: item.tags.join(', '),
-      type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion',
+      type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion',
       file: null,
       websiteUrl: '',
       isSitemap: false,
@@ -999,8 +1023,8 @@ export default function KnowledgeBasePage() {
   };
 
   const handleDeleteAllData = async () => {
-    if (!companyContext?.company?.id) {
-      alert('No company context available');
+    if (!workspaceContext?.currentWorkspace?.id) {
+      alert('No workspace context available');
       return;
     }
 
@@ -1009,7 +1033,7 @@ export default function KnowledgeBasePage() {
       setUploadStatus('uploading');
       setUploadMessage('Deleting all data from Qdrant and Firestore...');
 
-      const businessId = companyContext.company.id;
+      const businessId = workspaceContext?.currentWorkspace?.id;
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
 
       // Delete from Qdrant
@@ -1121,7 +1145,7 @@ export default function KnowledgeBasePage() {
 
   if (isLoading || !initialLoadComplete) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
+      <div className="fixed inset-0 bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center z-50">
         <LoadingDialog 
           open={true}
           message="Loading Knowledge Base" 
@@ -1132,861 +1156,237 @@ export default function KnowledgeBasePage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-gradient-to-br from-gray-50 to-blue-50/20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="min-h-[calc(100vh-4rem)] bg-background">
+      <div className="w-full h-full px-6 sm:px-3 md:px-4 lg:px-6 py-2 sm:py-3 md:py-4 pt-28">
         {/* Header */}
-        <div className="mb-8">
-          <h1 
-            className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3 cursor-pointer select-none"
-            onClick={() => {
-              // Secret: Click title 5 times to show secret button
-              const clickCount = parseInt(sessionStorage.getItem('titleClickCount') || '0');
-              const newCount = clickCount + 1;
-              sessionStorage.setItem('titleClickCount', newCount.toString());
-              
-              if (newCount >= 5) {
-                setShowSecretButton(true);
-                sessionStorage.setItem('titleClickCount', '0'); // Reset counter
-              }
-            }}
-            title="Click 5 times for secret..."
-          >
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center shadow-md">
-              <Database className="w-6 h-6 text-white" />
-            </div>
-            Knowledge Base
-          </h1>
-          <p className="text-gray-600 mb-6 font-light">Manage your knowledge base content for AI-powered responses</p>
-        
-        {/* Widget Selection - Modern Design */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Database className="w-5 h-5 text-blue-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900">Select Widget</h3>
-              <p className="text-sm text-gray-600">Choose a widget to manage its knowledge base</p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-sm sm:text-base md:text-lg lg:text-xl font-bold text-foreground flex items-center gap-1 sm:gap-2 truncate">
+                <Database className="w-3 h-3 sm:w-4 sm:h-4 text-primary flex-shrink-0" />
+                <span className="truncate">Knowledge Base</span>
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">Manage your AI knowledge content</p>
             </div>
           </div>
-          
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Select
-                value={selectedWidget}
-                onValueChange={setSelectedWidget}
+          <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 flex-wrap">
+            <Button
+              onClick={() => {
+                setShowAddForm(true);
+                setEditingItem(null);
+                setFormData({ 
+                  title: '', 
+                  content: '', 
+                  tags: '', 
+                  type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
+                  file: null,
+                  websiteUrl: '',
+                  isSitemap: false,
+                  question: '',
+                  answer: '',
+                  notionApiKey: '',
+                  notionPageId: '',
+                  notionImportType: 'page' as 'page' | 'database'
+                });
+              }}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 shadow-sm hover:shadow-md transition-all rounded-lg px-3 sm:px-4 h-7 sm:h-8"
+              disabled={!selectedWidget}
+            >
+              <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Add Article</span>
+              <span className="sm:hidden">Add</span>
+            </Button>
+
+            <Button
+              onClick={() => setShowDeleteAllDialog(true)}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground flex items-center gap-2 shadow-sm hover:shadow-md transition-all rounded-lg px-3 sm:px-4 h-7 sm:h-8"
+              disabled={!selectedWidget || knowledgeItems.length === 0}
+              title={knowledgeItems.length === 0 ? "No data to delete" : "Delete all knowledge base data"}
+            >
+              <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Delete All</span>
+              <span className="sm:hidden">Delete</span>
+            </Button>
+
+            {/* Secret Clean Qdrant Button */}
+            {showSecretButton && (
+              <Button
+                onClick={handleCleanQdrant}
+                disabled={cleanPineconeLoading}
+                className="bg-purple-600 hover:bg-purple-700 text-white flex items-center gap-2 shadow-sm hover:shadow-md transition-all rounded-lg px-3 sm:px-4 h-7 sm:h-8 animate-pulse"
+                title="🚨 DANGER: Cleans entire Qdrant collection - affects ALL users!"
               >
-                <SelectTrigger className="w-full h-12 px-4 bg-white border-2 border-gray-300 rounded-lg shadow-sm hover:border-blue-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium transition-all duration-200">
-                  <SelectValue placeholder="Choose a widget to manage knowledge base" />
-                </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
-                  {widgets.map(widget => (
-                    <SelectItem key={widget.id} value={widget.id} className="cursor-pointer hover:bg-blue-50">
-                      <div className="flex items-center gap-2">
-                        <Database className="w-4 h-4 text-blue-600" />
-                        <span className="font-medium">{widget.name}</span>
-                        <span className="text-xs text-gray-500">({widget.id})</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            {selectedWidget && (
-              <div className="flex items-center gap-2">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1">
-                  <FileText className="w-3 h-3 mr-1" />
-                  {knowledgeItems.length} articles
-                </Badge>
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              </div>
+                {cleanPineconeLoading ? (
+                  <>
+                    <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
+                    <span className="hidden sm:inline">Cleaning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">Clean Qdrant</span>
+                  </>
+                )}
+              </Button>
             )}
           </div>
+        </div>
+
+        {/* Widget Selection - Minimal */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-6 h-6 bg-primary/10 rounded flex items-center justify-center">
+            <Database className="w-3 h-3 text-primary" />
+          </div>
+          <span className="text-sm font-medium text-foreground">Select Widget:</span>
           
-          {/* Embedding Provider Info */}
-          {selectedWidget && (() => {
-            const selectedWidgetObj = widgets.find(w => w.id === selectedWidget);
-            const embeddingProvider = (selectedWidgetObj?.aiConfig as {embeddingProvider?: string})?.embeddingProvider || 'openai';
-            const embeddingModel = (selectedWidgetObj?.aiConfig as {embeddingModel?: string})?.embeddingModel || 'text-embedding-3-large';
-            
-            return (
-              <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{
-                      backgroundColor: embeddingProvider === 'voyage' ? '#06b6d4' : '#3b82f6'
-                    }}>
-                      <span className="text-xl">{embeddingProvider === 'voyage' ? '🚢' : '🤖'}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">Embedding Provider</p>
-                      <p className="text-xs text-gray-600">All items will use this configuration</p>
-                    </div>
+          <Select
+            value={selectedWidget}
+            onValueChange={setSelectedWidget}
+          >
+            <SelectTrigger className="w-64">
+              <SelectValue placeholder="Choose a widget" />
+            </SelectTrigger>
+            <SelectContent>
+              {widgets.map(widget => (
+                <SelectItem key={widget.id} value={widget.id}>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{widget.name}</span>
+                    <span className="text-muted-foreground text-sm">({widget.id})</span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-gray-900">
-                      {embeddingProvider === 'voyage' ? 'Voyage AI' : 'OpenAI'}
-                    </p>
-                    <p className="text-xs text-gray-600">
-                      {embeddingModel === 'voyage-3' ? 'voyage-3 (1024d)' :
-                       embeddingModel === 'voyage-3-lite' ? 'voyage-3-lite (512d)' :
-                       embeddingModel === 'text-embedding-3-large' ? 'text-emb-3-large (3072d)' :
-                       embeddingModel === 'text-embedding-3-small' ? 'text-emb-3-small (1536d)' :
-                       embeddingModel}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-3 p-2 bg-white rounded border border-green-200">
-                  <p className="text-xs text-gray-700">
-                    💡 <strong>Note:</strong> To change embedding provider, go to{' '}
-                    <a href={`/dashboard/widgets/${selectedWidget}`} className="text-blue-600 hover:underline font-semibold">
-                      Widget Settings → AI Tab
-                    </a>
-                  </p>
-                </div>
-              </div>
-            );
-          })()}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           
-          {!selectedWidget && (
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-800 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                Please select a widget to view and manage its knowledge base articles
-              </p>
-            </div>
+          {selectedWidget && (
+            <Badge variant="secondary" className="bg-accent text-accent-foreground">
+              {knowledgeItems.length} articles
+            </Badge>
           )}
         </div>
-      </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8">
-          <Card className="bg-white/95 backdrop-blur-md border-0 shadow-md hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-6">
+        {/* Stats Cards - Fixed Layout */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <Card className="bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Total Articles</p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{knowledgeItems.length}</p>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center">
-                  <FileText className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white/95 backdrop-blur-md border-0 shadow-md hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Active Articles</p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                    {knowledgeItems.filter(item => item.isActive).length}
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Articles</p>
+                  <p className="text-lg sm:text-xl font-bold text-foreground min-h-[28px] flex items-center">
+                    {selectedWidget ? knowledgeItems.length : '0'}
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center">
-                  <CheckCircle className="h-6 w-6 text-green-600" />
+                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-primary" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="bg-white/95 backdrop-blur-md border-0 shadow-md hover:shadow-lg transition-all duration-200">
-            <CardContent className="p-6">
+          <Card className="bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+            <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600 mb-1">Widgets</p>
-                  <p className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">{widgets.length}</p>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Active Articles</p>
+                  <p className="text-lg sm:text-xl font-bold text-foreground min-h-[28px] flex items-center">
+                    {selectedWidget ? knowledgeItems.filter(item => item.isActive).length : '0'}
+                  </p>
                 </div>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-100 to-pink-100 flex items-center justify-center">
-                  <Upload className="h-6 w-6 text-purple-600" />
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground">Total Chunks</p>
+                  <p className="text-lg sm:text-xl font-bold text-foreground min-h-[28px] flex items-center">
+                    {selectedWidget ? totalChunks : '0'}
+                  </p>
+                </div>
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
+                  <Database className="w-4 h-4 text-purple-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Controls */}
+        {/* Search */}
         {selectedWidget && (
-          <div className="flex flex-col sm:flex-row gap-4 mb-6">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <Input
-                  placeholder="Search knowledge base..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-11 border-2 focus:ring-2 focus:ring-blue-500 rounded-xl"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <Button
-                onClick={() => {
-                  setShowAddForm(true);
-                  setEditingItem(null);
-                  setFormData({ 
-                    title: '', 
-                    content: '', 
-                    tags: '', 
-                    type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
-                    file: null,
-                    websiteUrl: '',
-                    isSitemap: false,
-                    question: '',
-                    answer: '',
-                    notionApiKey: '',
-                    notionPageId: '',
-                    notionImportType: 'page' as 'page' | 'database'
-                  });
-                }}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-11"
-                disabled={!selectedWidget}
-              >
-                <Plus className="w-5 h-5" />
-                Add Article
-              </Button>
-
-              <Button
-                onClick={() => setShowDeleteAllDialog(true)}
-                className="bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-11"
-                disabled={!selectedWidget || knowledgeItems.length === 0}
-                title={knowledgeItems.length === 0 ? "No data to delete" : "Delete all knowledge base data"}
-              >
-                <Trash2 className="w-5 h-5" />
-                Delete All Data
-              </Button>
-
-              {/* Secret Clean Qdrant Button */}
-              {showSecretButton && (
-                <Button
-                  onClick={handleCleanQdrant}
-                  disabled={cleanPineconeLoading}
-                  className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl px-6 h-11 animate-pulse"
-                  title="🚨 DANGER: Cleans entire Qdrant collection - affects ALL users!"
-                >
-                  {cleanPineconeLoading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Cleaning...
-                    </>
-                  ) : (
-                    <>
-                      <Database className="w-5 h-5" />
-                      Clean Qdrant
-                    </>
-                  )}
-                </Button>
-              )}
+          <div className="mb-4 sm:mb-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search articles..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 w-full text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              />
             </div>
           </div>
         )}
 
-      {/* Add/Edit Form */}
-      {/* Add/Edit Article Dialog */}
-      <Dialog open={showAddForm && !!selectedWidget} onOpenChange={(open) => {
-        if (!open) {
-          setShowAddForm(false);
-          setEditingItem(null);
-          setUploadStatus('idle');
-          setUploadMessage('');
-        }
-      }}>
-        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
-          <DialogHeader className="px-6 pt-6 pb-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-            <DialogTitle className="text-2xl font-bold text-gray-900">
-              {editingItem ? '✏️ Edit Article' : '➕ Add New Article'}
-            </DialogTitle>
-            <DialogDescription className="text-gray-600">
-              {editingItem ? 'Update your knowledge base article' : 'Add content to your AI knowledge base'}
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="overflow-y-auto max-h-[calc(90vh-120px)] px-6">
-            <form onSubmit={handleSubmit} className="space-y-6 py-4">
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Title
-                  </label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Enter article title"
-                    required
-                  />
-                </div>
-              </div>
+      {/* Add Article Dialog */}
+      <AddArticleDialog
+        open={showAddForm && !!selectedWidget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowAddForm(false);
+            setEditingItem(null);
+            setUploadStatus('idle');
+            setUploadMessage('');
+            // Reset form data when dialog closes
+            setFormData({ 
+              title: '', 
+              content: '', 
+              tags: '', 
+              type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
+              file: null,
+              websiteUrl: '',
+              isSitemap: false,
+              question: '',
+              answer: '',
+              notionApiKey: '',
+              notionPageId: '',
+              notionImportType: 'page' as 'page' | 'database'
+            });
+          }
+        }}
+        onSubmit={async (data) => {
+          // Update formData with the data from dialog, ensuring tags is a string
+          const updatedData = {
+            ...formData,
+            ...data,
+            tags: Array.isArray(data.tags) ? data.tags.join(', ') : (data.tags || ''),
+            type: data.type as 'faq' | 'text' | 'pdf' | 'website' | 'notion',
+            notionImportType: (data.notionImportType as 'page' | 'database') || formData.notionImportType
+          };
+          setFormData(updatedData);
 
-              {/* Document Type Selection */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Document Type
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {documentTypes.map((type) => (
-                    <div
-                      key={type.value}
-                      className={`relative cursor-pointer rounded-lg border p-3 sm:p-4 transition-all duration-200 ${
-                        formData.type === type.value
-                          ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500'
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                      onClick={() => setFormData(prev => ({ ...prev, type: type.value, file: null }))}
-                    >
-                      <div className="flex items-start">
-                        <input
-                          type="radio"
-                          name="documentType"
-                          value={type.value}
-                          checked={formData.type === type.value}
-                          onChange={() => setFormData(prev => ({ ...prev, type: type.value, file: null }))}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 mt-0.5"
-                        />
-                        <div className="ml-3 flex-1">
-                          <label className="block text-xs sm:text-sm font-medium text-gray-900 cursor-pointer">
-                            {type.label}
-                          </label>
-                          <p className="text-xs text-gray-500 mt-0.5 sm:mt-1">{type.description}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* FAQ Section */}
-              {formData.type === 'faq' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Question
-                    </label>
-                    <Input
-                      value={formData.question}
-                      onChange={(e) => setFormData(prev => ({ ...prev, question: e.target.value }))}
-                      placeholder="What is your return policy?"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Answer
-                    </label>
-                    <Textarea
-                      value={formData.answer}
-                      onChange={(e) => setFormData(prev => ({ ...prev, answer: e.target.value }))}
-                      placeholder="Our return policy allows returns within 30 days of purchase..."
-                      rows={6}
-                      required
-                    />
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>💡 Tip:</strong> Write clear, concise answers. The AI will use these Q&A pairs to respond to similar customer questions.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Notion Import Section */}
-              {formData.type === 'notion' && (
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg p-4">
-                    <h4 className="text-sm font-semibold text-purple-900 mb-2">🔗 Connect to Notion</h4>
-                    <p className="text-xs text-purple-700 mb-3">
-                      Get your integration token from <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Notion Integrations</a>
-                    </p>
-                    
-                    <div className="space-y-3">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Notion API Key / Integration Token
-                        </label>
-                        <Input
-                          type="password"
-                          value={formData.notionApiKey}
-                          onChange={(e) => setFormData(prev => ({ ...prev, notionApiKey: e.target.value }))}
-                          placeholder="secret_xxxxxxxxxxxxxxxxxxxxx"
-                          required
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          Create an integration at notion.so/my-integrations and copy the token
-                        </p>
-                      </div>
-                      
-                      {!notionConnected && (
-                        <Button
-                          type="button"
-                          onClick={handleNotionConnect}
-                          disabled={!formData.notionApiKey.trim() || notionSearching}
-                          className="w-full bg-purple-600 hover:bg-purple-700"
-                        >
-                          {notionSearching ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Connecting...
-                            </>
-                          ) : (
-                            <>Connect to Notion</>
-                          )}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  
-                  {notionConnected && (
-                    <>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          Import Type
-                        </label>
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, notionImportType: 'page' }))}
-                            className={`p-3 border-2 rounded-lg text-sm font-medium transition-all ${
-                              formData.notionImportType === 'page'
-                                ? 'border-purple-500 bg-purple-50 text-purple-900'
-                                : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                            }`}
-                          >
-                            📄 Single Page
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setFormData(prev => ({ ...prev, notionImportType: 'database' }))}
-                            className={`p-3 border-2 rounded-lg text-sm font-medium transition-all ${
-                              formData.notionImportType === 'database'
-                                ? 'border-purple-500 bg-purple-50 text-purple-900'
-                                : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                            }`}
-                          >
-                            📊 Entire Database
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                          {formData.notionImportType === 'page' ? 'Select Page' : 'Database ID'}
-                        </label>
-                        
-                        {formData.notionImportType === 'page' ? (
-                          <>
-                            <Select
-                              value={formData.notionPageId}
-                              onValueChange={(value) => {
-                                setFormData(prev => ({ ...prev, notionPageId: value }));
-                                // Auto-fill title from selected page
-                                const selectedPage = notionPages.find(p => p.id === value);
-                                if (selectedPage && !formData.title) {
-                                  setFormData(prev => ({ ...prev, title: selectedPage.title }));
-                                }
-                              }}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select a Notion page" />
-                              </SelectTrigger>
-                              <SelectContent className="max-h-[300px]">
-                                {notionPages.map((page) => (
-                                  <SelectItem key={page.id} value={page.id}>
-                                    <div className="flex items-center gap-2">
-                                      <span>📄</span>
-                                      <span className="truncate">{page.title}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            {notionPages.length === 0 && notionSearching && (
-                              <p className="text-xs text-gray-500 mt-1">Loading pages...</p>
-                            )}
-                            {notionPages.length === 0 && !notionSearching && (
-                              <p className="text-xs text-amber-600 mt-1">No pages found. Make sure the integration has access to your pages.</p>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <Input
-                              value={formData.notionPageId}
-                              onChange={(e) => setFormData(prev => ({ ...prev, notionPageId: e.target.value }))}
-                              placeholder="Enter Notion database ID"
-                              required
-                            />
-                            <p className="text-xs text-gray-500 mt-1">
-                              Copy the database ID from the URL: notion.so/DATABASE_ID?v=...
-                            </p>
-                          </>
-                        )}
-                      </div>
-                      
-                      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-                        <p className="text-sm text-purple-800">
-                          <strong>📚 How it works:</strong>
-                        </p>
-                        <ul className="text-xs text-purple-700 mt-2 space-y-1 ml-4 list-disc">
-                          <li>Content is fetched from your Notion workspace</li>
-                          <li>Blocks are converted to formatted text</li>
-                          <li>Stored in knowledge base with embeddings</li>
-                          <li>Updates in Notion won&apos;t sync automatically (re-import to update)</li>
-                        </ul>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* Website URL Section */}
-              {formData.type === 'website' && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Website or Sitemap URL
-                    </label>
-                    <Input
-                      type="url"
-                      value={formData.websiteUrl}
-                      onChange={(e) => setFormData(prev => ({ ...prev, websiteUrl: e.target.value }))}
-                      placeholder="https://example.com or https://example.com/sitemap.xml"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Enter a website URL (will auto-detect sitemap) or direct sitemap.xml URL
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="isSitemap"
-                      checked={formData.isSitemap}
-                      onChange={(e) => setFormData(prev => ({ ...prev, isSitemap: e.target.checked }))}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="isSitemap" className="text-sm text-gray-700">
-                      This is a sitemap URL (sitemap.xml)
-                    </label>
-                  </div>
-                  
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <p className="text-sm text-blue-800">
-                      <strong>💡 Tip:</strong> If you provide a website URL, we&apos;ll automatically try to find and use the sitemap for better coverage. You can also provide a direct sitemap.xml URL for faster crawling.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* File Upload Section */}
-              {(formData.type === 'text' || formData.type === 'pdf') && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Upload File
-                  </label>
-                  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md hover:border-gray-400 transition-colors">
-                    <div className="space-y-1 text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="flex text-sm text-gray-600">
-                        <label
-                          htmlFor="file-upload"
-                          className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500"
-                        >
-                          <span>Upload a file</span>
-                          <input
-                            id="file-upload"
-                            name="file-upload"
-                            type="file"
-                            className="sr-only"
-                            accept={formData.type === 'pdf' ? '.pdf' : '.txt,.md,.text'}
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setFormData(prev => ({ ...prev, file }));
-                              }
-                            }}
-                          />
-                        </label>
-                        <p className="pl-1">or drag and drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {formData.type === 'pdf' ? 'PDF files up to 10MB' : 'TXT, MD files up to 10MB'}
-                      </p>
-                      {formData.file && (
-                        <div className="mt-2 flex items-center justify-center gap-2 text-sm text-green-600">
-                          <CheckCircle className="w-4 h-4" />
-                          <span>{formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Content Section - Only show for manual entry or as preview for file uploads */}
-              {formData.type !== 'website' && formData.type !== 'faq' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {formData.type === 'manual' ? 'Content' : 'Content Preview'}
-                  </label>
-                  <Textarea
-                    value={formData.content}
-                    onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                    placeholder={
-                      formData.type === 'manual' 
-                        ? "Enter article content" 
-                        : "Content will be extracted from uploaded file"
-                    }
-                    rows={6}
-                    required={formData.type === 'manual'}
-                    disabled={formData.type !== 'manual'}
-                    className={formData.type !== 'manual' ? 'bg-gray-50' : ''}
-                  />
-                  {formData.type !== 'manual' && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Content will be automatically extracted from your uploaded file
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tags (comma-separated)
-                </label>
-                <Input
-                  value={formData.tags}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
-                  placeholder="e.g., getting-started, tutorial, help"
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-4 border-t">
-                <Button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  className="flex-1 sm:flex-none bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center justify-center gap-2 h-11"
-                >
-                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                  {editingItem ? '💾 Update Article' : '➕ Add Article'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1 sm:flex-none h-11"
-                  onClick={() => {
-                    setShowAddForm(false);
-                    setEditingItem(null);
-                    setUploadStatus('idle');
-                    setUploadMessage('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-
-              {/* Preview and Edit Chunks */}
-              {showPreview && crawledData && editableChunks.length > 0 && (
-                <div className="mt-6 space-y-4">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-blue-900 mb-2">📝 Review Crawled Data</h3>
-                    <p className="text-sm text-blue-800 mb-4">
-                      Review and edit the {editableChunks.length} chunks below. Click on any chunk to edit its content.
-                    </p>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div><strong>Pages Crawled:</strong> {crawledData.total_pages}</div>
-                      <div><strong>Method:</strong> {crawledData.crawl_method === 'sitemap' ? 'Sitemap' : 'URL Crawling'}</div>
-                      <div><strong>Total Words:</strong> {crawledData.total_word_count.toLocaleString()}</div>
-                      <div><strong>Total Chunks:</strong> {editableChunks.length}</div>
-                    </div>
-                  </div>
-
-                  <div className="max-h-[600px] overflow-y-auto space-y-4 border border-gray-200 rounded-lg p-4 bg-gray-50">
-                    {(() => {
-                      // Group chunks by source URL
-                      const groupedChunks: { [key: string]: ChunkData[] } = {};
-                      editableChunks.forEach((chunk, index) => {
-                        const url = String(chunk.source_url || crawledData.url);
-                        if (!groupedChunks[url]) {
-                          groupedChunks[url] = [];
-                        }
-                        groupedChunks[url].push({ ...chunk, originalIndex: index });
-                      });
-
-                      return Object.entries(groupedChunks).map(([url, chunks]) => (
-                        <div key={url} className="bg-white border-2 border-blue-200 rounded-lg p-4">
-                          <div className="mb-3 pb-2 border-b border-gray-200">
-                            <div className="flex items-center justify-between">
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-gray-900 text-sm mb-1">
-                                  📄 {chunks[0].source_title || 'Page'}
-                                </h4>
-                                <a 
-                                  href={url} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-xs text-blue-600 hover:underline truncate block"
-                                >
-                                  {url}
-                                </a>
-                              </div>
-                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded ml-2">
-                                {chunks.length} chunk{chunks.length > 1 ? 's' : ''}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            {chunks.map((chunk) => (
-                              <div key={chunk.originalIndex} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs font-medium bg-gray-200 text-gray-700 px-2 py-1 rounded">
-                                      #{(chunk.originalIndex ?? 0) + 1}
-                                    </span>
-                                    <span className="text-xs text-gray-600">
-                                      {chunk.text.split(' ').length} words • {chunk.text.length} chars
-                                    </span>
-                                    {chunk.quality_score && (
-                                      <span className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                                        chunk.quality_score >= 70 ? 'bg-green-100 text-green-800' :
-                                        chunk.quality_score >= 50 ? 'bg-blue-100 text-blue-800' :
-                                        'bg-yellow-100 text-yellow-800'
-                                      }`}>
-                                        Quality: {Math.round(chunk.quality_score)}%
-                                      </span>
-                                    )}
-                                    {chunk.text.match(/[.!?]/) && (
-                                      <span className="text-xs text-green-600">
-                                        ✓ Complete sentences
-                                      </span>
-                                    )}
-                                  </div>
-                                  <button
-                                    onClick={() => {
-                                      const newChunks = editableChunks.filter((_, i) => i !== chunk.originalIndex);
-                                      setEditableChunks(newChunks);
-                                    }}
-                                    className="text-red-600 hover:text-red-800 text-xs font-medium"
-                                  >
-                                    ✕ Remove
-                                  </button>
-                                </div>
-                                <Textarea
-                                  value={chunk.text}
-                                  onChange={(e) => {
-                                    const newChunks = [...editableChunks];
-                                    const idx = chunk.originalIndex ?? 0;
-                                    newChunks[idx] = { ...newChunks[idx], text: e.target.value };
-                                    setEditableChunks(newChunks);
-                                  }}
-                                  rows={5}
-                                  className="text-sm font-mono"
-                                  placeholder="Edit chunk content..."
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ));
-                    })()}
-                  </div>
-
-                  <div className="flex gap-3 justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setCrawledData(null);
-                        setEditableChunks([]);
-                        setShowPreview(false);
-                        setUploadStatus('idle');
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={handleSubmitChunks}
-                      disabled={isSubmitting || editableChunks.length === 0}
-                      className="bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white flex items-center gap-2"
-                    >
-                      {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
-                      💾 Submit & Save {editableChunks.length} Chunks
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Upload Status */}
-              {uploadStatus !== 'idle' && (
-                <div className={`p-4 rounded-md ${
-                  uploadStatus === 'success' ? 'bg-green-50 border border-green-200' :
-                  uploadStatus === 'error' ? 'bg-red-50 border border-red-200' :
-                  'bg-blue-50 border border-blue-200'
-                }`}>
-                  <div className="flex items-center gap-2">
-                    {uploadStatus === 'uploading' && <Loader2 className="w-4 h-4 animate-spin text-blue-600" />}
-                    {uploadStatus === 'success' && <CheckCircle className="w-4 h-4 text-green-600" />}
-                    {uploadStatus === 'error' && <AlertCircle className="w-4 h-4 text-red-600" />}
-                    <span className={`text-sm font-medium ${
-                      uploadStatus === 'success' ? 'text-green-800' :
-                      uploadStatus === 'error' ? 'text-red-800' :
-                      'text-blue-800'
-                    }`}>
-                      {uploadStatus === 'uploading' ? 'Processing...' :
-                       uploadStatus === 'success' ? 'Success!' :
-                       'Error'}
-                    </span>
-                  </div>
-                  {uploadMessage && (
-                    <p className={`text-sm mt-1 ${
-                      uploadStatus === 'success' ? 'text-green-700' :
-                      uploadStatus === 'error' ? 'text-red-700' :
-                      'text-blue-700'
-                    }`}>
-                      {uploadMessage}
-                    </p>
-                  )}
-                  
-                  {/* Progress Bar */}
-                  {uploadStatus === 'uploading' && saveProgress.total > 0 && (
-                    <div className="mt-3">
-                      <div className="flex items-center justify-between text-xs text-blue-700 mb-1">
-                        <span>Progress: {saveProgress.current} / {saveProgress.total} chunks</span>
-                        <span className="font-semibold">
-                          {Math.round((saveProgress.current / saveProgress.total) * 100)}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-blue-200 rounded-full h-2.5 overflow-hidden">
-                        <div 
-                          className="bg-blue-600 h-2.5 rounded-full transition-all duration-300 ease-out"
-                          style={{ width: `${(saveProgress.current / saveProgress.total) * 100}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </form>
-          </div>
-        </DialogContent>
-      </Dialog>
+          // Call handleSubmit with the new data directly
+          await handleSubmitWithData(updatedData, { preventDefault: () => {} } as React.FormEvent);
+        }}
+        isSubmitting={isSubmitting}
+        editingItem={editingItem}
+      />
 
         {/* Knowledge Items */}
         {selectedWidget && (
           <div className="grid grid-cols-1 gap-4">
             {filteredItems.length === 0 ? (
-              <Card className="bg-white/95 backdrop-blur-md border-0 shadow-md">
-                <CardContent className="text-center py-12">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mx-auto mb-4">
-                    <FileText className="w-10 h-10 text-blue-600" />
+              <Card className="bg-card border border-border rounded-lg shadow-sm">
+                <CardContent className="text-center py-8 sm:py-12">
+                  <div className="w-12 h-12 sm:w-16 sm:h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">No Articles Found</h3>
-                  <p className="text-gray-600 mb-4 max-w-md mx-auto font-light">
+                  <h3 className="text-sm sm:text-base font-semibold text-foreground mb-2">No Articles Found</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4 max-w-md mx-auto">
                     {searchTerm 
                       ? 'No articles match your search criteria.' 
                       : 'Get started by adding your first knowledge base article for this widget.'
@@ -2001,7 +1401,7 @@ export default function KnowledgeBasePage() {
                           title: '', 
                           content: '', 
                           tags: '', 
-                          type: 'manual' as 'manual' | 'text' | 'pdf' | 'website' | 'faq' | 'notion', 
+                          type: 'faq' as 'faq' | 'text' | 'pdf' | 'website' | 'notion', 
                           file: null,
                           websiteUrl: '',
                           isSitemap: false,
@@ -2012,100 +1412,101 @@ export default function KnowledgeBasePage() {
                           notionImportType: 'page' as 'page' | 'database'
                         });
                       }}
-                      className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-2 shadow-md hover:shadow-lg transition-all rounded-xl"
+                      className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 shadow-sm hover:shadow-md transition-all rounded-lg px-3 sm:px-4 h-7 sm:h-8"
                       disabled={!selectedWidget}
                     >
-                      <Plus className="w-4 h-4" />
-                      Add Article
+                      <Plus className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span className="text-xs sm:text-sm">Add Article</span>
                     </Button>
                   )}
                 </CardContent>
               </Card>
             ) : (
             filteredItems.map((item) => (
-              <Card key={item.id} className="bg-white/95 backdrop-blur-md border-0 shadow-md hover:shadow-lg transition-all duration-200">
-                <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{item.title}</h3>
-                      {item.type === 'website' && (
-                        <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
-                          Website
-                        </Badge>
+              <Card key={item.id} className="bg-card border border-border rounded-lg shadow-sm hover:shadow-md transition-all duration-200">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <h3 className="text-sm sm:text-base font-semibold text-foreground">{item.title}</h3>
+                        {item.type === 'website' && (
+                          <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700 border-blue-200">
+                            Website
+                          </Badge>
+                        )}
+                        {item.type === 'pdf' && (
+                          <Badge variant="secondary" className="text-xs bg-red-100 text-red-700 border-red-200">
+                            PDF
+                          </Badge>
+                        )}
+                        {item.type === 'text' && (
+                          <Badge variant="secondary" className="text-xs bg-green-100 text-green-700 border-green-200">
+                            Text
+                          </Badge>
+                        )}
+                        {item.type === 'faq' && (
+                          <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 border-purple-200">
+                            FAQ
+                          </Badge>
+                        )}
+                        {item.type === 'notion' && (
+                          <Badge variant="secondary" className="text-xs bg-pink-100 text-pink-700 border-pink-200">
+                            Notion
+                          </Badge>
+                        )}
+                        <div className={`w-2 h-2 rounded-full ${item.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                      </div>
+                      
+                      {item.type === 'website' && item.websiteUrl && (
+                        <p className="text-xs sm:text-sm text-primary mb-2">
+                          <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                            {item.websiteUrl}
+                          </a>
+                        </p>
                       )}
-                      {item.type === 'pdf' && (
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
-                          PDF
-                        </Badge>
-                      )}
-                      {item.type === 'text' && (
-                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                          Text
-                        </Badge>
-                      )}
-                      {item.type === 'faq' && (
-                        <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                          FAQ
-                        </Badge>
-                      )}
-                      {item.type === 'notion' && (
-                        <Badge variant="outline" className="text-xs bg-pink-50 text-pink-700 border-pink-200">
-                          Notion
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {item.type === 'website' && item.websiteUrl && (
-                      <p className="text-sm text-blue-600 mb-2">
-                        <a href={item.websiteUrl} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                          {item.websiteUrl}
-                        </a>
+                      
+                      <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {item.content.substring(0, 200)}
+                        {item.content.length > 200 && '...'}
                       </p>
-                    )}
-                    
-                    <p className="text-gray-600 mb-3 line-clamp-2">
-                      {item.content.substring(0, 200)}
-                      {item.content.length > 200 && '...'}
-                    </p>
-                    
-                    <div className="flex items-center gap-4 text-sm text-gray-500">
-                      <span>Updated {new Date(item.updatedAt).toLocaleDateString()}</span>
-                      {item.tags && item.tags.length > 0 && (
-                        <div className="flex gap-1">
-                          {item.tags.map((tag, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {tag}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
+                      
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        <span>Updated {new Date(item.updatedAt).toLocaleDateString()}</span>
+                        {item.tags && item.tags.length > 0 && (
+                          <div className="flex gap-1">
+                            {item.tags.map((tag, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs bg-accent text-accent-foreground">
+                                {tag}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  
-                    <div className="flex items-center gap-2 ml-4">
+                    
+                    <div className="flex items-center gap-1 ml-4">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleEdit(item)}
-                        disabled={item.type === 'website'} // Disable editing for scraped websites
-                        className="hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 transition-all"
+                        disabled={item.type === 'website'}
+                        className="h-7 w-7 p-0 text-primary border-border hover:bg-accent"
                       >
-                        <Edit className="w-4 h-4" />
+                        <Edit className="w-3 h-3" />
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => handleDelete(item.id)}
-                        className="text-red-600 hover:bg-red-50 hover:border-red-300 transition-all"
+                        className="h-7 w-7 p-0 text-destructive border-border hover:bg-destructive/10"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))
+                  </div>
+                </CardContent>
+              </Card>
+            ))
           )}
           </div>
         )}
