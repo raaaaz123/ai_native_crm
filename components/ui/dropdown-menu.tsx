@@ -10,6 +10,8 @@ interface DropdownMenuProps {
 interface DropdownMenuTriggerProps {
   children: React.ReactNode
   asChild?: boolean
+  onClick?: (e: React.MouseEvent) => void
+  className?: string
 }
 
 interface DropdownMenuContentProps {
@@ -21,6 +23,7 @@ interface DropdownMenuContentProps {
 interface DropdownMenuItemProps {
   children: React.ReactNode
   onSelect?: () => void
+  onClick?: (e: React.MouseEvent) => void
   className?: string
   disabled?: boolean
 }
@@ -52,11 +55,14 @@ export function DropdownMenu({ children }: DropdownMenuProps) {
   )
 }
 
-export function DropdownMenuTrigger({ children, asChild }: DropdownMenuTriggerProps) {
+export function DropdownMenuTrigger({ children, asChild, onClick, className }: DropdownMenuTriggerProps) {
   const { open, setOpen } = React.useContext(DropdownMenuContext)
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation()
+    if (onClick) {
+      onClick(e)
+    }
     setOpen(!open)
   }
 
@@ -66,9 +72,8 @@ export function DropdownMenuTrigger({ children, asChild }: DropdownMenuTriggerPr
 
     return React.cloneElement(child, {
       onClick: (e: React.MouseEvent) => {
-        if (originalOnClick) {
-          originalOnClick(e)
-        }
+        if (onClick) onClick(e)
+        if (originalOnClick) originalOnClick(e)
         handleClick(e)
       },
     } as Partial<typeof child.props>)
@@ -77,7 +82,7 @@ export function DropdownMenuTrigger({ children, asChild }: DropdownMenuTriggerPr
   return (
     <button
       onClick={handleClick}
-      className="inline-flex items-center justify-center"
+      className={cn("inline-flex items-center justify-center", className)}
     >
       {children}
     </button>
@@ -131,17 +136,17 @@ export function DropdownMenuContent({ children, align = "end", className }: Drop
   )
 }
 
-export function DropdownMenuItem({ children, onSelect, className, disabled }: DropdownMenuItemProps) {
+export function DropdownMenuItem({ children, onSelect, onClick, className, disabled }: DropdownMenuItemProps) {
   const { setOpen } = React.useContext(DropdownMenuContext)
 
   return (
     <div
       onClick={(e) => {
         e.stopPropagation()
-        if (!disabled && onSelect) {
-          onSelect()
-          setOpen(false)
-        }
+        if (disabled) return
+        if (onClick) onClick(e)
+        if (onSelect) onSelect()
+        setOpen(false)
       }}
       className={cn(
         "relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors",
