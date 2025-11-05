@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/app/lib/workspace-auth-context';
 import { getAgent, Agent } from '@/app/lib/agent-utils';
+import { getAgentLeadSubmissions, CollectLeadsSubmission } from '@/app/lib/action-utils';
 import { toast } from 'sonner';
 
 interface Contact {
@@ -47,6 +48,7 @@ interface Contact {
   tags: string[];
   notes?: string;
   avatar?: string;
+  submissionData?: Record<string, string>;
 }
 
 export default function AgentContactsPage() {
@@ -92,68 +94,46 @@ export default function AgentContactsPage() {
   };
 
   const loadContacts = async () => {
-    // Simulate loading contacts
-    const mockContacts: Contact[] = [
-      {
-        id: '1',
-        name: 'John Smith',
-        email: 'john.smith@example.com',
-        phone: '+1 (555) 123-4567',
-        company: 'Acme Corp',
-        status: 'active',
-        lastContact: new Date('2024-01-20'),
-        conversationCount: 12,
-        tags: ['VIP', 'Enterprise'],
-        notes: 'Interested in premium features',
-        avatar: undefined
-      },
-      {
-        id: '2',
-        name: 'Sarah Johnson',
-        email: 'sarah.j@techstart.com',
-        phone: '+1 (555) 987-6543',
-        company: 'TechStart Inc',
-        status: 'active',
-        lastContact: new Date('2024-01-19'),
-        conversationCount: 8,
-        tags: ['Startup', 'Technical'],
-        notes: 'Technical questions about integration'
-      },
-      {
-        id: '3',
-        name: 'Mike Wilson',
-        email: 'mike.wilson@email.com',
-        status: 'inactive',
-        lastContact: new Date('2024-01-10'),
-        conversationCount: 3,
-        tags: ['Trial'],
-        notes: 'Trial user, needs follow-up'
-      },
-      {
-        id: '4',
-        name: 'Emily Davis',
-        email: 'emily.davis@company.com',
-        phone: '+1 (555) 456-7890',
-        company: 'Company LLC',
-        status: 'active',
-        lastContact: new Date('2024-01-18'),
-        conversationCount: 15,
-        tags: ['Enterprise', 'Priority'],
-        notes: 'High-value customer, excellent feedback'
-      },
-      {
-        id: '5',
-        name: 'David Brown',
-        email: 'david.brown@email.com',
-        status: 'blocked',
-        lastContact: new Date('2024-01-05'),
-        conversationCount: 1,
-        tags: ['Spam'],
-        notes: 'Spam user, blocked'
+    if (!agentId) {
+      setContacts([]);
+      return;
+    }
+
+    try {
+      const response = await getAgentLeadSubmissions(agentId);
+
+      if (response.success && response.data) {
+        // Transform submissions into contacts
+        const transformedContacts: Contact[] = response.data.map((submission: CollectLeadsSubmission) => {
+          const data = submission.data;
+
+          return {
+            id: submission.id,
+            name: data.name || data.fullName || data.full_name || 'Unknown',
+            email: data.email || data.emailAddress || data.email_address || '',
+            phone: data.phone || data.phoneNumber || data.phone_number,
+            company: data.company || data.companyName || data.company_name,
+            status: 'active' as const,
+            lastContact: submission.submittedAt,
+            conversationCount: submission.conversationId ? 1 : 0,
+            tags: ['Lead'],
+            notes: undefined,
+            avatar: undefined,
+            submissionData: data
+          };
+        });
+
+        setContacts(transformedContacts);
+      } else {
+        console.error('Failed to load contacts:', response.error);
+        setContacts([]);
+        toast.error('Failed to load contacts');
       }
-    ];
-    
-    setContacts(mockContacts);
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+      setContacts([]);
+      toast.error('Error loading contacts');
+    }
   };
 
   const getStatusColor = (status: string) => {
