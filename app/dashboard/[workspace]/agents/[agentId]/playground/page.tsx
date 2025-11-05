@@ -500,7 +500,7 @@ function CalendlyBookingWidget({
                 {selectedTime && (
                   <Button
                     onClick={handleBook}
-                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-md mt-4"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white mt-4"
                   >
                     <Calendar className="w-4 h-4 mr-2" />
                     Book Appointment for {formatDate(selectedDate)} at {selectedTime}
@@ -1299,7 +1299,7 @@ CALENDLY BOOKING ACTION: ${action.name}
       <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
       <div className="flex h-screen bg-background overflow-hidden">
         {/* Left Sidebar - Agent Configuration */}
-        <div className="w-80 border-r border-border bg-gradient-to-b from-slate-50 to-white flex flex-col h-screen overflow-hidden">
+        <div className="w-80 border-r border-border bg-white flex flex-col h-screen overflow-hidden">
           {/* Scrollable Configuration Content */}
           <div className="flex-1 overflow-y-scroll p-6 space-y-6 playground-scrollbar" style={{ scrollbarWidth: 'auto', scrollbarColor: 'rgba(0,0,0,0.4) rgba(0,0,0,0.1)' }}>
           {/* Agent Status */}
@@ -1624,8 +1624,8 @@ CALENDLY BOOKING ACTION: ${action.name}
         {/* Chat Container - Fixed Layout (Portrait Style) */}
         <div className="w-full max-w-md relative z-10"
           style={{
-            height: 'calc(100vh - 4rem)',
-            maxHeight: '800px'
+            height: 'calc(100vh - 8rem)',
+            maxHeight: '600px'
           }}
         >
           <div className="h-full bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col border border-white/20 overflow-hidden">
@@ -1633,7 +1633,7 @@ CALENDLY BOOKING ACTION: ${action.name}
           <div className="px-6 py-4 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white font-bold text-lg">AI</span>
                 </div>
                 <div>
@@ -1655,10 +1655,10 @@ CALENDLY BOOKING ACTION: ${action.name}
           </div>
 
           {/* Chat Messages - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 chat-scrollbar bg-gradient-to-b from-gray-50/50 to-white/50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 chat-scrollbar bg-gray-50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl mb-4">
+                <div className="w-16 h-16 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-white font-bold text-2xl">AI</span>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -1677,8 +1677,8 @@ CALENDLY BOOKING ACTION: ${action.name}
                     <div
                       className={`max-w-[85%] px-5 py-3.5 rounded-2xl shadow-sm transition-all duration-200 ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
-                          : 'bg-white text-gray-900 border border-gray-200/50 hover:shadow-lg hover:border-gray-300/50'
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-white text-gray-900 border border-gray-200'
                       }`}
                     >
                       {message.role === 'user' ? (
@@ -1695,7 +1695,7 @@ CALENDLY BOOKING ACTION: ${action.name}
                         </div>
                       )}
                       <div className="flex items-center justify-between mt-2.5">
-                        <p className={`text-xs ${message.role === 'user' ? 'text-purple-100' : 'text-gray-500'}`}>
+                        <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                         {message.role === 'assistant' && (
@@ -1726,7 +1726,7 @@ CALENDLY BOOKING ACTION: ${action.name}
                               )
                             }
                           }}
-                          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-md"
+                          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
                         >
                           {message.customButton.text}
                           {message.customButton.openInNewTab && <ExternalLink className="w-4 h-4" />}
@@ -1776,7 +1776,7 @@ CALENDLY BOOKING ACTION: ${action.name}
                               <Button
                                 type="submit"
                                 disabled={submittingForm === message.id}
-                                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
                               >
                                 {submittingForm === message.id ? (
                                   <>
@@ -1808,7 +1808,7 @@ CALENDLY BOOKING ACTION: ${action.name}
 
                     {/* Enhanced Performance Metrics */}
                     {message.role === 'assistant' && message.metrics && (
-                      <div className="mt-2 px-3 py-2 bg-gradient-to-r from-gray-50 to-gray-100 rounded-lg text-xs space-y-2 max-w-[85%] border border-gray-200">
+                      <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg text-xs space-y-2 max-w-[85%] border border-gray-200">
                         <div className="flex items-center gap-2 text-gray-600">
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                           <span className="font-medium">Performance Metrics</span>
@@ -1848,9 +1848,9 @@ CALENDLY BOOKING ACTION: ${action.name}
                     <div className="bg-white text-gray-900 px-5 py-3.5 rounded-2xl border border-gray-200/50 shadow-lg max-w-[85%]">
                       <div className="flex gap-3 items-center">
                         <div className="flex gap-1.5">
-                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce"></div>
-                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce"></div>
+                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-gray-900">AI is thinking...</span>
@@ -1881,14 +1881,14 @@ CALENDLY BOOKING ACTION: ${action.name}
                     }
                   }}
                   placeholder="Type your message... (Shift+Enter for new line)"
-                  className="min-h-[48px] max-h-[120px] resize-none border-gray-300 rounded-2xl pr-12 pl-4 py-3 text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-200 transition-all duration-200 shadow-sm"
+                  className="min-h-[48px] max-h-[120px] resize-none border-gray-300 rounded-2xl pr-12 pl-4 py-3 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
                   rows={1}
                 />
                 <div className="absolute right-3 bottom-3">
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="text-gray-400 hover:text-purple-600 transition-colors p-1 hover:bg-purple-50 rounded-lg"
+                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded-lg"
                     title="Add emoji"
                   >
                     <Smile className="w-5 h-5" />
@@ -1920,7 +1920,7 @@ CALENDLY BOOKING ACTION: ${action.name}
                 onClick={handleSendMessage}
                 disabled={isLoading || !input.trim()}
                 size="icon"
-                className="h-12 w-12 rounded-2xl flex-shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
+                className="h-12 w-12 rounded-2xl flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 transition-all duration-200"
               >
                 {isLoading ? (
                   <Loader2 className="w-5 h-5 animate-spin text-white" />
@@ -1933,7 +1933,7 @@ CALENDLY BOOKING ACTION: ${action.name}
             {/* Enhanced Footer */}
             <div className="flex items-center justify-center mt-3">
               <div className="text-xs text-gray-400 flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full"></div>
+                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
                 Powered by Rexa AI
               </div>
             </div>

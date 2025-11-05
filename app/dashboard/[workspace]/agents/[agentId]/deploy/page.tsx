@@ -163,7 +163,7 @@ export default function AgentDeployPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/50">
+    <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Header */}
         <div className="mb-10">
@@ -176,23 +176,22 @@ export default function AgentDeployPage() {
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Primary Channels</h2>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Chat Widget */}
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
-              <div className="aspect-video bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-black/5"></div>
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden">
+              <div className="aspect-video bg-blue-600 relative overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center p-6">
-                  <div className="bg-white rounded-2xl p-5 shadow-2xl max-w-sm w-full transform group-hover:scale-105 transition-transform duration-300">
+                  <div className="bg-white rounded-lg p-5 shadow-lg max-w-sm w-full">
                     <div className="flex items-center gap-3 mb-4">
-                      <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                         <MessageCircle className="w-4 h-4 text-white" />
                       </div>
                       <span className="text-sm font-semibold text-gray-800">{agent?.name || 'My Agent'}</span>
                     </div>
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-3 mb-3">
+                    <div className="bg-gray-50 rounded-lg p-3 mb-3">
                       <p className="text-xs text-gray-700">Hi! What can I help you with today?</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex-1 h-2 bg-gray-100 rounded-full"></div>
-                      <div className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center">
+                      <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
                         <ArrowRight className="w-3 h-3 text-white" />
                       </div>
                     </div>
@@ -226,7 +225,7 @@ export default function AgentDeployPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => widgetChannel && handleCopyCode(widgetChannel.id)}
-                      className="flex-1 rounded-xl border-gray-200 hover:border-blue-300 hover:bg-blue-50"
+                      className="flex-1"
                     >
                       {copiedChannelId === widgetChannel?.id ? (
                         <>
@@ -243,7 +242,7 @@ export default function AgentDeployPage() {
                   )}
                   <Button
                     onClick={() => hasWidget ? router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/chat-widget`) : handleSetupChannel('chat-widget')}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all"
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
                   >
                     {hasWidget ? (
                       <>
@@ -262,11 +261,10 @@ export default function AgentDeployPage() {
             </Card>
 
             {/* Help Page */}
-            <Card className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden group">
-              <div className="aspect-video bg-gradient-to-br from-orange-500 via-orange-600 to-red-600 relative overflow-hidden">
-                <div className="absolute inset-0 bg-black/5"></div>
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden">
+              <div className="aspect-video bg-orange-600 relative overflow-hidden">
                 <div className="absolute inset-0 flex items-center justify-center p-6">
-                  <div className="bg-white rounded-2xl p-5 shadow-2xl max-w-sm w-full transform group-hover:scale-105 transition-transform duration-300">
+                  <div className="bg-white rounded-lg p-5 shadow-lg max-w-sm w-full">
                     <div className="flex items-center gap-2 mb-4">
                       <div className="w-3 h-3 bg-red-400 rounded-full"></div>
                       <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
@@ -274,7 +272,7 @@ export default function AgentDeployPage() {
                     </div>
                     <div className="text-center">
                       <h4 className="font-bold text-gray-900 mb-3 text-base">How can we help you?</h4>
-                      <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-2">
+                      <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-2">
                         <Search className="w-4 h-4 text-gray-400" />
                         <input
                           type="text"
@@ -310,7 +308,7 @@ export default function AgentDeployPage() {
                 </p>
                 <Button
                   onClick={() => hasHelpPage ? router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/help-page`) : handleSetupChannel('help-page')}
-                  className="w-full bg-orange-600 hover:bg-orange-700 rounded-xl shadow-md hover:shadow-lg transition-all"
+                  className="w-full bg-orange-600 hover:bg-orange-700"
                 >
                   {hasHelpPage ? (
                     <>
@@ -333,10 +331,10 @@ export default function AgentDeployPage() {
         <div>
           <h2 className="text-xl font-semibold text-gray-900 mb-6">Integrations</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-lg">Z</span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -346,7 +344,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('Zapier integration coming soon!')}
                 >
                   Learn More
@@ -354,10 +352,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-lg">#</span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -367,7 +365,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('Slack integration coming soon!')}
                 >
                   Learn More
@@ -375,10 +373,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-lg">W</span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -388,7 +386,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('WordPress integration coming soon!')}
                 >
                   Learn More
@@ -396,10 +394,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
                     <MessageCircle className="w-6 h-6 text-white" />
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -409,7 +407,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('WhatsApp integration coming soon!')}
                 >
                   Learn More
@@ -417,10 +415,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
                     <MessageCircle className="w-6 h-6 text-white" />
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -430,7 +428,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('Messenger integration coming soon!')}
                 >
                   Learn More
@@ -438,10 +436,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-red-500 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-sm">IG</span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -451,7 +449,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('Instagram integration coming soon!')}
                 >
                   Learn More
@@ -459,10 +457,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-teal-600 to-teal-700 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-teal-600 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-lg">Z</span>
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -472,7 +470,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('Zendesk integration coming soon!')}
                 >
                   Learn More
@@ -480,10 +478,10 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md hover:shadow-lg transition-all duration-200 rounded-xl overflow-hidden bg-white group cursor-pointer">
+            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-pink-600 to-rose-600 rounded-xl flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                  <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center">
                     <Globe className="w-6 h-6 text-white" />
                   </div>
                   <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
@@ -493,7 +491,7 @@ export default function AgentDeployPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full rounded-lg hover:bg-gray-50"
+                  className="w-full"
                   onClick={() => toast.info('API documentation coming soon!')}
                 >
                   View Docs
@@ -506,7 +504,7 @@ export default function AgentDeployPage() {
 
       {/* Create Channel Dialog */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader className="space-y-3">
             <DialogTitle className="text-2xl font-bold">
               Setup {selectedChannelType === 'chat-widget' ? 'Chat Widget' : 'Help Center'}
@@ -529,7 +527,7 @@ export default function AgentDeployPage() {
                 value={channelName}
                 onChange={(e) => setChannelName(e.target.value)}
                 placeholder={`e.g., ${selectedChannelType === 'chat-widget' ? 'Main Website Chat' : 'Support Center'}`}
-                className="h-11 rounded-xl border-gray-200 focus:border-blue-500 focus:ring-blue-500"
+                className="h-11"
                 autoFocus
               />
             </div>
@@ -541,14 +539,14 @@ export default function AgentDeployPage() {
                   setSelectedChannelType(null);
                   setChannelName('');
                 }}
-                className="flex-1 h-11 rounded-xl border-gray-200 hover:bg-gray-50"
+                className="flex-1 h-11"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateChannel}
                 disabled={!channelName.trim() || creating}
-                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700 rounded-xl shadow-md hover:shadow-lg transition-all"
+                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700"
               >
                 {creating ? (
                   <>
