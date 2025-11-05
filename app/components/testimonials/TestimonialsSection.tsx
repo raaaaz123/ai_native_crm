@@ -43,36 +43,43 @@ const additionalTestimonials: Testimonial[] = [
 
 export default function TestimonialsSection() {
   return (
-    <section className="py-4 sm:py-6 lg:py-8 bg-muted/30">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+    <section className="py-20 sm:py-24 lg:py-28 bg-gradient-to-b from-background to-muted/30">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 rounded-full bg-pink-100 px-3 py-1.5 text-xs font-semibold text-pink-700 mb-4">
-            <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 border border-primary/20 px-4 py-2 text-sm font-semibold text-primary mb-6">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
             <span>Testimonials</span>
           </div>
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-4">
-            What people say
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground mb-6">
+            Loved by <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">9000+ businesses</span>
           </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            With over 9000 clients served, here&apos;s what they have to say
+          <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+            Join thousands of companies that trust Rexa Engage to deliver exceptional customer experiences.
           </p>
         </div>
 
         {/* Three Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Testimonial Card */}
-          <div className="bg-card p-8 rounded-xl shadow-sm border border-border">
+          <div className="bg-card p-8 rounded-2xl shadow-lg border border-border hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <div className="flex gap-1 mb-6">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                </svg>
+              ))}
+            </div>
             <blockquote className="text-foreground text-lg leading-relaxed mb-6">
               &quot;{testimonials[0].quote}&quot;
             </blockquote>
             <div className="flex items-center">
-              <Image 
+              <Image
                 src="https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&crop=face&auto=format&q=80"
                 alt={testimonials[0].author}
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full object-cover mr-4"
+                className="h-12 w-12 rounded-full object-cover mr-4 ring-2 ring-primary/20"
               />
               <div>
                 <p className="font-bold text-foreground">{testimonials[0].author}</p>
@@ -82,17 +89,24 @@ export default function TestimonialsSection() {
           </div>
 
           {/* Middle Testimonial Card */}
-          <div className="bg-card p-8 rounded-xl shadow-sm border border-border">
+          <div className="bg-card p-8 rounded-2xl shadow-lg border border-border hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <div className="flex gap-1 mb-6">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                </svg>
+              ))}
+            </div>
             <blockquote className="text-foreground text-lg leading-relaxed mb-6">
               &quot;{testimonials[1].quote}&quot;
             </blockquote>
             <div className="flex items-center">
-              <Image 
+              <Image
                 src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&crop=face&auto=format&q=80"
                 alt={testimonials[1].author}
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full object-cover mr-4"
+                className="h-12 w-12 rounded-full object-cover mr-4 ring-2 ring-primary/20"
               />
               <div>
                 <p className="font-bold text-foreground">{testimonials[1].author}</p>
@@ -102,60 +116,53 @@ export default function TestimonialsSection() {
           </div>
 
           {/* Right Stats Card */}
-          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-            <Image
-              src="https://ik.imagekit.io/dtpiuu7ns/uploads/Gemini_Generated_Image_wsrbgfwsrbgfwsrb%20(1).png?updatedAt=1762281840941"
-              alt="Rexa Engage trusted by businesses"
-              width={400}
-              height={192}
-              className="w-full h-48 object-cover"
-              loading="lazy"
-            />
+          <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-2xl shadow-lg border border-primary/20 overflow-hidden hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <div className="p-8">
-              <div className="text-4xl sm:text-5xl font-extrabold text-foreground mb-2">
-                2000+
+              <div className="text-5xl sm:text-6xl font-extrabold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent mb-4">
+                9000+
               </div>
-              <div className="text-base sm:text-lg text-muted-foreground font-medium">
-                businesses trust Rexa Engage
+              <div className="text-lg text-foreground font-semibold mb-4">
+                Businesses Trust Rexa Engage
+              </div>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>99.9% Uptime</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span>50+ Languages</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span>24/7 Support</span>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
         {/* Second Testimonials Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-16">
-          {/* Left Stats Card */}
-          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-            <Image
-              src="https://ik.imagekit.io/dtpiuu7ns/uploads/Gemini_Generated_Image_7mglds7mglds7mgl%20(1).png?updatedAt=1762282099324"
-              alt="Languages supported banner"
-              width={400}
-              height={192}
-              className="w-full h-48 object-cover"
-              loading="lazy"
-            />
-            <div className="p-8">
-              <div className="text-4xl sm:text-5xl font-extrabold text-foreground mb-2">
-                50+
-              </div>
-              <div className="text-base sm:text-lg text-muted-foreground font-medium">
-                languages supported
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-12">
+          {/* Testimonial Card */}
+          <div className="bg-card p-8 rounded-2xl shadow-lg border border-border hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <div className="flex gap-1 mb-6">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                </svg>
+              ))}
             </div>
-          </div>
-
-          {/* Middle Testimonial Card */}
-          <div className="bg-card p-8 rounded-xl shadow-sm border border-border">
             <blockquote className="text-foreground text-lg leading-relaxed mb-6">
               &quot;{additionalTestimonials[0].quote}&quot;
             </blockquote>
             <div className="flex items-center">
-              <Image 
+              <Image
                 src="https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100&h=100&fit=crop&crop=face&auto=format&q=80"
                 alt={additionalTestimonials[0].author}
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full object-cover mr-4"
+                className="h-12 w-12 rounded-full object-cover mr-4 ring-2 ring-primary/20"
               />
               <div>
                 <p className="font-bold text-foreground">{additionalTestimonials[0].author}</p>
@@ -164,18 +171,25 @@ export default function TestimonialsSection() {
             </div>
           </div>
 
-          {/* Right Testimonial Card */}
-          <div className="bg-card p-8 rounded-xl shadow-sm border border-border">
+          {/* Testimonial Card */}
+          <div className="bg-card p-8 rounded-2xl shadow-lg border border-border hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <div className="flex gap-1 mb-6">
+              {[...Array(5)].map((_, i) => (
+                <svg key={i} className="w-5 h-5 fill-yellow-400" viewBox="0 0 20 20">
+                  <path d="M10 15l-5.878 3.09 1.123-6.545L.489 6.91l6.572-.955L10 0l2.939 5.955 6.572.955-4.756 4.635 1.123 6.545z" />
+                </svg>
+              ))}
+            </div>
             <blockquote className="text-foreground text-lg leading-relaxed mb-6">
               &quot;{additionalTestimonials[1].quote}&quot;
             </blockquote>
             <div className="flex items-center">
-              <Image 
+              <Image
                 src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face&auto=format&q=80"
                 alt={additionalTestimonials[1].author}
                 width={48}
                 height={48}
-                className="h-12 w-12 rounded-full object-cover mr-4"
+                className="h-12 w-12 rounded-full object-cover mr-4 ring-2 ring-primary/20"
               />
               <div>
                 <p className="font-bold text-foreground">{additionalTestimonials[1].author}</p>

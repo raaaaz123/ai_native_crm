@@ -5,28 +5,28 @@ import { Twitter, Linkedin, Github, Mail } from 'lucide-react';
 
 export function Footer() {
   return (
-    <footer className="bg-gradient-to-b from-muted/50 to-muted border-t border-border">
+    <footer className="bg-gradient-to-b from-background via-muted/30 to-muted border-t border-border">
       <div className="mx-auto max-w-7xl px-6 lg:px-8 py-16 lg:py-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12">
           {/* Brand Section */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-5">
             <Link href="/" className="inline-flex items-center space-x-2 mb-6">
-              <BrandLogo className="h-9 w-auto" />
+              <BrandLogo className="h-10 w-auto" />
             </Link>
             <p className="text-muted-foreground max-w-md text-base leading-relaxed mb-8">
-              It&apos;s like having ChatGPT specifically for your product. Instantly answer your visitors&apos; questions with a personalized chatbot trained on your website content.
+              Transform your customer engagement with AI-powered agents. Build, deploy, and scale intelligent support that works 24/7.
             </p>
-            <div className="flex space-x-4">
-              <a href="#" className="group p-2.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-md">
+            <div className="flex space-x-3">
+              <a href="#" className="group p-3 rounded-xl bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-lg hover:scale-110">
                 <Twitter className="h-5 w-5" />
               </a>
-              <a href="#" className="group p-2.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-md">
+              <a href="#" className="group p-3 rounded-xl bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-lg hover:scale-110">
                 <Linkedin className="h-5 w-5" />
               </a>
-              <a href="#" className="group p-2.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-md">
+              <a href="#" className="group p-3 rounded-xl bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-lg hover:scale-110">
                 <Github className="h-5 w-5" />
               </a>
-              <a href="#" className="group p-2.5 rounded-lg bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-md">
+              <a href="#" className="group p-3 rounded-xl bg-card border border-border text-muted-foreground hover:text-primary hover:border-primary/30 hover:bg-primary/5 transition-all shadow-sm hover:shadow-lg hover:scale-110">
                 <Mail className="h-5 w-5" />
               </a>
             </div>
