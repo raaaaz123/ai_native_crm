@@ -380,7 +380,7 @@ export async function deleteAgent(agentId: string): Promise<ApiResponse<void>> {
     const agentResponse = await getAgent(agentId);
     if (agentResponse.success) {
       const agent = agentResponse.data;
-      
+
       // Delete files from Storage
       for (const source of agent.knowledgeSources) {
         if (source.fileUrl) {
@@ -405,6 +405,81 @@ export async function deleteAgent(agentId: string): Promise<ApiResponse<void>> {
     return {
       success: false,
       data: undefined,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+// Duplicate agent
+export async function duplicateAgent(agentId: string): Promise<ApiResponse<Agent>> {
+  try {
+    // Get the original agent
+    const agentResponse = await getAgent(agentId);
+    if (!agentResponse.success) {
+      return {
+        success: false,
+        data: {} as Agent,
+        error: agentResponse.error
+      };
+    }
+
+    const originalAgent = agentResponse.data;
+
+    // Create a new agent with duplicated data
+    const docData: Record<string, unknown> = {
+      workspaceId: originalAgent.workspaceId,
+      name: `${originalAgent.name} (Copy)`,
+      description: originalAgent.description || '',
+      status: 'active',
+      model: originalAgent.settings?.model || DEFAULT_AGENT_SETTINGS.model,
+      temperature: originalAgent.settings?.temperature ?? DEFAULT_AGENT_SETTINGS.temperature,
+      systemPrompt: originalAgent.settings?.systemPrompt || DEFAULT_SYSTEM_PROMPT,
+      settings: {
+        model: originalAgent.settings?.model || DEFAULT_AGENT_SETTINGS.model,
+        temperature: originalAgent.settings?.temperature ?? DEFAULT_AGENT_SETTINGS.temperature,
+        maxTokens: originalAgent.settings?.maxTokens || DEFAULT_AGENT_SETTINGS.maxTokens,
+        systemPrompt: originalAgent.settings?.systemPrompt || DEFAULT_SYSTEM_PROMPT
+      },
+      knowledgeSources: originalAgent.knowledgeSources || [],
+      stats: {
+        totalConversations: 0,
+        totalMessages: 0
+      },
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    };
+
+    const docRef = await addDoc(collection(db, 'agents'), docData);
+
+    const newAgent: Agent = {
+      id: docRef.id,
+      workspaceId: originalAgent.workspaceId,
+      name: `${originalAgent.name} (Copy)`,
+      description: originalAgent.description || '',
+      status: 'active',
+      settings: {
+        model: originalAgent.settings?.model || DEFAULT_AGENT_SETTINGS.model,
+        temperature: originalAgent.settings?.temperature ?? DEFAULT_AGENT_SETTINGS.temperature,
+        maxTokens: originalAgent.settings?.maxTokens || DEFAULT_AGENT_SETTINGS.maxTokens,
+        systemPrompt: originalAgent.settings?.systemPrompt || DEFAULT_SYSTEM_PROMPT
+      },
+      knowledgeSources: originalAgent.knowledgeSources || [],
+      stats: {
+        totalConversations: 0,
+        totalMessages: 0
+      },
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    return {
+      success: true,
+      data: newAgent
+    };
+  } catch (error) {
+    return {
+      success: false,
+      data: {} as Agent,
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }
