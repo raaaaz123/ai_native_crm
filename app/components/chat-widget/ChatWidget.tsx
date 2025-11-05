@@ -994,6 +994,10 @@ export default function ChatWidget({
   };
 
   const currentTheme = themeClasses[widgetConfig.appearance];
+  // Sanitize profile image URL to remove accidental trailing characters like ')'
+  const safeProfilePictureUrl = widgetConfig?.profilePictureUrl
+    ? widgetConfig.profilePictureUrl.trim().replace(/[)]+$/g, '')
+    : '';
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50 ${className}`}>
@@ -1007,9 +1011,9 @@ export default function ChatWidget({
                   {/* Header - Clean minimal design with top padding */}
                   <div className={`pt-6 pb-5 px-5 md:pt-7 md:pb-6 md:px-6 ${currentTheme.header} border-b-2 flex items-center justify-between`}>
                     <div className="flex items-center gap-3">
-                      {widgetConfig.profilePictureUrl ? (
+                      {safeProfilePictureUrl ? (
                         <Image
-                          src={widgetConfig.profilePictureUrl}
+                          src={safeProfilePictureUrl}
                           alt="Agent"
                           width={44}
                           height={44}
@@ -1149,9 +1153,9 @@ export default function ChatWidget({
                     >
                       <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
-                    {widgetConfig.profilePictureUrl ? (
+                    {safeProfilePictureUrl ? (
                       <Image
-                        src={widgetConfig.profilePictureUrl}
+                        src={safeProfilePictureUrl}
                         alt="Agent"
                         width={40}
                         height={40}
@@ -1224,9 +1228,9 @@ export default function ChatWidget({
                       {message.role === 'assistant' && (
                         <div className="flex items-start gap-2.5 w-full max-w-[90%]">
                           {/* AI Avatar - Clean minimal sizing */}
-                          {widgetConfig.profilePictureUrl ? (
+                          {safeProfilePictureUrl ? (
                             <Image
-                              src={widgetConfig.profilePictureUrl}
+                              src={safeProfilePictureUrl}
                               alt="AI"
                               width={32}
                               height={32}

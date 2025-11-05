@@ -9,9 +9,16 @@ import UseCasesSection from './components/use-cases/UseCasesSection';
 import IntegrationsSection from './components/integrations/IntegrationsSection';
 import { TestimonialsSection } from './components/testimonials';
 import { SecuritySection } from './components/security';
+import Script from 'next/script';
+import { ChatWidget } from '@/app/components/chat-widget';
 
 export default function Home() {
+  const agentId = process.env.NEXT_PUBLIC_WIDGET_AGENT_ID || 'XHptkClQCsVUHa8obTrm';
+  const workspaceSlug = process.env.NEXT_PUBLIC_WIDGET_WORKSPACE_SLUG || 'rasheed-m';
+  const channelId = process.env.NEXT_PUBLIC_WIDGET_CHANNEL_ID || 'p3pLCzxDV3E5DGYWIgOu';
+
   return (
+    <>
     <main>
       {/* Hero Section */}
       <Hero />
@@ -107,5 +114,13 @@ export default function Home() {
         </div>
       </section>
     </main>
+    {/* Native Chat Widget Component */}
+    <ChatWidget
+      agentId={agentId}
+      workspaceSlug={workspaceSlug}
+      channelId={channelId}
+      position="bottom-right"
+    />
+    </>
   );
 }
