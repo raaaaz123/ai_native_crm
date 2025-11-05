@@ -305,212 +305,181 @@ export default function GoogleSheetsSourcePage() {
 
     return (
       <div className="min-h-screen bg-background">
-        <div className="flex max-w-7xl mx-auto">
-          <div className="flex-1 p-8 pr-4">
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
+        <div className="max-w-4xl mx-auto px-6 py-8">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                <Sheet className="w-5 h-5 text-green-600" />
+              </div>
+              <h1 className="text-2xl font-semibold text-foreground">Google Sheets</h1>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <span>Connected</span>
+            </div>
+          </div>
+
+          {/* Stats - Minimal */}
+          <div className="flex items-center justify-center gap-8 mb-8 text-sm">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-foreground mb-1">{spreadsheets.length}</div>
+              <div className="text-muted-foreground">Total</div>
+            </div>
+            <div className="w-px h-8 bg-border" />
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600 mb-1">{importedSheets.size}</div>
+              <div className="text-muted-foreground">Imported</div>
+            </div>
+            <div className="w-px h-8 bg-border" />
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600 mb-1">{selectedSheets.size}</div>
+              <div className="text-muted-foreground">Selected</div>
+            </div>
+          </div>
+
+          {/* Search - Centered */}
+          <div className="max-w-md mx-auto mb-8">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search spreadsheets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Train RAG Button */}
+          {selectedSheets.size > 0 && (
+            <div className="mb-6 max-w-md mx-auto">
+              <Button
+                onClick={handleTrainRAG}
+                disabled={importing}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Training ({importedCount}/{selectedSheets.size})
+                  </>
+                ) : (
+                  <>
+                    <Database className="w-4 h-4 mr-2" />
+                    Train RAG with {selectedSheets.size} sheet{selectedSheets.size !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+
+          {loadingSheets ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : filteredSheets.length === 0 ? (
+            <div className="text-center py-12">
+              <Sheet className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-50" />
+              <p className="text-sm text-muted-foreground">No spreadsheets found</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {/* Available to Import Section */}
+              {notImportedSheets.length > 0 && (
                 <div>
-                  <h1 className="text-2xl font-semibold text-foreground">Google Sheets Sources</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Connected to Google Account
-                  </p>
-                </div>
-                <Badge variant="default" className="bg-green-500">Connected</Badge>
-              </div>
-            </div>
+                  <h2 className="text-sm font-medium text-muted-foreground text-center mb-4">
+                    Available to Import ({notImportedSheets.length})
+                  </h2>
+                  <div className="space-y-2">
+                    {notImportedSheets.map((sheet) => (
+                      <Card
+                        key={sheet.id}
+                        className={`cursor-pointer transition-all hover:border-primary/50 ${
+                          selectedSheets.has(sheet.id) ? 'border-primary bg-primary/5' : ''
+                        }`}
+                        onClick={() => toggleSheetSelection(sheet.id)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center gap-3">
+                            {/* Checkbox */}
+                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                              selectedSheets.has(sheet.id)
+                                ? 'bg-primary border-primary'
+                                : 'border-muted-foreground/30'
+                            }`}>
+                              {selectedSheets.has(sheet.id) && (
+                                <Check className="w-3 h-3 text-primary-foreground" />
+                              )}
+                            </div>
 
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Search spreadsheets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-foreground">{spreadsheets.length}</div>
-                  <div className="text-sm text-muted-foreground">Total Sheets</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-green-600">{importedSheets.size}</div>
-                  <div className="text-sm text-muted-foreground">In Knowledge Base</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-blue-600">{notImportedSheets.length}</div>
-                  <div className="text-sm text-muted-foreground">Available to Import</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Train RAG Button */}
-            {selectedSheets.size > 0 && (
-              <div className="mb-6">
-                <Button
-                  onClick={handleTrainRAG}
-                  disabled={importing}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
-                  {importing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Training RAG ({importedCount}/{selectedSheets.size})
-                    </>
-                  ) : (
-                    <>
-                      <Database className="w-5 h-5 mr-2" />
-                      Train RAG with Selected ({selectedSheets.size})
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
-
-            {loadingSheets ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Available to Import Section */}
-                {notImportedSheets.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-3">
-                      Available to Import ({notImportedSheets.length})
-                    </h2>
-                    <div className="grid gap-3">
-                      {notImportedSheets.map((sheet) => (
-                        <Card
-                          key={sheet.id}
-                          className={`cursor-pointer transition-all hover:shadow-md ${
-                            selectedSheets.has(sheet.id) ? 'border-blue-500 border-2 bg-blue-50' : ''
-                          }`}
-                          onClick={() => toggleSheetSelection(sheet.id)}
-                        >
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              {/* Checkbox */}
-                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 ${
-                                selectedSheets.has(sheet.id)
-                                  ? 'bg-blue-600 border-blue-600'
-                                  : 'border-gray-300'
-                              }`}>
-                                {selectedSheets.has(sheet.id) && (
-                                  <Check className="w-3 h-3 text-white" />
-                                )}
-                              </div>
-
-                              {/* Icon */}
-                              <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
-                                <Sheet className="w-5 h-5 text-green-600" />
-                              </div>
-
-                              {/* Content */}
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <h3 className="font-medium text-foreground truncate">{sheet.name}</h3>
-                                  <a
-                                    href={sheet.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-muted-foreground hover:text-foreground"
-                                  >
-                                    <ExternalLink className="w-4 h-4" />
-                                  </a>
-                                </div>
-                                <p className="text-sm text-muted-foreground mt-1">
-                                  Modified: {new Date(sheet.modifiedTime).toLocaleDateString()}
+                            {/* Content */}
+                            <div className="flex-1 min-w-0 flex items-center justify-between">
+                              <div className="min-w-0 flex-1">
+                                <h3 className="font-medium text-foreground truncate">{sheet.name}</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Modified {new Date(sheet.modifiedTime).toLocaleDateString()}
                                 </p>
+                              </div>
+                              <a
+                                href={sheet.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-foreground ml-2"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Already in Knowledge Base Section */}
+              {alreadyImportedSheets.length > 0 && (
+                <div>
+                  <h2 className="text-sm font-medium text-muted-foreground text-center mb-4">
+                    In Knowledge Base ({alreadyImportedSheets.length})
+                  </h2>
+                  <div className="space-y-2">
+                    {alreadyImportedSheets.map((sheet) => {
+                      const imported = importedSheets.get(sheet.id);
+                      return (
+                        <Card key={sheet.id} className="bg-green-50/50 border-green-200">
+                          <CardContent className="p-4">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0 flex items-center justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="font-medium text-foreground truncate">{sheet.name}</h3>
+                                  <p className="text-xs text-muted-foreground mt-0.5">
+                                    {imported?.chunksCreated || 0} chunks • {imported?.rowsCount || 0} rows
+                                  </p>
+                                </div>
+                                <a
+                                  href={sheet.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-foreground ml-2"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
                               </div>
                             </div>
                           </CardContent>
                         </Card>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
-
-                {/* Already in Knowledge Base Section */}
-                {alreadyImportedSheets.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-3">
-                      Already in Knowledge Base ({alreadyImportedSheets.length})
-                    </h2>
-                    <div className="grid gap-3">
-                      {alreadyImportedSheets.map((sheet) => {
-                        const imported = importedSheets.get(sheet.id);
-                        return (
-                          <Card key={sheet.id} className="bg-green-50 border-green-200">
-                            <CardContent className="p-4">
-                              <div className="flex items-start gap-3">
-                                {/* Checkmark */}
-                                <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  <Check className="w-3 h-3 text-white" />
-                                </div>
-
-                                {/* Icon */}
-                                <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
-                                  <Sheet className="w-5 h-5 text-green-600" />
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="font-medium text-foreground truncate">{sheet.name}</h3>
-                                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-                                        In RAG
-                                      </Badge>
-                                    </div>
-                                    <a
-                                      href={sheet.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      <ExternalLink className="w-4 h-4" />
-                                    </a>
-                                  </div>
-                                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                    <span>{imported?.chunksCreated || 0} chunks created</span>
-                                    <span>•</span>
-                                    <span>{imported?.rowsCount || 0} rows</span>
-                                    <span>•</span>
-                                    <span>Added: {imported?.createdAt ? new Date(imported.createdAt).toLocaleDateString() : 'N/A'}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {filteredSheets.length === 0 && (
-                  <div className="text-center py-12">
-                    <Sheet className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                    <p className="text-muted-foreground">No spreadsheets found</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     );
@@ -518,65 +487,54 @@ export default function GoogleSheetsSourcePage() {
 
   // Not connected - show connect button
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex max-w-7xl mx-auto">
-        <div className="flex-1 p-8">
-          <div className="mb-8">
-            <h1 className="text-2xl font-semibold text-foreground mb-2">Google Sheets Sources</h1>
-            <p className="text-muted-foreground">
-              Connect your Google account to import spreadsheets into your agent&apos;s knowledge base
-            </p>
-          </div>
+    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+      <div className="max-w-md w-full">
+        <Card>
+          <CardContent className="p-8">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-green-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Sheet className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-semibold text-foreground mb-2">Google Sheets</h2>
+              <p className="text-sm text-muted-foreground mb-8">
+                Import spreadsheet data into your agent&apos;s knowledge base
+              </p>
 
-          <Card className="max-w-2xl">
-            <CardContent className="p-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sheet className="w-8 h-8 text-green-600" />
+              <Button
+                onClick={handleConnectGoogle}
+                disabled={connecting}
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground mb-6"
+              >
+                {connecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Sheet className="w-4 h-4 mr-2" />
+                    Connect with Google
+                  </>
+                )}
+              </Button>
+
+              <div className="space-y-3 text-left border-t pt-6">
+                <div className="flex items-start gap-3 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-muted-foreground">Import spreadsheet data</span>
                 </div>
-                <h2 className="text-xl font-semibold text-foreground mb-2">Connect Google Sheets</h2>
-                <p className="text-muted-foreground mb-6">
-                  Import data from your Google Sheets to enhance your AI agent&apos;s knowledge
-                </p>
-
-                <Button
-                  onClick={handleConnectGoogle}
-                  disabled={connecting}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
-                >
-                  {connecting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Sheet className="w-5 h-5 mr-2" />
-                      Connect with Google
-                    </>
-                  )}
-                </Button>
-
-                <div className="mt-8 text-left space-y-2">
-                  <h3 className="font-medium text-foreground mb-3">What you can do:</h3>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Import spreadsheet data into your knowledge base</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Enable AI to answer questions using your sheet data</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-                    <span>Automatically format data as searchable content</span>
-                  </div>
+                <div className="flex items-start gap-3 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-muted-foreground">AI-powered Q&A on your data</span>
+                </div>
+                <div className="flex items-start gap-3 text-sm">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+                  <span className="text-muted-foreground">Automatic content formatting</span>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

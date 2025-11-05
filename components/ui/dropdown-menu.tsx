@@ -118,7 +118,7 @@ export function DropdownMenuContent({ children, align = "end", className }: Drop
     <div
       ref={ref}
       className={cn(
-        "absolute z-50 min-w-[12rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+        "absolute z-50 min-w-[12rem] overflow-hidden rounded-md border border-border bg-background/95 backdrop-blur-sm p-1 text-foreground shadow-lg",
         align === "end" && "right-0",
         align === "start" && "left-0",
         align === "center" && "left-1/2 -translate-x-1/2",

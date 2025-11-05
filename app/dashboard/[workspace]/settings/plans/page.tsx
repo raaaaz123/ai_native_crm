@@ -42,62 +42,79 @@ const plans: Plan[] = [
     id: 'free',
     name: 'Free',
     price: 0,
-    interval: 'forever',
-    description: 'Perfect for trying out Rexa Engage',
+    interval: 'month',
+    description: 'Perfect for getting started',
     features: [
-      { name: '1 AI Agent', included: true },
-      { name: '100 conversations/month', included: true },
-      { name: '2 team members', included: true },
-      { name: 'Basic analytics', included: true },
-      { name: 'Email support', included: true },
-      { name: 'Custom branding', included: false },
-      { name: 'Priority support', included: false },
-      { name: 'Advanced integrations', included: false }
+      { name: 'Access to fast models', included: true },
+      { name: '100 message credits/month', included: true },
+      { name: '1 AI agent', included: true },
+      { name: '1 AI Action per AI agent', included: true },
+      { name: '400 KB per AI agent', included: true },
+      { name: '1 seat', included: true },
+      { name: 'Integrations', included: true },
+      { name: 'API access', included: true },
+      { name: 'Embed on unlimited websites', included: true },
+      { name: 'Limit of 10 links to train on', included: true }
     ],
     maxAgents: 1,
     maxConversations: '100/month',
-    maxMembers: 2
+    maxMembers: 1
+  },
+  {
+    id: 'hobby',
+    name: 'Hobby',
+    price: 40,
+    interval: 'month',
+    description: 'For small projects',
+    features: [
+      { name: 'Everything in Free +', included: true },
+      { name: 'Access to advanced models', included: true },
+      { name: '2,000 message credits/month', included: true },
+      { name: '1 AI agent', included: true },
+      { name: '5 AI Actions per AI agent', included: true },
+      { name: '40 MB per AI agent', included: true },
+      { name: 'Unlimited links to train on', included: true },
+      { name: 'Basic analytics', included: true }
+    ],
+    maxAgents: 1,
+    maxConversations: '2,000/month',
+    maxMembers: 1
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    price: 150,
+    interval: 'month',
+    description: 'For growing teams',
+    popular: true,
+    features: [
+      { name: 'Everything in Hobby +', included: true },
+      { name: '12,000 message credits/month', included: true },
+      { name: '2 AI agents', included: true },
+      { name: '10 AI Actions per AI agent', included: true },
+      { name: '3 seats', included: true },
+      { name: 'Advanced analytics', included: true }
+    ],
+    maxAgents: 2,
+    maxConversations: '12,000/month',
+    maxMembers: 3
   },
   {
     id: 'pro',
-    name: 'Professional',
-    price: 49,
+    name: 'Pro',
+    price: 500,
     interval: 'month',
-    description: 'For growing teams and businesses',
-    popular: true,
+    description: 'For established businesses',
     features: [
-      { name: '5 AI Agents', included: true },
-      { name: 'Unlimited conversations', included: true },
-      { name: '10 team members', included: true },
-      { name: 'Advanced analytics', included: true },
-      { name: 'Priority email support', included: true },
-      { name: 'Custom branding', included: true },
-      { name: 'API access', included: true },
-      { name: 'Advanced integrations', included: false }
+      { name: 'Everything in Standard +', included: true },
+      { name: '40,000 message credits/month', included: true },
+      { name: '3 AI agents', included: true },
+      { name: '15 AI Actions per AI agent', included: true },
+      { name: '5+ seats', included: true }
     ],
-    maxAgents: 5,
-    maxConversations: 'Unlimited',
-    maxMembers: 10
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: 199,
-    interval: 'month',
-    description: 'For large teams with advanced needs',
-    features: [
-      { name: 'Unlimited AI Agents', included: true },
-      { name: 'Unlimited conversations', included: true },
-      { name: 'Unlimited team members', included: true },
-      { name: 'Advanced analytics', included: true },
-      { name: '24/7 priority support', included: true },
-      { name: 'Custom branding', included: true },
-      { name: 'API access', included: true },
-      { name: 'Advanced integrations', included: true }
-    ],
-    maxAgents: -1,
-    maxConversations: 'Unlimited',
-    maxMembers: -1
+    maxAgents: 3,
+    maxConversations: '40,000/month',
+    maxMembers: 5
   }
 ];
 
@@ -171,7 +188,7 @@ export default function WorkspacePlansSettingsPage() {
       </Card>
 
       {/* Pricing Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {plans.map((plan) => {
           const isCurrentPlan = plan.id === currentPlan;
           const canUpgrade = plan.id !== 'free' && plan.id !== currentPlan;

@@ -173,98 +173,109 @@ export default function AgentsPage() {
 
           {/* Agents Grid or Empty State */}
           {agents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {agents.map((agent) => (
                 <Card
                   key={agent.id}
-                  className="bg-card border hover:border-muted-foreground/20 transition-all duration-200 cursor-pointer group"
+                  className="bg-card border border-border hover:border-primary/50 hover:shadow-lg transition-all duration-300 cursor-pointer group overflow-hidden"
                   onClick={() => handleAgentClick(agent.id)}
                 >
-                  <CardContent className="p-5">
-                    {/* Agent Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Bot className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-base font-medium text-foreground truncate">
-                            {agent.name}
-                          </h3>
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${
-                              agent.status === 'active' ? 'bg-green-500' :
-                              agent.status === 'training' ? 'bg-blue-500' : 'bg-gray-400'
-                            }`} />
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {agent.status}
-                            </span>
+                  <CardContent className="p-0">
+                    {/* Agent Header with Gradient */}
+                    <div className="p-6 pb-4 bg-gradient-to-br from-primary/5 to-transparent">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center flex-shrink-0 shadow-lg">
+                            <Bot className="w-6 h-6 text-primary-foreground" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-lg font-semibold text-foreground truncate mb-1">
+                              {agent.name}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                              <div className={`px-2 py-0.5 rounded-full text-xs font-medium flex items-center gap-1.5 ${
+                                agent.status === 'active'
+                                  ? 'bg-green-100 text-green-700'
+                                  : agent.status === 'training'
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'bg-gray-100 text-gray-600'
+                              }`}>
+                                <div className={`w-1.5 h-1.5 rounded-full ${
+                                  agent.status === 'active' ? 'bg-green-500' :
+                                  agent.status === 'training' ? 'bg-blue-500' : 'bg-gray-400'
+                                }`} />
+                                <span className="capitalize">{agent.status}</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background/80"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/settings`)}
+                            >
+                              <Settings className="w-4 h-4 mr-2" />
+                              Settings
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/analytics`)}
+                            >
+                              <BarChart3 className="w-4 h-4 mr-2" />
+                              Analytics
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/conversations`)}
+                            >
+                              <MessageSquare className="w-4 h-4 mr-2" />
+                              Conversations
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onSelect={() => handleDuplicateAgent(agent)}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onSelect={() => handleDeleteClick(agent)}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/settings`)}
-                          >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Settings
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/analytics`)}
-                          >
-                            <BarChart3 className="w-4 h-4 mr-2" />
-                            Analytics
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/conversations`)}
-                          >
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Conversations
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={() => handleDuplicateAgent(agent)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onSelect={() => handleDeleteClick(agent)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+
+                      {/* Description */}
+                      <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                        {agent.description || 'No description provided'}
+                      </p>
                     </div>
 
-                    {/* Description */}
-                    {agent.description && (
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
-                        {agent.description}
-                      </p>
-                    )}
-
-                    {/* Stats */}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground pt-3 border-t">
-                      <div className="flex items-center gap-1.5">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>{agent.stats.totalConversations} chats</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>{agent.knowledgeSources.length} sources</span>
+                    {/* Stats Section */}
+                    <div className="px-6 py-4 bg-muted/30 border-t">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MessageCircle className="w-4 h-4" />
+                          <span className="font-medium">{agent.stats.totalConversations}</span>
+                          <span className="text-xs">conversations</span>
+                        </div>
+                        <div className="w-px h-4 bg-border" />
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Users className="w-4 h-4" />
+                          <span className="font-medium">{agent.knowledgeSources.length}</span>
+                          <span className="text-xs">sources</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
