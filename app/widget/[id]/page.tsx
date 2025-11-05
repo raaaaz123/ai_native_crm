@@ -327,7 +327,10 @@ export default function ChatWidget() {
               maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
               ragEnabled: aiConfig.ragEnabled || false,
               fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
+              embeddingProvider: aiConfig.embeddingProvider || 'openai',
               embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+              rerankerEnabled: aiConfig.rerankerEnabled || false,
+              rerankerModel: aiConfig.rerankerModel || 'jina-reranker-v2-base-multilingual',
               systemPrompt: aiConfig.systemPrompt || 'support',
               customSystemPrompt: aiConfig.customSystemPrompt || ''
             },
