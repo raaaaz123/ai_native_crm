@@ -68,7 +68,7 @@ interface MenuItem {
 const getNavigationItems = (workspaceSlug?: string): MenuItem[] => [
   {
     name: 'Dashboard',
-    href: workspaceSlug ? `/dashboard/${workspaceSlug}` : '/dashboard',
+    href: '/dashboard',
     icon: <Home className="w-4 h-4" />
   },
   {
@@ -592,19 +592,19 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="mt-auto px-1 pb-3">
-        {/* Subscription Plan Section */}
+        {/* Subscription Plan Section - Compact */}
         {mounted && userData && (
-          <div className="px-3 py-3 mb-3 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20">
+          <div className="px-2 py-2 mb-2 rounded-md bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/60">
             <Link
               href={workspaceSlug ? `/dashboard/${workspaceSlug}/settings/plans` : '/dashboard/settings/plans'}
               className="block group"
             >
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-lg bg-primary/20 text-primary">
-                  <Crown className="w-5 h-5" />
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded bg-blue-100 text-blue-600">
+                  <Crown className="w-3.5 h-3.5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-foreground">
+                  <p className="text-xs font-semibold text-gray-800">
                     {(() => {
                       const subInfo = getSubscriptionInfo(userData);
                       return subInfo.planDisplay;
@@ -613,25 +613,23 @@ export function AppSidebar() {
                   {(() => {
                     const subInfo = getSubscriptionInfo(userData);
                     return subInfo.isTrialActive ? (
-                      <p className="text-xs text-muted-foreground font-medium">
-                        {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} remaining
+                      <p className="text-[10px] text-gray-600 font-medium">
+                        {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} left
                       </p>
                     ) : (
-                      <p className="text-xs text-muted-foreground font-medium">
+                      <p className="text-[10px] text-gray-600 font-medium">
                         {subInfo.statusDisplay}
                       </p>
                     );
                   })()}
                 </div>
-              </div>
-              <div className="text-xs text-primary/70 group-hover:text-primary transition-colors">
-                View plan details →
+                <div className="text-[10px] text-blue-600 group-hover:text-blue-700 font-medium">→</div>
               </div>
             </Link>
           </div>
         )}
 
-        <SidebarSeparator className="mb-3" />
+        <SidebarSeparator className="mb-2" />
 
         {/* Sign Out Button */}
         <SidebarGroup className="px-0">
