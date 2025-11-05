@@ -12,11 +12,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Send, RotateCcw, Loader2, Smile, Copy, Check, ExternalLink, CheckCircle, Calendar, Clock, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Send, RotateCcw, Loader2, Smile, Copy, Check, ExternalLink, CheckCircle, Calendar, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
+import EmojiPicker, { EmojiClickData } from 'emoji-picker-react'
 import 'highlight.js/styles/github-dark.css'
 
 // Custom scrollbar styles and markdown styling
@@ -602,7 +603,9 @@ export default function PlaygroundPage() {
   const [calendlyActions, setCalendlyActions] = useState<AgentAction[]>([])
   const [leadFormData, setLeadFormData] = useState<Record<string, string>>({})
   const [submittingForm, setSubmittingForm] = useState<string | null>(null)
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const emojiPickerRef = useRef<HTMLDivElement>(null)
 
   // Agent configuration
   const [agentConfig, setAgentConfig] = useState<AgentConfig>({
@@ -625,6 +628,29 @@ export default function PlaygroundPage() {
       toast.error('Failed to copy code')
     }
   }
+
+  // Emoji picker functions
+  const handleEmojiClick = (emojiData: EmojiClickData) => {
+    setInput(prev => prev + emojiData.emoji)
+    setShowEmojiPicker(false)
+  }
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false)
+      }
+    }
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showEmojiPicker])
 
   // Custom markdown components with copy functionality
   const MarkdownComponents = {
@@ -1256,13 +1282,7 @@ CALENDLY BOOKING ACTION: ${action.name}
       <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
       <div className="flex h-screen bg-background overflow-hidden">
         {/* Left Sidebar - Agent Configuration */}
-        <div className="w-80 border-r border-border bg-card flex flex-col h-screen overflow-hidden">
-          {/* Sidebar Header - Fixed */}
-          <div className="p-6 border-b border-border flex-shrink-0 bg-card">
-            <h2 className="text-lg font-semibold text-foreground">Agent Configuration</h2>
-            <p className="text-sm text-muted-foreground mt-1">Customize your agent&apos;s behavior and settings</p>
-          </div>
-          
+        <div className="w-80 border-r border-border bg-gradient-to-b from-slate-50 to-white flex flex-col h-screen overflow-hidden">
           {/* Scrollable Configuration Content */}
           <div className="flex-1 overflow-y-scroll p-6 space-y-6 playground-scrollbar" style={{ scrollbarWidth: 'auto', scrollbarColor: 'rgba(0,0,0,0.4) rgba(0,0,0,0.1)' }}>
           {/* Agent Status */}
@@ -1575,53 +1595,77 @@ CALENDLY BOOKING ACTION: ${action.name}
       </div>
 
       {/* Right Side - Fixed Chat Interface */}
-      <div className="flex-1 flex items-center justify-center py-2 px-6 relative h-screen overflow-hidden"
+      <div className="flex-1 flex items-center justify-center p-8 relative"
         style={{
-          backgroundImage: 'radial-gradient(circle, rgba(0, 0, 0, 0.05) 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
-          backgroundAttachment: 'fixed'
+          height: '100vh',
+          overflow: 'hidden',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
         }}
       >
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl"></div>
+        </div>
+
         {/* Chat Container - Fixed Layout */}
-        <div className="w-full max-w-md h-[70vh] max-h-[600px] bg-card rounded-xl shadow-lg flex flex-col border border-border overflow-hidden">
+        <div className="w-full max-w-2xl relative z-10"
+          style={{
+            height: 'calc(100vh - 4rem)',
+            maxHeight: '800px'
+          }}
+        >
+          <div className="h-full bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col border border-white/20 overflow-hidden">
           {/* Chat Header */}
-          <div className="px-4 py-3 border-b border-border flex-shrink-0 bg-card">
+          <div className="px-6 py-4 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="text-sm font-medium text-foreground">{agentConfig.name || 'Agent Playground'}</div>
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-lg">AI</span>
+                </div>
+                <div>
+                  <div className="text-base font-semibold text-gray-900">{agentConfig.name || 'Agent Playground'}</div>
+                  <div className="text-xs text-gray-500 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    Online
+                  </div>
+                </div>
               </div>
               <button
-                className="p-2 hover:bg-muted rounded-md transition-colors"
+                className="p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
                 onClick={handleReset}
                 title="Reset conversation"
               >
-                <RotateCcw className="w-4 h-4 text-muted-foreground" />
+                <RotateCcw className="w-4 h-4 text-gray-600" />
               </button>
             </div>
           </div>
 
           {/* Chat Messages - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 chat-scrollbar" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 chat-scrollbar bg-gradient-to-b from-gray-50/50 to-white/50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-start text-center pt-8">
-                <div className="bg-muted/20 rounded-lg p-3 max-w-md mb-2">
-                  <p className="text-sm text-muted-foreground mb-1">{agentConfig.name || 'AI Agent'}</p>
-                  <p className="text-base text-foreground">Hi! What can I help you with?</p>
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-xl mb-4">
+                  <span className="text-white font-bold text-2xl">AI</span>
                 </div>
-                <p className="text-sm text-muted-foreground">Start a conversation to test your agent</p>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                  {agentConfig.name || 'AI Agent'}
+                </h3>
+                <p className="text-gray-600 mb-1">Hi! What can I help you with?</p>
+                <p className="text-sm text-gray-400">Start a conversation to test your agent</p>
               </div>
             ) : (
               <>
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} group`}
+                    className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}
                   >
                     <div
-                      className={`max-w-[85%] px-4 py-3 rounded-xl shadow-sm transition-all duration-200 ${
+                      className={`max-w-[85%] px-5 py-3.5 rounded-2xl shadow-sm transition-all duration-200 ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white'
-                          : 'bg-white text-gray-900 border border-gray-200 hover:shadow-md'
+                          ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg'
+                          : 'bg-white text-gray-900 border border-gray-200/50 hover:shadow-lg hover:border-gray-300/50'
                       }`}
                     >
                       {message.role === 'user' ? (
@@ -1637,20 +1681,20 @@ CALENDLY BOOKING ACTION: ${action.name}
                           </ReactMarkdown>
                         </div>
                       )}
-                      <div className="flex items-center justify-between mt-2">
-                        <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
+                      <div className="flex items-center justify-between mt-2.5">
+                        <p className={`text-xs ${message.role === 'user' ? 'text-purple-100' : 'text-gray-500'}`}>
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                         {message.role === 'assistant' && (
                           <button
                             onClick={() => copyToClipboard(message.content, `msg-${message.id}`)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1 hover:bg-gray-100 rounded"
+                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 hover:bg-gray-100 rounded-lg"
                             title="Copy message"
                           >
                             {copiedCode === `msg-${message.id}` ? (
-                              <Check className="w-3 h-3 text-green-600" />
+                              <Check className="w-3.5 h-3.5 text-green-600" />
                             ) : (
-                              <Copy className="w-3 h-3 text-gray-500" />
+                              <Copy className="w-3.5 h-3.5 text-gray-500" />
                             )}
                           </button>
                         )}
@@ -1787,13 +1831,13 @@ CALENDLY BOOKING ACTION: ${action.name}
                   </div>
                 ))}
                 {isLoading && (
-                  <div className="flex flex-col items-start">
-                    <div className="bg-white text-gray-900 px-4 py-3 rounded-xl border border-gray-200 shadow-sm max-w-[85%]">
+                  <div className="flex flex-col items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="bg-white text-gray-900 px-5 py-3.5 rounded-2xl border border-gray-200/50 shadow-lg max-w-[85%]">
                       <div className="flex gap-3 items-center">
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                        <div className="flex gap-1.5">
+                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce"></div>
+                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2.5 h-2.5 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-gray-900">AI is thinking...</span>
@@ -1811,7 +1855,7 @@ CALENDLY BOOKING ACTION: ${action.name}
           </div>
 
           {/* Enhanced Input Area */}
-          <div className="border-t border-gray-200 p-3 bg-white flex-shrink-0">
+          <div className="border-t border-gray-200/50 p-4 bg-white/50 backdrop-blur-sm flex-shrink-0">
             <div className="flex gap-3 items-end">
               <div className="flex-1 relative">
                 <Textarea
@@ -1824,26 +1868,51 @@ CALENDLY BOOKING ACTION: ${action.name}
                     }
                   }}
                   placeholder="Type your message... (Shift+Enter for new line)"
-                  className="min-h-[44px] max-h-[120px] resize-none border-gray-300 rounded-xl pr-10 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all duration-200"
+                  className="min-h-[48px] max-h-[120px] resize-none border-gray-300 rounded-2xl pr-12 pl-4 py-3 text-sm focus:border-purple-400 focus:ring-2 focus:ring-purple-200 transition-all duration-200 shadow-sm"
                   rows={1}
                 />
-                <button
-                  className="absolute right-3 bottom-3 text-gray-400 hover:text-gray-600 transition-colors"
-                  title="Add emoji"
-                >
-                  <Smile className="w-4 h-4" />
-                </button>
+                <div className="absolute right-3 bottom-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    className="text-gray-400 hover:text-purple-600 transition-colors p-1 hover:bg-purple-50 rounded-lg"
+                    title="Add emoji"
+                  >
+                    <Smile className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Emoji Picker Popup */}
+                {showEmojiPicker && (
+                  <div ref={emojiPickerRef} className="absolute bottom-16 right-0 z-50 shadow-2xl rounded-2xl overflow-hidden border border-gray-200">
+                    <div className="flex items-center justify-between p-2 bg-white border-b border-gray-200">
+                      <span className="text-sm font-medium text-gray-700 px-2">Pick an emoji</span>
+                      <button
+                        onClick={() => setShowEmojiPicker(false)}
+                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                      >
+                        <X className="w-4 h-4 text-gray-500" />
+                      </button>
+                    </div>
+                    <EmojiPicker
+                      onEmojiClick={handleEmojiClick}
+                      width={320}
+                      height={400}
+                      previewConfig={{ showPreview: false }}
+                    />
+                  </div>
+                )}
               </div>
               <Button
                 onClick={handleSendMessage}
                 disabled={isLoading || !input.trim()}
                 size="icon"
-                className="h-11 w-11 rounded-xl flex-shrink-0 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-300 disabled:to-gray-400 transition-all duration-200 shadow-md hover:shadow-lg"
+                className="h-12 w-12 rounded-2xl flex-shrink-0 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:from-gray-300 disabled:to-gray-400 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <Loader2 className="w-5 h-5 animate-spin text-white" />
                 ) : (
-                  <Send className="w-4 h-4 text-white" />
+                  <Send className="w-5 h-5 text-white" />
                 )}
               </Button>
             </div>
@@ -1851,12 +1920,13 @@ CALENDLY BOOKING ACTION: ${action.name}
             {/* Enhanced Footer */}
             <div className="flex items-center justify-center mt-3">
               <div className="text-xs text-gray-400 flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
+                <div className="w-3 h-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full"></div>
                 Powered by Rexa AI
               </div>
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
     </>
