@@ -77,7 +77,10 @@ export default function ChatWidget() {
     maxRetrievalDocs: number;
     ragEnabled: boolean;
     fallbackToHuman: boolean;
+    embeddingProvider: string;
     embeddingModel: string;
+    rerankerEnabled: boolean;
+    rerankerModel: string;
     systemPrompt: string;
     customSystemPrompt?: string;
   } | null>(null);
@@ -89,7 +92,27 @@ export default function ChatWidget() {
         setWidget(result.data);
         
         // Check if contact form is required
-        type ExtendedWidget = ChatWidget & { requireContactForm?: boolean; aiConfig?: { enabled: boolean; [key: string]: unknown } };
+        type ExtendedWidget = ChatWidget & {
+          requireContactForm?: boolean;
+          aiConfig?: {
+            enabled: boolean;
+            provider?: string;
+            model?: string;
+            temperature?: number;
+            maxTokens?: number;
+            confidenceThreshold?: number;
+            maxRetrievalDocs?: number;
+            ragEnabled?: boolean;
+            fallbackToHuman?: boolean;
+            embeddingProvider?: string;
+            embeddingModel?: string;
+            rerankerEnabled?: boolean;
+            rerankerModel?: string;
+            systemPrompt?: string;
+            customSystemPrompt?: string;
+            [key: string]: unknown;
+          }
+        };
         const extendedData = result.data as ExtendedWidget;
         const requireContactForm = extendedData.requireContactForm !== undefined 
           ? extendedData.requireContactForm 
@@ -131,7 +154,10 @@ export default function ChatWidget() {
             maxRetrievalDocs: aiConfig.maxRetrievalDocs || 5,
             ragEnabled: aiConfig.ragEnabled || false,
             fallbackToHuman: aiConfig.fallbackToHuman !== undefined ? aiConfig.fallbackToHuman : true,
+            embeddingProvider: aiConfig.embeddingProvider || 'openai',
             embeddingModel: aiConfig.embeddingModel || 'text-embedding-3-large',
+            rerankerEnabled: aiConfig.rerankerEnabled || false,
+            rerankerModel: aiConfig.rerankerModel || 'jina-reranker-v2-base-multilingual',
             systemPrompt: aiConfig.systemPrompt || 'support',
             customSystemPrompt: aiConfig.customSystemPrompt || ''
           });
@@ -147,7 +173,10 @@ export default function ChatWidget() {
             maxRetrievalDocs: 5,
             ragEnabled: true,
             fallbackToHuman: true,
+            embeddingProvider: 'openai',
             embeddingModel: 'text-embedding-3-large',
+            rerankerEnabled: false,
+            rerankerModel: 'jina-reranker-v2-base-multilingual',
             systemPrompt: 'support',
             customSystemPrompt: ''
           };
