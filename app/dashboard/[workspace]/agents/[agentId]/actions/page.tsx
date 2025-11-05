@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -67,7 +67,7 @@ export default function AgentActionsPage() {
   useEffect(() => {
     loadAgent();
     loadActions();
-  }, [agentId, workspaceContext]);
+  }, [agentId, workspaceContext, loadAgent, loadActions]);
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function AgentActionsPage() {
     };
   }, [openMenuId]);
 
-  const loadAgent = async () => {
+  const loadAgent = useCallback(async () => {
     if (!agentId) {
       setLoading(false);
       return;
@@ -92,7 +92,7 @@ export default function AgentActionsPage() {
     try {
       setLoading(true);
       const response = await getAgent(agentId);
-      
+
       if (response.success) {
         setAgent(response.data);
       } else {
@@ -105,11 +105,11 @@ export default function AgentActionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [agentId]);
 
-  const loadActions = async () => {
+  const loadActions = useCallback(async () => {
     if (!agentId) return;
-    
+
     try {
       const response = await getAgentActions(agentId);
       if (response.success) {
@@ -122,7 +122,7 @@ export default function AgentActionsPage() {
       console.error('Error loading actions:', error);
       setActions([]);
     }
-  };
+  }, [agentId]);
 
   const handleEditAction = (action: AgentAction) => {
     setOpenMenuId(null);
@@ -447,7 +447,7 @@ export default function AgentActionsPage() {
           <DialogHeader className="space-y-3 pb-6 border-b border-gray-100">
             <DialogTitle className="text-3xl font-bold text-gray-900">Create Action</DialogTitle>
             <DialogDescription className="text-base text-gray-600 leading-relaxed">
-              Choose an action type to automate workflows and enhance your AI agent's capabilities.
+              Choose an action type to automate workflows and enhance your AI agent&apos;s capabilities.
               Each action can be configured to trigger specific behaviors based on user interactions.
             </DialogDescription>
           </DialogHeader>
@@ -564,8 +564,8 @@ export default function AgentActionsPage() {
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900 mb-1">Need help choosing?</h4>
                 <p className="text-sm text-gray-600 leading-relaxed">
-                  Actions allow your agent to perform specific tasks during conversations. Start with "Collect Leads" if you want to gather customer information,
-                  or try "Custom Button" to guide users through specific workflows.
+                  Actions allow your agent to perform specific tasks during conversations. Start with &quot;Collect Leads&quot; if you want to gather customer information,
+                  or try &quot;Custom Button&quot; to guide users through specific workflows.
                 </p>
               </div>
             </div>
