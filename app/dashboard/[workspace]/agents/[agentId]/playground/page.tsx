@@ -418,39 +418,39 @@ function CalendlyBookingWidget({
   today.setHours(0, 0, 0, 0)
 
   return (
-    <div className="mt-3 max-w-[85%]">
+    <div className="mt-2 max-w-[80%]">
       <Card className="border border-gray-200 shadow-sm">
-        <CardContent className="p-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Calendar className="w-5 h-5 text-blue-600" />
+        <CardContent className="p-3">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 bg-blue-100 rounded-lg">
+                <Calendar className="w-4 h-4 text-blue-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-gray-900">
+                <h3 className="text-sm font-semibold text-gray-900">
                   {calendlyBooking?.eventTypeName}
                 </h3>
-                <div className="flex items-center gap-1 text-sm text-gray-600">
-                  <Clock className="w-4 h-4" />
+                <div className="flex items-center gap-1 text-xs text-gray-600">
+                  <Clock className="w-3 h-3" />
                   <span>{calendlyBooking?.duration} minutes</span>
                 </div>
               </div>
             </div>
 
             {loadingSlots ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-                <span className="ml-2 text-sm text-gray-600">Loading available times...</span>
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                <span className="ml-2 text-xs text-gray-600">Loading available times...</span>
               </div>
             ) : availableSlots.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-600">No available slots found. Please try again later.</p>
+              <div className="text-center py-6">
+                <p className="text-xs text-gray-600">No available slots found. Please try again later.</p>
               </div>
             ) : selectedDate ? (
               <>
                 {/* Selected Date Display with Back Button */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -458,21 +458,21 @@ function CalendlyBookingWidget({
                         setSelectedDate(null)
                         setSelectedTime(null)
                       }}
-                      className="h-8 w-8 p-0"
+                      className="h-7 w-7 p-0"
                     >
-                      <ChevronLeft className="w-4 h-4" />
+                      <ChevronLeft className="w-3.5 h-3.5" />
                     </Button>
                     <div className="flex-1">
-                      <h4 className="text-sm font-semibold text-gray-900">Selected Date</h4>
-                      <p className="text-sm text-gray-600">{formatDate(selectedDate)}</p>
+                      <h4 className="text-xs font-semibold text-gray-900">Selected Date</h4>
+                      <p className="text-xs text-gray-600">{formatDate(selectedDate)}</p>
                     </div>
                   </div>
                 </div>
 
                 {/* Time Picker - Show after date selection */}
-                <div className="space-y-3 border-t pt-4">
-                  <h4 className="text-sm font-semibold text-gray-900">Select Time</h4>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                <div className="space-y-2 border-t pt-3">
+                  <h4 className="text-xs font-semibold text-gray-900">Select Time</h4>
+                  <div className="space-y-1.5 max-h-48 overflow-y-auto">
                     {getSlotsForDate(selectedDate).map((slot, index) => {
                       const timeStr = formatTime(slot.start_time)
                       const isSelected = selectedTime === timeStr
@@ -482,7 +482,7 @@ function CalendlyBookingWidget({
                           key={index}
                           onClick={() => setSelectedTime(timeStr)}
                           className={`
-                            w-full px-4 py-3 rounded-lg text-sm font-medium transition-colors text-center
+                            w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center
                             ${isSelected
                               ? 'bg-blue-600 text-white shadow-md'
                               : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
@@ -500,46 +500,46 @@ function CalendlyBookingWidget({
                 {selectedTime && (
                   <Button
                     onClick={handleBook}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white mt-4"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white mt-3 h-9 text-xs"
                   >
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Book Appointment for {formatDate(selectedDate)} at {selectedTime}
-                    <ExternalLink className="w-4 h-4 ml-2" />
+                    <Calendar className="w-3 h-3 mr-2" />
+                    Book for {formatDate(selectedDate)} at {selectedTime}
+                    <ExternalLink className="w-3 h-3 ml-2" />
                   </Button>
                 )}
               </>
             ) : (
               <>
                 {/* Date Picker - Only show when no date selected */}
-                <div className="space-y-3">
+                <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-gray-900">Select Date</h4>
-                    <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-semibold text-gray-900">Select Date</h4>
+                    <div className="flex items-center gap-1.5">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1))}
-                        className="h-8 w-8 p-0"
+                        className="h-7 w-7 p-0"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-3.5 h-3.5" />
                       </Button>
-                      <span className="text-sm font-medium text-gray-700 min-w-[120px] text-center">
-                        {currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      <span className="text-xs font-medium text-gray-700 min-w-[100px] text-center">
+                        {currentMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
                       </span>
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1))}
-                        className="h-8 w-8 p-0"
+                        className="h-7 w-7 p-0"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <ChevronRight className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-7 gap-1 text-xs">
+                  <div className="grid grid-cols-7 gap-1 text-[10px]">
                     {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-                      <div key={day} className="text-center text-gray-500 font-medium py-2">
+                      <div key={day} className="text-center text-gray-500 font-medium py-1 text-[10px]">
                         {day}
                       </div>
                     ))}
@@ -555,11 +555,11 @@ function CalendlyBookingWidget({
                           onClick={() => !isPast && dayInfo.isCurrentMonth && dayInfo.hasSlots && setSelectedDate(new Date(dayInfo.date))}
                           disabled={isPast || !dayInfo.isCurrentMonth || !dayInfo.hasSlots}
                           className={`
-                            h-10 rounded-md text-sm transition-colors
-                            ${isSelected 
-                              ? 'bg-blue-600 text-white font-semibold' 
+                            h-8 rounded-md text-[10px] transition-colors
+                            ${isSelected
+                              ? 'bg-blue-600 text-white font-semibold'
                               : isToday
-                              ? 'bg-blue-50 text-blue-700 font-semibold border-2 border-blue-600'
+                              ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-600'
                               : dayInfo.hasSlots && dayInfo.isCurrentMonth && !isPast
                               ? 'bg-white text-gray-900 hover:bg-gray-100 border border-gray-200'
                               : 'bg-gray-50 text-gray-400 cursor-not-allowed'
@@ -1612,7 +1612,7 @@ CALENDLY BOOKING ACTION: ${action.name}
       </div>
 
       {/* Right Side - Fixed Chat Interface */}
-      <div className="flex-1 flex items-center justify-center p-8 relative"
+      <div className="flex-1 flex items-center justify-center p-4 relative"
         style={{
           height: '100vh',
           overflow: 'hidden',
@@ -1622,50 +1622,50 @@ CALENDLY BOOKING ACTION: ${action.name}
         }}
       >
         {/* Chat Container - Fixed Layout (Portrait Style) */}
-        <div className="w-full max-w-md relative z-10"
+        <div className="w-full max-w-lg relative z-10"
           style={{
-            height: 'calc(100vh - 8rem)',
-            maxHeight: '600px'
+            height: 'calc(100vh - 4rem)',
+            maxHeight: '800px'
           }}
         >
           <div className="h-full bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col border border-white/20 overflow-hidden">
           {/* Chat Header */}
-          <div className="px-6 py-4 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm">
+          <div className="px-4 py-3 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-xl">AI</span>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
+                  <span className="text-white font-bold text-base">AI</span>
                 </div>
                 <div>
-                  <div className="text-base font-semibold text-gray-900">{agentConfig.name || 'Agent Playground'}</div>
+                  <div className="text-sm font-semibold text-gray-900">{agentConfig.name || 'Agent Playground'}</div>
                   <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
                     Online
                   </div>
                 </div>
               </div>
               <button
-                className="p-2.5 hover:bg-gray-100 rounded-xl transition-all duration-200 hover:scale-105"
+                className="p-2 hover:bg-gray-100 rounded-lg transition-all duration-200"
                 onClick={handleReset}
                 title="Reset conversation"
               >
-                <RotateCcw className="w-4 h-4 text-gray-600" />
+                <RotateCcw className="w-3.5 h-3.5 text-gray-600" />
               </button>
             </div>
           </div>
 
           {/* Chat Messages - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-4 chat-scrollbar bg-gray-50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 chat-scrollbar bg-gray-50/50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-20 h-20 bg-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-lg">
-                  <span className="text-white font-bold text-3xl">AI</span>
+                <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mb-3 shadow-lg">
+                  <span className="text-white font-bold text-2xl">AI</span>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {agentConfig.name || 'AI Agent'}
                 </h3>
-                <p className="text-gray-600 mb-1">Hi! What can I help you with?</p>
-                <p className="text-sm text-gray-400">Start a conversation to test your agent</p>
+                <p className="text-sm text-gray-600 mb-1">Hi! What can I help you with?</p>
+                <p className="text-xs text-gray-400">Start a conversation to test your agent</p>
               </div>
             ) : (
               <>
@@ -1675,7 +1675,7 @@ CALENDLY BOOKING ACTION: ${action.name}
                     className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}
                   >
                     <div
-                      className={`max-w-[85%] px-5 py-3.5 rounded-2xl shadow-sm transition-all duration-200 ${
+                      className={`max-w-[80%] px-3 py-2 rounded-xl shadow-sm transition-all duration-200 ${
                         message.role === 'user'
                           ? 'bg-blue-600 text-white'
                           : 'bg-white text-gray-900 border border-gray-200'
@@ -1694,20 +1694,20 @@ CALENDLY BOOKING ACTION: ${action.name}
                           </ReactMarkdown>
                         </div>
                       )}
-                      <div className="flex items-center justify-between mt-2.5">
-                        <p className={`text-xs ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className={`text-[10px] ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
                         {message.role === 'assistant' && (
                           <button
                             onClick={() => copyToClipboard(message.content, `msg-${message.id}`)}
-                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 hover:bg-gray-100 rounded-lg"
+                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 hover:bg-gray-100 rounded"
                             title="Copy message"
                           >
                             {copiedCode === `msg-${message.id}` ? (
-                              <Check className="w-3.5 h-3.5 text-green-600" />
+                              <Check className="w-3 h-3 text-green-600" />
                             ) : (
-                              <Copy className="w-3.5 h-3.5 text-gray-500" />
+                              <Copy className="w-3 h-3 text-gray-500" />
                             )}
                           </button>
                         )}
@@ -1716,7 +1716,7 @@ CALENDLY BOOKING ACTION: ${action.name}
 
                     {/* Custom Button - Show if attached to message */}
                     {message.role === 'assistant' && message.customButton && (
-                      <div className="mt-3 max-w-[85%]">
+                      <div className="mt-2 max-w-[80%]">
                         <Button
                           onClick={() => {
                             if (message.customButton) {
@@ -1736,9 +1736,9 @@ CALENDLY BOOKING ACTION: ${action.name}
 
                     {/* Collect Leads Form - Show if attached to message */}
                     {message.role === 'assistant' && message.collectLeadsForm && (
-                      <div className="mt-3 max-w-[85%]">
+                      <div className="mt-2 max-w-[80%]">
                         <Card className="border border-gray-200 shadow-sm">
-                          <CardContent className="p-4">
+                          <CardContent className="p-3">
                             <form
                               onSubmit={(e) => {
                                 e.preventDefault()
@@ -1750,11 +1750,11 @@ CALENDLY BOOKING ACTION: ${action.name}
                                   )
                                 }
                               }}
-                              className="space-y-4"
+                              className="space-y-3"
                             >
                               {message.collectLeadsForm.fields.map((field) => (
                                 <div key={field.id}>
-                                  <Label className="text-sm font-medium text-gray-700">
+                                  <Label className="text-xs font-medium text-gray-700">
                                     {field.label}
                                     {field.required && <span className="text-red-500 ml-1">*</span>}
                                   </Label>
@@ -1769,14 +1769,14 @@ CALENDLY BOOKING ACTION: ${action.name}
                                         [field.name]: e.target.value
                                       }))
                                     }
-                                    className="mt-1"
+                                    className="mt-1 h-9 text-sm"
                                   />
                                 </div>
                               ))}
                               <Button
                                 type="submit"
                                 disabled={submittingForm === message.id}
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-9 text-sm"
                               >
                                 {submittingForm === message.id ? (
                                   <>
@@ -1808,12 +1808,12 @@ CALENDLY BOOKING ACTION: ${action.name}
 
                     {/* Enhanced Performance Metrics */}
                     {message.role === 'assistant' && message.metrics && (
-                      <div className="mt-2 px-3 py-2 bg-gray-50 rounded-lg text-xs space-y-2 max-w-[85%] border border-gray-200">
-                        <div className="flex items-center gap-2 text-gray-600">
-                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="mt-2 px-2 py-1.5 bg-gray-50/80 rounded-lg text-[10px] space-y-1.5 max-w-[80%] border border-gray-200">
+                        <div className="flex items-center gap-1.5 text-gray-600">
+                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
                           <span className="font-medium">Performance Metrics</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-2 gap-2">
                           {message.metrics.retrieval_time !== undefined && (
                             <div className="flex flex-col">
                               <span className="text-gray-500 text-xs">Retrieval</span>
@@ -1845,17 +1845,17 @@ CALENDLY BOOKING ACTION: ${action.name}
                 ))}
                 {isLoading && (
                   <div className="flex flex-col items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="bg-white text-gray-900 px-5 py-3.5 rounded-2xl border border-gray-200/50 shadow-lg max-w-[85%]">
-                      <div className="flex gap-3 items-center">
-                        <div className="flex gap-1.5">
-                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce"></div>
-                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                          <div className="w-2.5 h-2.5 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="bg-white text-gray-900 px-3 py-2 rounded-xl border border-gray-200/50 shadow-sm max-w-[80%]">
+                      <div className="flex gap-2 items-center">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                          <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900">AI is thinking...</span>
+                          <span className="text-xs font-medium text-gray-900">AI is thinking...</span>
                           {statusMessage && (
-                            <span className="text-xs text-gray-500">{statusMessage}</span>
+                            <span className="text-[10px] text-gray-500">{statusMessage}</span>
                           )}
                         </div>
                       </div>
@@ -1868,8 +1868,8 @@ CALENDLY BOOKING ACTION: ${action.name}
           </div>
 
           {/* Enhanced Input Area */}
-          <div className="border-t border-gray-200/50 p-4 bg-white/50 backdrop-blur-sm flex-shrink-0" style={{ minHeight: '88px', maxHeight: '88px' }}>
-            <div className="flex gap-3 items-center h-full">
+          <div className="border-t border-gray-200/50 p-3 bg-white/50 backdrop-blur-sm flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
+            <div className="flex gap-2 items-center h-full">
               <div className="flex-1 relative flex items-center">
                 <Textarea
                   value={input}
@@ -1881,36 +1881,36 @@ CALENDLY BOOKING ACTION: ${action.name}
                     }
                   }}
                   placeholder="Type your message... (Shift+Enter for new line)"
-                  className="h-[48px] min-h-[48px] max-h-[48px] resize-none border-gray-300 rounded-2xl pr-12 pl-4 py-3 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all duration-200 overflow-y-auto"
+                  className="h-[40px] min-h-[40px] max-h-[40px] resize-none border-gray-300 rounded-xl pr-10 pl-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all duration-200 overflow-y-auto"
                   rows={1}
                 />
-                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded-lg"
+                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
                     title="Add emoji"
                   >
-                    <Smile className="w-5 h-5" />
+                    <Smile className="w-4 h-4" />
                   </button>
                 </div>
 
                 {/* Emoji Picker Popup */}
                 {showEmojiPicker && (
-                  <div ref={emojiPickerRef} className="absolute bottom-16 right-0 z-50 shadow-2xl rounded-2xl overflow-hidden border border-gray-200">
+                  <div ref={emojiPickerRef} className="absolute bottom-14 right-0 z-50 shadow-2xl rounded-xl overflow-hidden border border-gray-200">
                     <div className="flex items-center justify-between p-2 bg-white border-b border-gray-200">
-                      <span className="text-sm font-medium text-gray-700 px-2">Pick an emoji</span>
+                      <span className="text-xs font-medium text-gray-700 px-2">Pick an emoji</span>
                       <button
                         onClick={() => setShowEmojiPicker(false)}
-                        className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                        className="p-1 hover:bg-gray-100 rounded transition-colors"
                       >
-                        <X className="w-4 h-4 text-gray-500" />
+                        <X className="w-3.5 h-3.5 text-gray-500" />
                       </button>
                     </div>
                     <EmojiPicker
                       onEmojiClick={handleEmojiClick}
-                      width={320}
-                      height={400}
+                      width={280}
+                      height={350}
                       previewConfig={{ showPreview: false }}
                     />
                   </div>
@@ -1920,20 +1920,20 @@ CALENDLY BOOKING ACTION: ${action.name}
                 onClick={handleSendMessage}
                 disabled={isLoading || !input.trim()}
                 size="icon"
-                className="h-12 w-12 rounded-2xl flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 transition-all duration-200"
+                className="h-10 w-10 rounded-xl flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 transition-all duration-200"
               >
                 {isLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin text-white" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                 ) : (
-                  <Send className="w-5 h-5 text-white" />
+                  <Send className="w-4 h-4 text-white" />
                 )}
               </Button>
             </div>
 
             {/* Enhanced Footer */}
-            <div className="flex items-center justify-center mt-3">
-              <div className="text-xs text-gray-400 flex items-center gap-1.5">
-                <div className="w-3 h-3 bg-blue-600 rounded-full"></div>
+            <div className="flex items-center justify-center mt-2">
+              <div className="text-[10px] text-gray-400 flex items-center gap-1">
+                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
                 Powered by Rexa AI
               </div>
             </div>
