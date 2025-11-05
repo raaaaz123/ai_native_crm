@@ -51,29 +51,15 @@ const settingsSections: SettingsSection[] = [
     id: 'general',
     name: 'General',
     icon: <SettingsIcon className="w-5 h-5" />,
-    description: 'Basic agent settings and configuration',
+    description: 'Basic agent settings',
     href: 'general'
   },
   {
     id: 'ai',
     name: 'AI Configuration',
     icon: <Zap className="w-5 h-5" />,
-    description: 'AI model settings and behavior',
+    description: 'AI model and behavior',
     href: 'ai'
-  },
-  {
-    id: 'security',
-    name: 'Security',
-    icon: <Shield className="w-5 h-5" />,
-    description: 'Security settings and access control',
-    href: 'security'
-  },
-  {
-    id: 'integrations',
-    name: 'Integrations',
-    icon: <ExternalLink className="w-5 h-5" />,
-    description: 'Third-party integrations and APIs',
-    href: 'integrations'
   }
 ];
 
@@ -201,41 +187,39 @@ export default function AgentSettingsPage() {
           <CardTitle>Basic Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="agentName">Agent Name</Label>
-              <Input id="agentName" defaultValue={agent?.name || ''} />
-            </div>
-            <div>
-              <Label htmlFor="agentSlug">Agent Slug</Label>
-              <Input id="agentSlug" defaultValue={agent?.id || ''} />
-            </div>
+          <div>
+            <Label htmlFor="agentName">Agent Name</Label>
+            <Input
+              id="agentName"
+              defaultValue={agent?.name || ''}
+              placeholder="Enter agent name"
+              className="mt-2"
+            />
           </div>
           <div>
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" defaultValue={agent?.description || ''} rows={3} />
+            <Textarea
+              id="description"
+              defaultValue={agent?.description || ''}
+              rows={3}
+              placeholder="Describe what this agent does..."
+              className="mt-2"
+            />
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Status & Visibility</CardTitle>
+          <CardTitle>Agent Status</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="flex items-center justify-between">
             <div>
-              <Label>Agent Status</Label>
-              <p className="text-sm text-gray-500">Enable or disable the agent</p>
+              <Label className="text-base">Enable Agent</Label>
+              <p className="text-sm text-muted-foreground mt-1">Control whether this agent is active and can respond to queries</p>
             </div>
             <Switch defaultChecked={agent?.status === 'active'} />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Public Access</Label>
-              <p className="text-sm text-gray-500">Allow public access to this agent</p>
-            </div>
-            <Switch />
           </div>
         </CardContent>
       </Card>
@@ -264,66 +248,48 @@ export default function AgentSettingsPage() {
       {aiConfig.enabled && (
         <>
           {/* AI Model Selection */}
-          <Card className="border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 to-purple-50">
+          <Card>
             <CardHeader>
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                  <Zap className="w-6 h-6 text-white" />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Zap className="w-5 h-5 text-primary" />
                 </div>
                 <div className="flex-1">
-                  <CardTitle className="text-lg">🚀 AI Model Selection</CardTitle>
-                  <p className="text-sm text-gray-700 mt-1">Powered by OpenRouter</p>
+                  <CardTitle className="text-base">AI Model Selection</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">Choose the AI model for your agent</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="aiModel" className="text-sm font-semibold">Select Model</Label>
+                <Label htmlFor="aiModel">Model</Label>
                 <Select
                   value={aiConfig.model}
                   onValueChange={(value) => handleAiConfigChange('model', value)}
                 >
-                  <SelectTrigger className="h-10 mt-2 bg-white border-2 border-indigo-300">
+                  <SelectTrigger className="mt-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="openai/gpt-5-mini">
-                      🤖 GPT-5 Mini (OpenAI - Latest)
+                      GPT-5 Mini (OpenAI)
                     </SelectItem>
                     <SelectItem value="google/gemini-2.5-flash">
-                      ⚡ Gemini 2.5 Flash (Google - Fast)
+                      Gemini 2.5 Flash (Google)
                     </SelectItem>
                   </SelectContent>
                 </Select>
-
-                <div className="mt-3 p-3 bg-white rounded-lg border border-indigo-200">
-                  {aiConfig.model === 'openai/gpt-5-mini' ? (
-                    <>
-                      <p className="text-xs text-indigo-900 font-medium mb-1.5">✨ GPT-5 Mini Benefits:</p>
-                      <ul className="text-xs text-indigo-800 space-y-1 ml-4 list-disc">
-                        <li>Latest technology from OpenAI</li>
-                        <li>Better accuracy & understanding</li>
-                        <li>Excellent for complex reasoning</li>
-                        <li>Best-in-class performance</li>
-                      </ul>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-xs text-green-900 font-medium mb-1.5">⚡ Gemini 2.5 Flash Benefits:</p>
-                      <ul className="text-xs text-green-800 space-y-1 ml-4 list-disc">
-                        <li>Google&apos;s latest model</li>
-                        <li>Ultra-fast response times</li>
-                        <li>Multimodal capabilities (text + images)</li>
-                        <li>Great for real-time chat</li>
-                      </ul>
-                    </>
-                  )}
-                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  {aiConfig.model === 'openai/gpt-5-mini'
+                    ? 'Latest OpenAI model with excellent accuracy and reasoning capabilities'
+                    : 'Google\'s fast model with multimodal capabilities and real-time performance'
+                  }
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="temperature" className="text-sm font-semibold">Temperature</Label>
+                  <Label htmlFor="temperature">Temperature</Label>
                   <Input
                     id="temperature"
                     type="number"
@@ -334,10 +300,10 @@ export default function AgentSettingsPage() {
                     onChange={(e) => handleAiConfigChange('temperature', parseFloat(e.target.value))}
                     className="mt-2"
                   />
-                  <p className="text-xs text-gray-600 mt-1">Higher = more creative (0-2)</p>
+                  <p className="text-xs text-muted-foreground mt-1">Controls randomness (0 = focused, 2 = creative)</p>
                 </div>
                 <div>
-                  <Label htmlFor="maxTokens" className="text-sm font-semibold">Max Tokens</Label>
+                  <Label htmlFor="maxTokens">Max Tokens</Label>
                   <Input
                     id="maxTokens"
                     type="number"
@@ -347,20 +313,21 @@ export default function AgentSettingsPage() {
                     onChange={(e) => handleAiConfigChange('maxTokens', parseInt(e.target.value))}
                     className="mt-2"
                   />
-                  <p className="text-xs text-gray-600 mt-1">Max response length</p>
+                  <p className="text-xs text-muted-foreground mt-1">Maximum response length</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Embeddings Configuration */}
-          <Card className="border border-green-200 bg-green-50">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-base">🔍 Embeddings Configuration</CardTitle>
+              <CardTitle className="text-base">Embeddings Configuration</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Configure how your agent processes and searches knowledge</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="embeddingProvider" className="text-sm font-semibold">Embedding Provider</Label>
+                <Label htmlFor="embeddingProvider">Embedding Provider</Label>
                 <Select
                   value={aiConfig.embeddingProvider}
                   onValueChange={(value) => {
@@ -372,53 +339,44 @@ export default function AgentSettingsPage() {
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10 mt-2 bg-white">
+                  <SelectTrigger className="mt-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="openai">🤖 OpenAI - Industry standard</SelectItem>
-                    <SelectItem value="voyage">🚢 Voyage AI - Optimized for retrieval</SelectItem>
+                    <SelectItem value="openai">OpenAI (Industry standard)</SelectItem>
+                    <SelectItem value="voyage">Voyage AI (Optimized for retrieval)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               <div>
-                <Label htmlFor="embeddingModel" className="text-sm font-semibold">Select Model</Label>
+                <Label htmlFor="embeddingModel">Embedding Model</Label>
                 <Select
                   value={aiConfig.embeddingModel}
                   onValueChange={(value) => handleAiConfigChange('embeddingModel', value)}
                 >
-                  <SelectTrigger className="h-10 mt-2 bg-white">
+                  <SelectTrigger className="mt-2">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {aiConfig.embeddingProvider === 'voyage' ? (
                       <>
-                        <SelectItem value="voyage-3">🚢 Voyage-3 (1024d) - Best for retrieval</SelectItem>
-                        <SelectItem value="voyage-3-lite">💨 Voyage-3-Lite (512d) - Faster & cheaper</SelectItem>
+                        <SelectItem value="voyage-3">Voyage-3 (1024d) - Best quality</SelectItem>
+                        <SelectItem value="voyage-3-lite">Voyage-3-Lite (512d) - Fast & efficient</SelectItem>
                       </>
                     ) : (
                       <>
-                        <SelectItem value="text-embedding-3-large">⚡ Text Embedding 3 Large (3072d) - Best quality</SelectItem>
-                        <SelectItem value="text-embedding-3-small">💨 Text Embedding 3 Small (1536d) - Faster & cheaper</SelectItem>
-                        <SelectItem value="text-embedding-ada-002">📦 Ada 002 (1536d) - Legacy model</SelectItem>
+                        <SelectItem value="text-embedding-3-large">Text Embedding 3 Large (3072d)</SelectItem>
+                        <SelectItem value="text-embedding-3-small">Text Embedding 3 Small (1536d)</SelectItem>
+                        <SelectItem value="text-embedding-ada-002">Ada 002 (1536d) - Legacy</SelectItem>
                       </>
                     )}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-600 mt-2">
+                <p className="text-xs text-muted-foreground mt-2">
                   {aiConfig.embeddingProvider === 'voyage'
-                    ? 'Voyage AI is optimized for search and retrieval tasks'
-                    : 'Higher dimensions = better accuracy but higher cost'
-                  }
-                </p>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                <p className="text-xs text-blue-800">
-                  <strong>💡 Tip:</strong> {aiConfig.embeddingProvider === 'voyage'
-                    ? 'Voyage-3 is specifically trained for retrieval tasks and may provide better semantic matching.'
-                    : 'Use text-embedding-3-large for best quality or text-embedding-3-small for cost savings.'
+                    ? 'Voyage AI models are optimized for search and retrieval tasks'
+                    : 'Higher dimensions provide better accuracy but increase costs'
                   }
                 </p>
               </div>
@@ -426,14 +384,16 @@ export default function AgentSettingsPage() {
           </Card>
 
           {/* Reranker Configuration */}
-          <Card className="border border-cyan-200 bg-gradient-to-br from-cyan-50 to-blue-50">
-            <CardContent className="pt-6 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Reranker</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Improve search accuracy by reranking results</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label htmlFor="rerankerEnabled" className="text-base font-semibold flex items-center gap-2">
-                    🎯 Reranker (Recommended)
-                  </Label>
-                  <p className="text-sm text-gray-600 mt-1">Boost accuracy from 65% to 95%+ with intelligent reranking</p>
+                  <Label htmlFor="rerankerEnabled" className="text-base">Enable Reranker</Label>
+                  <p className="text-sm text-muted-foreground mt-1">Significantly improves search relevance</p>
                 </div>
                 <Switch
                   id="rerankerEnabled"
@@ -443,31 +403,24 @@ export default function AgentSettingsPage() {
               </div>
 
               {aiConfig.rerankerEnabled && (
-                <div className="space-y-3 pt-3 border-t border-cyan-200">
-                  <div className="bg-white rounded-lg p-3 border border-cyan-200">
-                    <Label htmlFor="rerankerModel" className="text-sm font-semibold">Reranker Model</Label>
-                    <select
-                      id="rerankerModel"
+                <div className="pt-2 space-y-3">
+                  <div>
+                    <Label htmlFor="rerankerModel">Reranker Model</Label>
+                    <Select
                       value={aiConfig.rerankerModel}
-                      onChange={(e) => handleAiConfigChange('rerankerModel', e.target.value)}
-                      className="w-full h-9 px-3 text-sm bg-white border-2 border-gray-200 rounded-lg focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 mt-2"
+                      onValueChange={(value) => handleAiConfigChange('rerankerModel', value)}
                     >
-                      <option value="rerank-2.5">🚢 rerank-2.5 (Latest, Best Quality)</option>
-                      <option value="rerank-2">🚢 rerank-2 (Fast & Accurate)</option>
-                      <option value="rerank-lite-1">💨 rerank-lite-1 (Fastest)</option>
-                    </select>
-                  </div>
-
-                  <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-3">
-                    <p className="text-xs text-cyan-900 font-semibold mb-2">🎯 How Reranking Works:</p>
-                    <ul className="text-xs text-cyan-800 space-y-1.5 ml-4 list-disc">
-                      <li><strong>Step 1:</strong> Vector search finds 15 candidates</li>
-                      <li><strong>Step 2:</strong> Reranker scores each by relevance</li>
-                      <li><strong>Step 3:</strong> Returns top 5 most relevant</li>
-                      <li><strong>Result:</strong> Much better context for AI!</li>
-                    </ul>
-                    <p className="text-xs text-cyan-700 mt-3 font-semibold">
-                      ⚡ Cost: ~$0.03 per 1000 queries | Worth it for 30% better accuracy!
+                      <SelectTrigger className="mt-2">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rerank-2.5">rerank-2.5 (Latest)</SelectItem>
+                        <SelectItem value="rerank-2">rerank-2 (Fast & accurate)</SelectItem>
+                        <SelectItem value="rerank-lite-1">rerank-lite-1 (Fastest)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Reranker improves search accuracy by scoring and ordering results by relevance
                     </p>
                   </div>
                 </div>
@@ -475,47 +428,46 @@ export default function AgentSettingsPage() {
             </CardContent>
           </Card>
 
-          {/* AI Features Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* RAG/Knowledge Base */}
-            <Card className="border border-purple-200 bg-purple-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="ragEnabled" className="text-base font-semibold">Knowledge Base (RAG)</Label>
-                  <Switch
-                    id="ragEnabled"
-                    checked={aiConfig.ragEnabled}
-                    onCheckedChange={(checked) => handleAiConfigChange('ragEnabled', checked)}
-                  />
+          {/* AI Features */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Additional Features</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="ragEnabled" className="text-base">Knowledge Base (RAG)</Label>
+                  <p className="text-sm text-muted-foreground mt-1">Use your knowledge base to answer queries</p>
                 </div>
-                <p className="text-xs text-gray-600">Use your knowledge base for AI responses</p>
-              </CardContent>
-            </Card>
-
-            {/* Fallback to Human */}
-            <Card className="border border-blue-200 bg-blue-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between mb-2">
-                  <Label htmlFor="fallbackToHuman" className="text-base font-semibold">Human Fallback</Label>
-                  <Switch
-                    id="fallbackToHuman"
-                    checked={aiConfig.fallbackToHuman}
-                    onCheckedChange={(checked) => handleAiConfigChange('fallbackToHuman', checked)}
-                  />
+                <Switch
+                  id="ragEnabled"
+                  checked={aiConfig.ragEnabled}
+                  onCheckedChange={(checked) => handleAiConfigChange('ragEnabled', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between pt-2 border-t">
+                <div>
+                  <Label htmlFor="fallbackToHuman" className="text-base">Human Fallback</Label>
+                  <p className="text-sm text-muted-foreground mt-1">Transfer to human when AI is uncertain</p>
                 </div>
-                <p className="text-xs text-gray-600">Transfer to human when AI is uncertain</p>
-              </CardContent>
-            </Card>
-          </div>
+                <Switch
+                  id="fallbackToHuman"
+                  checked={aiConfig.fallbackToHuman}
+                  onCheckedChange={(checked) => handleAiConfigChange('fallbackToHuman', checked)}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
           {/* System Prompt */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">System Prompt Configuration</CardTitle>
+              <CardTitle className="text-base">System Prompt</CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">Define how your agent should behave</p>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label htmlFor="systemPromptType" className="text-sm font-semibold">Prompt Type</Label>
+                <Label htmlFor="systemPromptType">Prompt Type</Label>
                 <Select
                   value={aiConfig.systemPrompt}
                   onValueChange={(value) => handleAiConfigChange('systemPrompt', value)}
@@ -524,16 +476,16 @@ export default function AgentSettingsPage() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="support">💬 Support Agent</SelectItem>
-                    <SelectItem value="sales">💰 Sales Agent</SelectItem>
-                    <SelectItem value="custom">✏️ Custom Prompt</SelectItem>
+                    <SelectItem value="support">Support Agent</SelectItem>
+                    <SelectItem value="sales">Sales Agent</SelectItem>
+                    <SelectItem value="custom">Custom Prompt</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
               {aiConfig.systemPrompt === 'custom' && (
                 <div>
-                  <Label htmlFor="customSystemPrompt" className="text-sm font-semibold">Custom System Prompt</Label>
+                  <Label htmlFor="customSystemPrompt">Custom System Prompt</Label>
                   <Textarea
                     id="customSystemPrompt"
                     value={aiConfig.customSystemPrompt}
@@ -546,139 +498,8 @@ export default function AgentSettingsPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Info Banner */}
-          <div className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-200">
-            <p className="text-sm text-indigo-900 font-medium mb-2">🎯 Pro Tip</p>
-            <p className="text-sm text-indigo-700">
-              Enable RAG to use your knowledge base for more accurate AI responses. Choose the right embedding model based on your quality vs. cost needs. Human fallback ensures customers always get help when AI can&apos;t assist.
-            </p>
-          </div>
         </>
       )}
-    </div>
-  );
-
-  const renderSecuritySettings = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Access Control</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Require Authentication</Label>
-              <p className="text-sm text-gray-500">Users must be authenticated to interact</p>
-            </div>
-            <Switch />
-          </div>
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>Rate Limiting</Label>
-              <p className="text-sm text-gray-500">Limit requests per user per minute</p>
-            </div>
-            <Switch defaultChecked />
-          </div>
-          <div>
-            <Label htmlFor="rateLimit">Rate Limit (requests/minute)</Label>
-            <Input id="rateLimit" type="number" defaultValue="60" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>API Keys</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label>API Key</Label>
-              <p className="text-sm text-gray-500">Your agent&apos;s API key</p>
-            </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <Copy className="w-4 h-4 mr-2" />
-                Copy
-              </Button>
-              <Button variant="outline" size="sm">
-                <Key className="w-4 h-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-3 bg-gray-50 rounded-lg">
-            <code className="text-sm font-mono">ak-1234567890abcdef...</code>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderDomainsSettings = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Custom Domains</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <Label htmlFor="customDomain">Custom Domain</Label>
-            <div className="flex gap-2">
-              <Input id="customDomain" placeholder="chat.yourdomain.com" />
-              <Button>Add Domain</Button>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between p-3 border rounded-lg">
-              <div>
-                <p className="font-medium">chat.example.com</p>
-                <p className="text-sm text-gray-500">Active</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm">
-                  <Edit className="w-4 h-4" />
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-
-  const renderIntegrationsSettings = () => (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Available Integrations</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { name: 'Slack', description: 'Send messages to Slack channels', icon: '💬' },
-              { name: 'Discord', description: 'Integrate with Discord servers', icon: '🎮' },
-              { name: 'WhatsApp', description: 'Connect to WhatsApp Business', icon: '📱' },
-              { name: 'Zapier', description: 'Automate workflows with Zapier', icon: '⚡' },
-              { name: 'Webhook', description: 'Send data to custom webhooks', icon: '🔗' },
-              { name: 'Email', description: 'Send email notifications', icon: '📧' }
-            ].map((integration) => (
-              <div key={integration.name} className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer">
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl">{integration.icon}</span>
-                  <div>
-                    <h3 className="font-medium">{integration.name}</h3>
-                    <p className="text-sm text-gray-500">{integration.description}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 
@@ -686,8 +507,6 @@ export default function AgentSettingsPage() {
     switch (activeSection) {
       case 'general': return renderGeneralSettings();
       case 'ai': return renderAISettings();
-      case 'security': return renderSecuritySettings();
-      case 'integrations': return renderIntegrationsSettings();
       default: return renderGeneralSettings();
     }
   };

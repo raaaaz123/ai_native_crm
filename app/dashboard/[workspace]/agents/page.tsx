@@ -173,98 +173,129 @@ export default function AgentsPage() {
 
           {/* Agents Grid or Empty State */}
           {agents.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {agents.map((agent) => (
                 <Card
                   key={agent.id}
-                  className="bg-card border hover:border-muted-foreground/20 transition-all duration-200 cursor-pointer group"
+                  className="group relative overflow-hidden border border-border bg-card hover:shadow-lg hover:border-primary/30 transition-all duration-300 cursor-pointer"
                   onClick={() => handleAgentClick(agent.id)}
                 >
-                  <CardContent className="p-5">
+                  <CardContent className="p-6">
                     {/* Agent Header */}
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <Bot className="w-5 h-5 text-primary" />
+                    <div className="flex items-start gap-4 mb-5">
+                      <div className="relative">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 via-primary/10 to-transparent flex items-center justify-center flex-shrink-0 ring-2 ring-primary/10">
+                          <Bot className="w-6 h-6 text-primary" />
                         </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="text-base font-medium text-foreground truncate">
-                            {agent.name}
-                          </h3>
-                          <div className="flex items-center gap-1.5 mt-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full ${
-                              agent.status === 'active' ? 'bg-green-500' :
-                              agent.status === 'training' ? 'bg-blue-500' : 'bg-gray-400'
-                            }`} />
-                            <span className="text-xs text-muted-foreground capitalize">
-                              {agent.status}
-                            </span>
-                          </div>
+                        {/* Status indicator on avatar */}
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card ${
+                          agent.status === 'active' ? 'bg-green-500' :
+                          agent.status === 'training' ? 'bg-blue-500' : 'bg-gray-400'
+                        }`} />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-semibold text-foreground truncate mb-1.5 group-hover:text-primary transition-colors">
+                          {agent.name}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            agent.status === 'active'
+                              ? 'bg-green-50 text-green-700 border border-green-200'
+                              : agent.status === 'training'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-gray-50 text-gray-700 border border-gray-200'
+                          }`}>
+                            {agent.status === 'active' && '✓'}
+                            {agent.status === 'training' && '⟳'}
+                            {agent.status === 'inactive' && '○'}
+                            <span className="capitalize">{agent.status}</span>
+                          </span>
                         </div>
                       </div>
+
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent opacity-0 group-hover:opacity-100 transition-opacity"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreVertical className="w-4 h-4" />
+                            <span className="sr-only">Open menu</span>
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuContent align="end" className="w-52">
                           <DropdownMenuItem
                             onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/settings`)}
+                            className="cursor-pointer"
                           >
-                            <Settings className="w-4 h-4 mr-2" />
-                            Settings
+                            <Settings className="w-4 h-4 mr-2.5" />
+                            <span>Settings</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/analytics`)}
+                            className="cursor-pointer"
                           >
-                            <BarChart3 className="w-4 h-4 mr-2" />
-                            Analytics
+                            <BarChart3 className="w-4 h-4 mr-2.5" />
+                            <span>Analytics</span>
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={() => router.push(`/dashboard/${workspaceSlug}/agents/${agent.id}/conversations`)}
+                            className="cursor-pointer"
                           >
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Conversations
+                            <MessageSquare className="w-4 h-4 mr-2.5" />
+                            <span>Conversations</span>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onSelect={() => handleDuplicateAgent(agent)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicate
+                          <DropdownMenuItem
+                            onSelect={() => handleDuplicateAgent(agent)}
+                            className="cursor-pointer"
+                          >
+                            <Copy className="w-4 h-4 mr-2.5" />
+                            <span>Duplicate</span>
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onSelect={() => handleDeleteClick(agent)}
-                            className="text-destructive focus:text-destructive"
+                            className="text-destructive focus:text-destructive cursor-pointer"
                           >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
+                            <Trash2 className="w-4 h-4 mr-2.5" />
+                            <span>Delete</span>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
                     {/* Description */}
-                    {agent.description && (
-                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2 min-h-[2.5rem]">
-                        {agent.description}
-                      </p>
-                    )}
+                    <div className="mb-5">
+                      {agent.description ? (
+                        <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 min-h-[2.5rem]">
+                          {agent.description}
+                        </p>
+                      ) : (
+                        <p className="text-sm text-muted-foreground/60 italic min-h-[2.5rem]">
+                          No description provided
+                        </p>
+                      )}
+                    </div>
 
                     {/* Stats */}
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground pt-3 border-t">
-                      <div className="flex items-center gap-1.5">
-                        <MessageCircle className="w-3.5 h-3.5" />
-                        <span>{agent.stats.totalConversations} chats</span>
+                    <div className="flex items-center justify-between pt-4 border-t border-border">
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <MessageCircle className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium">{agent.stats.totalConversations}</span>
+                          <span className="text-xs">chats</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" />
-                        <span>{agent.knowledgeSources.length} sources</span>
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="flex items-center gap-1.5 text-muted-foreground">
+                          <Users className="w-4 h-4 flex-shrink-0" />
+                          <span className="font-medium">{agent.knowledgeSources.length}</span>
+                          <span className="text-xs">sources</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
