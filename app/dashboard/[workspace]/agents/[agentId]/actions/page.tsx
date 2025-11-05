@@ -64,25 +64,6 @@ export default function AgentActionsPage() {
   const [actionToDelete, setActionToDelete] = useState<AgentAction | null>(null);
   const menuRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
-  useEffect(() => {
-    loadAgent();
-    loadActions();
-  }, [agentId, workspaceContext, loadAgent, loadActions]);
-
-  // Close menu when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (openMenuId && menuRefs.current[openMenuId] && !menuRefs.current[openMenuId]?.contains(event.target as Node)) {
-        setOpenMenuId(null);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [openMenuId]);
-
   const loadAgent = useCallback(async () => {
     if (!agentId) {
       setLoading(false);
@@ -123,6 +104,25 @@ export default function AgentActionsPage() {
       setActions([]);
     }
   }, [agentId]);
+
+  useEffect(() => {
+    loadAgent();
+    loadActions();
+  }, [agentId, workspaceContext, loadAgent, loadActions]);
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (openMenuId && menuRefs.current[openMenuId] && !menuRefs.current[openMenuId]?.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuId]);
 
   const handleEditAction = (action: AgentAction) => {
     setOpenMenuId(null);

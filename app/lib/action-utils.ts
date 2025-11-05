@@ -450,6 +450,48 @@ export async function getCollectLeadsSubmissions(
   }
 }
 
+// Get all collect leads submissions for an agent (across all actions)
+export async function getAgentLeadSubmissions(
+  agentId: string
+): Promise<ApiResponse<CollectLeadsSubmission[]>> {
+  try {
+    const q = query(
+      collection(db, SUBMISSIONS_COLLECTION),
+      where('agentId', '==', agentId),
+      orderBy('submittedAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const submissions: CollectLeadsSubmission[] = [];
+
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      submissions.push({
+        id: doc.id,
+        agentId: data.agentId,
+        actionId: data.actionId,
+        conversationId: data.conversationId,
+        data: data.data,
+        submittedAt: data.submittedAt?.toDate() || new Date(),
+        ipAddress: data.ipAddress,
+        userAgent: data.userAgent
+      });
+    });
+
+    return {
+      success: true,
+      data: submissions
+    };
+  } catch (error) {
+    console.error('Error fetching agent lead submissions:', error);
+    return {
+      success: false,
+      data: [],
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
 // Save custom button configuration
 export async function saveCustomButtonConfig(
   actionId: string,
