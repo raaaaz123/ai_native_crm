@@ -12,6 +12,8 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getAgent } from './agent-utils';
+import { getWorkspaceBySlug } from './workspace-firestore-utils';
 
 export interface AgentChannel {
   id: string;
@@ -30,6 +32,8 @@ export interface AgentChannel {
     position?: string;
     theme?: string;
     suggestedMessages?: string[];
+    // Messages to show near the bubble when the widget is closed
+    closedWelcomeMessages?: string[];
     collectFeedback?: boolean;
     keepSuggestedMessages?: boolean;
     footerMessage?: string;
@@ -40,6 +44,8 @@ export interface AgentChannel {
     chatBubbleAlignment?: 'left' | 'right';
     aiInstructions?: string;
     aiModel?: string;
+    // Show preset suggestions above the bubble when widget is closed
+    showClosedSuggestions?: boolean;
   };
 }
 
@@ -77,6 +83,37 @@ export async function createAgentChannel(
       updatedAt: new Date(),
       settings: channelData.settings || {}
     };
+
+    // Send agent deployed email notification (non-blocking)
+    try {
+      const { sendAgentDeployedEmail } = await import('./email-utils');
+      // Get agent and workspace info for email
+      const agentResult = await getAgent(channelData.agentId);
+      if (agentResult.success && agentResult.data) {
+        const workspaceResult = await getWorkspaceBySlug(channelData.workspaceSlug);
+        if (workspaceResult.success && workspaceResult.data) {
+          // Get workspace owner email
+          const ownerDoc = await getDoc(doc(db, 'users', workspaceResult.data.ownerId));
+          if (ownerDoc.exists()) {
+            const ownerData = ownerDoc.data();
+            const userEmail = ownerData.email || '';
+            const userName = ownerData.displayName || ownerData.firstName || 'User';
+            if (userEmail) {
+              await sendAgentDeployedEmail(
+                userEmail,
+                userName,
+                agentResult.data.name,
+                channelData.agentId,
+                workspaceResult.data.id
+              );
+            }
+          }
+        }
+      }
+    } catch (emailError) {
+      // Don't fail channel creation if email fails
+      console.error('❌ [Create Channel] Failed to send agent deployed email:', emailError);
+    }
 
     return { success: true, data: newChannel };
   } catch (error) {

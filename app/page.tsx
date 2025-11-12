@@ -13,9 +13,10 @@ import Script from 'next/script';
 import { ChatWidget } from '@/app/components/chat-widget';
 
 export default function Home() {
-  const agentId = process.env.NEXT_PUBLIC_WIDGET_AGENT_ID || 'XHptkClQCsVUHa8obTrm';
-  const workspaceSlug = process.env.NEXT_PUBLIC_WIDGET_WORKSPACE_SLUG || 'rasheed-m';
-  const channelId = process.env.NEXT_PUBLIC_WIDGET_CHANNEL_ID || 'p3pLCzxDV3E5DGYWIgOu';
+  // Support Agent configuration
+  const agentId = 'reqyPMNcS3YWC46r2iNG';
+  const workspaceSlug = 'rasheed-m-1761974210296';
+  const channelId = ''; // Will be auto-detected from agent's chat-widget channel
 
   return (
     <>

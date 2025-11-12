@@ -70,8 +70,28 @@ export async function GET(request: NextRequest) {
     // Base64 encode to safely pass through URL
     const encodedData = Buffer.from(JSON.stringify(connectionData)).toString('base64');
 
-    // Redirect to sources/google-sheets page with connection data
-    const redirectUrl = `/dashboard/${workspaceId}/agents/${agentId}/sources/google-sheets?google_sheets_data=${encodedData}`;
+    // Determine redirect URL based on context
+    let redirectUrl = tokenData.redirect_uri;
+
+    // If no redirect provided, determine based on agent_id
+    if (!redirectUrl) {
+      if (agentId === 'create-new-agent' || !agentId) {
+        // Redirect back to create-new-agent page when in that flow
+        redirectUrl = `/dashboard/${workspaceId}/create-new-agent/knowledgebase?type=google_sheets`;
+      } else {
+        // Normal agent flow - redirect to agent's Google Sheets sources page
+        redirectUrl = `/dashboard/${workspaceId}/agents/${agentId}/sources/google-sheets`;
+      }
+    }
+
+    // Ensure redirect URL starts with /
+    if (!redirectUrl.startsWith('/') && !/^https?:\/\//i.test(redirectUrl)) {
+      redirectUrl = `/${redirectUrl}`;
+    }
+
+    // Add google_sheets_data parameter
+    const separator = redirectUrl.includes('?') ? '&' : '?';
+    redirectUrl = `${redirectUrl}${separator}google_sheets_data=${encodedData}`;
 
     return NextResponse.redirect(new URL(redirectUrl, request.url));
 

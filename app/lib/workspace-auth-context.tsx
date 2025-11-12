@@ -10,7 +10,6 @@ import {
   signInWithEmailAndPassword,
   sendEmailVerification,
   sendSignInLinkToEmail as firebaseSendSignInLinkToEmail,
-  isSignInWithEmailLink,
   signInWithEmailLink as firebaseSignInWithEmailLink,
   ActionCodeSettings
 } from 'firebase/auth';
@@ -41,6 +40,9 @@ interface UserData {
   trialEndDate?: Date | ReturnType<typeof serverTimestamp>;
   subscriptionStartDate?: Date | ReturnType<typeof serverTimestamp>;
   subscriptionEndDate?: Date | ReturnType<typeof serverTimestamp>;
+  pendingVerification?: boolean;
+  tempName?: string;
+  emailVerified?: boolean;
 }
 
 interface WorkspaceContext {
@@ -105,11 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('📊 [Auth State] User data from Firestore:', userData);
             
             // Check if user has verified email but data is incomplete
-            if ((userData as any).pendingVerification && user.emailVerified) {
+            if (userData.pendingVerification && user.emailVerified) {
               console.log('✅ [Auth State] Email verified! Completing user setup...');
               
               // Parse the temporary name
-              const tempName = (userData as any).tempName || '';
+              const tempName = userData.tempName || '';
               let firstName = '';
               let lastName = '';
               let displayName = '';
@@ -520,27 +522,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Track event
       events.buttonClicked('email_link_signin_requested', 'signin_page');
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const authError = error as { code?: string; message?: string };
       console.error('❌ [Email Link] Error sending sign-in link:', error);
-      console.error('❌ [Email Link] Error code:', error?.code);
-      console.error('❌ [Email Link] Error message:', error?.message);
+      console.error('❌ [Email Link] Error code:', authError?.code);
+      console.error('❌ [Email Link] Error message:', authError?.message);
       
       // Provide user-friendly error messages
       let errorMessage = 'Failed to send sign-in link';
-      if (error?.code === 'auth/invalid-email') {
+      if (authError?.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address. Please check and try again.';
-      } else if (error?.code === 'auth/user-disabled') {
+      } else if (authError?.code === 'auth/user-disabled') {
         errorMessage = 'This account has been disabled. Please contact support.';
-      } else if (error?.code === 'auth/user-not-found') {
+      } else if (authError?.code === 'auth/user-not-found') {
         // This is actually OK for sign-up flow
         errorMessage = 'Failed to send link. Please try again.';
-      } else if (error?.message) {
-        errorMessage = error.message;
+      } else if (authError?.message) {
+        errorMessage = authError.message;
       }
       
       events.errorOccurred('Email link send failed', 'authentication_error', { 
-        error: error?.message || 'Unknown error',
-        code: error?.code
+        error: authError?.message || 'Unknown error',
+        code: authError?.code
       });
       
       throw new Error(errorMessage);

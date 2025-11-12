@@ -10,8 +10,8 @@ export function Footer() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-10 lg:gap-12">
           {/* Brand Section */}
           <div className="col-span-1 sm:col-span-2 lg:col-span-5">
-            <Link href="/" className="inline-flex items-center space-x-2 mb-6">
-              <BrandLogo className="h-10 w-auto" />
+            <Link href="/" className="inline-flex items-center mb-6">
+              <BrandLogo size="lg" showText={true} />
             </Link>
             <p className="text-muted-foreground max-w-md text-base leading-relaxed mb-8">
               Transform your customer engagement with AI-powered agents. Build, deploy, and scale intelligent support that works 24/7.
@@ -68,16 +68,16 @@ export function Footer() {
         <div className="mt-16 pt-8 border-t border-border">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <p className="text-muted-foreground text-sm font-medium">
-              © 2024 Rexa Engage. All rights reserved.
+              © 2025 Ragzy.AI All rights reserved.
             </p>
             <div className="flex flex-wrap justify-center gap-x-8 gap-y-2">
-              <Link href="#privacy" className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
+              <Link href="/privacy" className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
                 Privacy Policy
               </Link>
-              <Link href="#terms" className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
+              <Link href="/terms" className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
                 Terms of Service
               </Link>
-              <Link href="#cookies" className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
+              <Link href="/cookies" className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
                 Cookie Policy
               </Link>
             </div>

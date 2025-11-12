@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,12 @@ import {
   Eye,
   Sparkles,
   Sun,
-  Moon
+  Moon,
+  Copy,
+  Globe,
+  PanelLeftClose,
+  PanelLeft,
+  ArrowUp
 } from "lucide-react";
 import { toast } from "sonner";
 import { db } from "@/app/lib/firebase";
@@ -92,15 +97,31 @@ export default function HelpPageCustomization() {
   const { workspaceContext } = useAuth();
   const workspaceId = workspaceContext?.currentWorkspace?.id || '';
 
-  const [activeTab, setActiveTab] = useState('help-page');
+  const [activeTab, setActiveTab] = useState('settings');
   const [settings, setSettings] = useState<HelpPageSettings>(defaultSettings);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [heroFile, setHeroFile] = useState<File | null>(null);
+  const [editMode, setEditMode] = useState(true);
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [helpPageUrl, setHelpPageUrl] = useState('');
+
+  // Refs for scrolling to settings sections
+  const logoRef = useRef<HTMLDivElement>(null);
+  const headerTextRef = useRef<HTMLDivElement>(null);
+  const inputPlaceholderRef = useRef<HTMLDivElement>(null);
+  const primaryButtonsRef = useRef<HTMLDivElement>(null);
+  const secondaryButtonsRef = useRef<HTMLDivElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const linkCardsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadSettings();
+    // Set help page URL dynamically
+    if (typeof window !== 'undefined' && agentId) {
+      setHelpPageUrl(`${window.location.origin}/help/${agentId}`);
+    }
   }, [agentId, workspaceId]);
 
   const loadSettings = async () => {
@@ -146,18 +167,7 @@ export default function HelpPageCustomization() {
 
     setSaving(true);
     try {
-      // Handle image uploads
-      let logoUrl = settings.logo;
-      let heroUrl = settings.heroImage;
-
-      if (logoFile) {
-        logoUrl = await uploadImage(logoFile);
-      }
-
-      if (heroFile) {
-        heroUrl = await uploadImage(heroFile);
-      }
-
+      // Images are uploaded immediately on selection, so we just save settings
       // Filter out undefined values to avoid Firestore errors
       const settingsToSave: Record<string, unknown> = {
         ...settings,
@@ -167,11 +177,11 @@ export default function HelpPageCustomization() {
       };
 
       // Only include logo and heroImage if they have values
-      if (logoUrl) {
-        settingsToSave.logo = logoUrl;
+      if (settings.logo) {
+        settingsToSave.logo = settings.logo;
       }
-      if (heroUrl) {
-        settingsToSave.heroImage = heroUrl;
+      if (settings.heroImage) {
+        settingsToSave.heroImage = settings.heroImage;
       }
 
       // Remove any undefined values
@@ -196,16 +206,33 @@ export default function HelpPageCustomization() {
   };
 
   const uploadImage = async (file: File): Promise<string> => {
-    // For now, convert to base64. In production, upload to cloud storage
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('workspace_id', workspaceId);
+      formData.append('agent_id', agentId);
+
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
+      const response = await fetch(`${apiUrl}/api/upload/image`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Upload failed');
+      }
+
+      const data = await response.json();
+      return data.file_url;
+    } catch (error: unknown) {
+      const uploadError = error as { message?: string };
+      console.error('Upload error:', error);
+      throw new Error(uploadError?.message || 'Failed to upload image');
+    }
   };
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -220,9 +247,20 @@ export default function HelpPageCustomization() {
     }
 
     setLogoFile(file);
+    toast.loading('Uploading logo...', { id: 'logo-upload' });
+
+    try {
+      const fileUrl = await uploadImage(file);
+      setSettings({ ...settings, logo: fileUrl });
+      toast.success('Logo uploaded successfully', { id: 'logo-upload' });
+    } catch (error: unknown) {
+      const uploadError = error as { message?: string };
+      toast.error(uploadError?.message || 'Failed to upload logo', { id: 'logo-upload' });
+      setLogoFile(null);
+    }
   };
 
-  const handleHeroUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleHeroUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -237,6 +275,17 @@ export default function HelpPageCustomization() {
     }
 
     setHeroFile(file);
+    toast.loading('Uploading hero image...', { id: 'hero-upload' });
+
+    try {
+      const fileUrl = await uploadImage(file);
+      setSettings({ ...settings, heroImage: fileUrl });
+      toast.success('Hero image uploaded successfully', { id: 'hero-upload' });
+    } catch (error: unknown) {
+      const uploadError = error as { message?: string };
+      toast.error(uploadError?.message || 'Failed to upload hero image', { id: 'hero-upload' });
+      setHeroFile(null);
+    }
   };
 
   const addPrimaryButton = () => {
@@ -343,6 +392,34 @@ export default function HelpPageCustomization() {
     });
   };
 
+  const handleElementClick = (elementType: string) => {
+    if (!editMode) return;
+
+    setSelectedElement(elementType);
+    setActiveTab('settings');
+
+    // Scroll to the corresponding settings section
+    const refMap: Record<string, React.RefObject<HTMLDivElement | null>> = {
+      'logo': logoRef,
+      'headerText': headerTextRef,
+      'inputPlaceholder': inputPlaceholderRef,
+      'primaryButtons': primaryButtonsRef,
+      'secondaryButtons': secondaryButtonsRef,
+      'suggestions': suggestionsRef,
+      'linkCards': linkCardsRef,
+    };
+
+    const ref = refMap[elementType];
+    if (ref?.current) {
+      ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the section briefly
+      ref.current.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
+      setTimeout(() => {
+        ref.current?.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+      }, 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -355,67 +432,63 @@ export default function HelpPageCustomization() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-[1800px] mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy`)}
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Deploy
-              </Button>
-              <div className="h-6 w-px bg-gray-200"></div>
-              <h1 className="text-xl font-bold">Help Page</h1>
-            </div>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Deploy
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-[1800px] mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="h-screen bg-background overflow-hidden flex flex-col">
+      <div className="max-w-[2000px] mx-auto p-6 flex-1 overflow-hidden flex flex-col w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[420px_1fr] gap-6 flex-1 overflow-hidden">
           {/* Left Panel - Settings */}
-          <div className="space-y-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="help-page">Help page</TabsTrigger>
+          <div className="flex flex-col h-full overflow-hidden">
+            {/* Header moved to sidebar top */}
+            <div className="flex items-center justify-between mb-4 flex-shrink-0">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy`)}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Deploy
+                </Button>
+                <div className="h-6 w-px bg-border"></div>
+                <h1 className="text-xl font-bold text-foreground">Help Page</h1>
+              </div>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                className="bg-primary hover:bg-primary/90"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Deploy
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 overflow-hidden">
+              <TabsList className="grid w-full grid-cols-3 flex-shrink-0 mb-4">
                 <TabsTrigger value="settings">Settings</TabsTrigger>
                 <TabsTrigger value="ai">AI</TabsTrigger>
                 <TabsTrigger value="domain">Domain setup</TabsTrigger>
               </TabsList>
 
-              {/* Help Page Tab */}
-              <TabsContent value="help-page" className="space-y-6 mt-6">
+              {/* Settings Tab - All customization options */}
+              <TabsContent value="settings" className="mt-4 flex-1 overflow-hidden">
+                <div className="space-y-4 h-full overflow-y-auto pr-2">
                 {/* Logo Upload */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
+                <Card ref={logoRef} className="transition-all">
+                  <CardContent className="p-4 space-y-3">
                     <div>
-                      <Label className="text-sm font-semibold">Logo</Label>
-                      <p className="text-xs text-gray-500 mt-1 mb-3">
+                      <Label className="text-sm font-semibold text-foreground">Logo</Label>
+                      <p className="text-xs text-muted-foreground mt-0.5 mb-2">
                         Supports JPG, PNG, and SVG up to 1MB
                       </p>
-                      <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
+                      <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors cursor-pointer">
                         <input
                           type="file"
                           accept="image/jpeg,image/png,image/svg+xml"
@@ -425,16 +498,16 @@ export default function HelpPageCustomization() {
                         />
                         <label htmlFor="logo-upload" className="cursor-pointer">
                           {logoFile || settings.logo ? (
-                            <div className="space-y-2">
-                              <ImageIcon className="w-12 h-12 mx-auto text-gray-400" />
-                              <p className="text-sm text-gray-600">
+                            <div className="space-y-1.5">
+                              <ImageIcon className="w-10 h-10 mx-auto text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground">
                                 {logoFile?.name || 'Logo uploaded'}
                               </p>
                             </div>
                           ) : (
-                            <div className="space-y-2">
-                              <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                              <p className="text-sm font-medium">Upload</p>
+                            <div className="space-y-1.5">
+                              <Upload className="w-10 h-10 mx-auto text-muted-foreground" />
+                              <p className="text-sm font-medium text-foreground">Upload</p>
                             </div>
                           )}
                         </label>
@@ -445,8 +518,8 @@ export default function HelpPageCustomization() {
 
                 {/* Theme Selection */}
                 <Card>
-                  <CardContent className="p-6 space-y-4">
-                    <Label className="text-sm font-semibold">Theme</Label>
+                  <CardContent className="p-4 space-y-3">
+                    <Label className="text-sm font-semibold text-foreground">Theme</Label>
                     <div className="flex gap-3">
                       <Button
                         variant={settings.theme === 'light' ? 'default' : 'outline'}
@@ -472,40 +545,40 @@ export default function HelpPageCustomization() {
 
                 {/* Colors */}
                 <Card>
-                  <CardContent className="p-6 space-y-4">
+                  <CardContent className="p-4 space-y-3">
                     <div>
-                      <Label className="text-sm font-semibold">Primary Color</Label>
-                      <div className="flex gap-3 mt-2">
+                      <Label className="text-sm font-semibold text-foreground">Primary Color</Label>
+                      <div className="flex gap-2 mt-1.5">
                         <Input
                           type="color"
                           value={settings.primaryColor}
                           onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="w-16 h-10 p-1 cursor-pointer"
+                          className="w-16 h-10 p-1 cursor-pointer border-border"
                         />
                         <Input
                           type="text"
                           value={settings.primaryColor}
                           onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
-                          className="flex-1"
+                          className="flex-1 border-border"
                           placeholder="#000000"
                         />
                       </div>
                     </div>
 
                     <div>
-                      <Label className="text-sm font-semibold">Background Color</Label>
-                      <div className="flex gap-3 mt-2">
+                      <Label className="text-sm font-semibold text-foreground">Background Color</Label>
+                      <div className="flex gap-2 mt-1.5">
                         <Input
                           type="color"
                           value={settings.backgroundColor}
                           onChange={(e) => setSettings({ ...settings, backgroundColor: e.target.value })}
-                          className="w-16 h-10 p-1 cursor-pointer"
+                          className="w-16 h-10 p-1 cursor-pointer border-border"
                         />
                         <Input
                           type="text"
                           value={settings.backgroundColor}
                           onChange={(e) => setSettings({ ...settings, backgroundColor: e.target.value })}
-                          className="flex-1"
+                          className="flex-1 border-border"
                           placeholder="#ffffff"
                         />
                       </div>
@@ -513,82 +586,46 @@ export default function HelpPageCustomization() {
                   </CardContent>
                 </Card>
 
-                {/* Hero Image */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
-                    <div>
-                      <Label className="text-sm font-semibold">Hero Image</Label>
-                      <p className="text-xs text-gray-500 mt-1 mb-3">
-                        Supports JPG, PNG, and SVG up to 1MB
-                      </p>
-                      <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer">
-                        <input
-                          type="file"
-                          accept="image/jpeg,image/png,image/svg+xml"
-                          onChange={handleHeroUpload}
-                          className="hidden"
-                          id="hero-upload"
-                        />
-                        <label htmlFor="hero-upload" className="cursor-pointer">
-                          {heroFile || settings.heroImage ? (
-                            <div className="space-y-2">
-                              <ImageIcon className="w-12 h-12 mx-auto text-gray-400" />
-                              <p className="text-sm text-gray-600">
-                                {heroFile?.name || 'Hero image uploaded'}
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <Upload className="w-12 h-12 mx-auto text-gray-400" />
-                              <p className="text-sm font-medium">Upload</p>
-                            </div>
-                          )}
-                        </label>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Text Customization */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
-                    <div>
-                      <Label className="text-sm font-semibold">Header Text</Label>
+                <Card className="transition-all">
+                  <CardContent className="p-4 space-y-3">
+                    <div ref={headerTextRef}>
+                      <Label className="text-sm font-semibold text-foreground">Header Text</Label>
                       <Input
                         value={settings.headerText}
                         onChange={(e) => setSettings({ ...settings, headerText: e.target.value })}
                         placeholder="How can I help you today?"
-                        className="mt-2"
+                        className="mt-1.5 border-border"
                       />
                     </div>
 
-                    <div>
-                      <Label className="text-sm font-semibold">Input Placeholder</Label>
+                    <div ref={inputPlaceholderRef}>
+                      <Label className="text-sm font-semibold text-foreground">Input Placeholder</Label>
                       <Input
                         value={settings.inputPlaceholder}
                         onChange={(e) => setSettings({ ...settings, inputPlaceholder: e.target.value })}
                         placeholder="Ask me anything..."
-                        className="mt-2"
+                        className="mt-1.5 border-border"
                       />
                     </div>
 
                     <div>
-                      <Label className="text-sm font-semibold">New Chat Button Text</Label>
+                      <Label className="text-sm font-semibold text-foreground">New Chat Button Text</Label>
                       <Input
                         value={settings.newChatButtonText}
                         onChange={(e) => setSettings({ ...settings, newChatButtonText: e.target.value })}
                         placeholder="New chat"
-                        className="mt-2"
+                        className="mt-1.5 border-border"
                       />
                     </div>
                   </CardContent>
                 </Card>
 
                 {/* Primary Buttons */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
+                <Card ref={primaryButtonsRef} className="transition-all">
+                  <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Primary Buttons</Label>
+                      <Label className="text-sm font-semibold text-foreground">Primary Buttons</Label>
                       <Button
                         size="sm"
                         variant="outline"
@@ -605,14 +642,14 @@ export default function HelpPageCustomization() {
                           value={button.text}
                           onChange={(e) => updatePrimaryButton(button.id, 'text', e.target.value)}
                           placeholder="Button text"
-                          className="flex-1"
+                          className="flex-1 border-border"
                         />
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => removePrimaryButton(button.id)}
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
                     ))}
@@ -620,10 +657,10 @@ export default function HelpPageCustomization() {
                 </Card>
 
                 {/* Secondary Buttons */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
+                <Card ref={secondaryButtonsRef} className="transition-all">
+                  <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Secondary Buttons</Label>
+                      <Label className="text-sm font-semibold text-foreground">Secondary Buttons</Label>
                       <Button
                         size="sm"
                         variant="outline"
@@ -640,14 +677,14 @@ export default function HelpPageCustomization() {
                           value={button.text}
                           onChange={(e) => updateSecondaryButton(button.id, 'text', e.target.value)}
                           placeholder="Button text"
-                          className="flex-1"
+                          className="flex-1 border-border"
                         />
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => removeSecondaryButton(button.id)}
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
                     ))}
@@ -655,10 +692,10 @@ export default function HelpPageCustomization() {
                 </Card>
 
                 {/* Suggestions */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
+                <Card ref={suggestionsRef} className="transition-all">
+                  <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Suggested Messages</Label>
+                      <Label className="text-sm font-semibold text-foreground">Suggested Messages</Label>
                       <Button
                         size="sm"
                         variant="outline"
@@ -675,14 +712,14 @@ export default function HelpPageCustomization() {
                           value={suggestion.text}
                           onChange={(e) => updateSuggestion(suggestion.id, e.target.value)}
                           placeholder="Suggestion text"
-                          className="flex-1"
+                          className="flex-1 border-border"
                         />
                         <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => removeSuggestion(suggestion.id)}
                         >
-                          <Trash2 className="w-4 h-4 text-red-600" />
+                          <Trash2 className="w-4 h-4 text-destructive" />
                         </Button>
                       </div>
                     ))}
@@ -690,10 +727,10 @@ export default function HelpPageCustomization() {
                 </Card>
 
                 {/* Link Cards */}
-                <Card>
-                  <CardContent className="p-6 space-y-4">
+                <Card ref={linkCardsRef} className="transition-all">
+                  <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between">
-                      <Label className="text-sm font-semibold">Link Cards</Label>
+                      <Label className="text-sm font-semibold text-foreground">Link Cards</Label>
                       <Button
                         size="sm"
                         variant="outline"
@@ -705,272 +742,306 @@ export default function HelpPageCustomization() {
                     </div>
 
                     {settings.linkCards.map((card) => (
-                      <div key={card.id} className="space-y-2 p-4 border rounded-lg">
+                      <div key={card.id} className="space-y-1.5 p-4 border border-border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                          <Label className="text-xs font-medium text-gray-600">Link Card</Label>
+                          <Label className="text-xs font-medium text-muted-foreground">Link Card</Label>
                           <Button
                             size="icon"
                             variant="ghost"
                             onClick={() => removeLinkCard(card.id)}
                           >
-                            <Trash2 className="w-4 h-4 text-red-600" />
+                            <Trash2 className="w-4 h-4 text-destructive" />
                           </Button>
                         </div>
                         <Input
                           value={card.heading}
                           onChange={(e) => updateLinkCard(card.id, 'heading', e.target.value)}
                           placeholder="Link heading"
+                          className="border-border"
                         />
                         <Textarea
                           value={card.description}
                           onChange={(e) => updateLinkCard(card.id, 'description', e.target.value)}
                           placeholder="This is a short description to the link"
                           rows={2}
+                          className="border-border"
                         />
                         <div className="flex gap-2">
-                          <LinkIcon className="w-4 h-4 text-gray-400 mt-3" />
+                          <LinkIcon className="w-4 h-4 text-muted-foreground mt-3" />
                           <Input
                             value={card.url}
                             onChange={(e) => updateLinkCard(card.id, 'url', e.target.value)}
                             placeholder="https://"
+                            className="border-border"
                           />
                         </div>
                       </div>
                     ))}
                   </CardContent>
                 </Card>
-              </TabsContent>
-
-              {/* Settings Tab */}
-              <TabsContent value="settings" className="mt-6">
-                <Card>
-                  <CardContent className="p-6">
-                    <p className="text-gray-600">Additional settings coming soon...</p>
-                  </CardContent>
-                </Card>
+                </div>
               </TabsContent>
 
               {/* AI Tab */}
-              <TabsContent value="ai" className="mt-6">
+              <TabsContent value="ai" className="mt-6 flex-1 overflow-hidden">
+                <div className="h-full overflow-y-auto pr-2">
                 <Card>
                   <CardContent className="p-6">
-                    <p className="text-gray-600">AI configuration coming soon...</p>
+                    <p className="text-muted-foreground">AI configuration coming soon...</p>
                   </CardContent>
                 </Card>
+                </div>
               </TabsContent>
 
               {/* Domain Setup Tab */}
-              <TabsContent value="domain" className="mt-6">
+              <TabsContent value="domain" className="mt-6 flex-1 overflow-hidden">
+                <div className="h-full overflow-y-auto pr-2">
                 <Card>
-                  <CardContent className="p-6">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <p className="text-sm text-blue-800">
-                        You can only set up the domain setup after the help page is deployed.
-                      </p>
+                  <CardContent className="p-6 space-y-6">
+                    {/* Visit Page Section */}
+                    <div>
+                      <Label className="text-sm font-semibold text-foreground mb-3 block">Visit Page</Label>
+                      <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="font-semibold text-foreground mb-1">Your Help Page is Live!</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Share this link with your customers to access the help page
+                            </p>
+                          </div>
+                          <Eye className="w-8 h-8 text-primary" />
+                        </div>
+
+                        <div className="flex gap-3">
+                          <Input
+                            value={helpPageUrl || (agentId ? `/help/${agentId}` : '')}
+                            readOnly
+                            className="flex-1 bg-background border-border"
+                          />
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              const urlToCopy = helpPageUrl || (agentId ? `${window.location.origin}/help/${agentId}` : '');
+                              if (urlToCopy) {
+                                navigator.clipboard.writeText(urlToCopy);
+                                toast.success('Link copied to clipboard!');
+                              }
+                            }}
+                          >
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              if (agentId) {
+                                window.open(`/help/${agentId}`, '_blank');
+                              }
+                            }}
+                            className="bg-primary hover:bg-primary/90"
+                            disabled={!agentId}
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Visit Page
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Domain Setup Section */}
+                    <div>
+                      <Label className="text-sm font-semibold text-foreground mb-3 block">Custom Domain</Label>
+                      <div className="bg-muted/50 border border-border rounded-lg p-4">
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Deploy your help page on a custom domain like help.yourdomain.com
+                        </p>
+                        <Button variant="outline" disabled className="w-full">
+                          <Globe className="w-4 h-4 mr-2" />
+                          Set up custom domain (Coming Soon)
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
+                </div>
               </TabsContent>
             </Tabs>
           </div>
 
           {/* Right Panel - Preview */}
-          <div className="lg:sticky lg:top-24 h-fit">
-            <Card className="overflow-hidden">
-              <CardContent className="p-0">
+          <div className="flex flex-col h-full overflow-hidden">
+            <Card className="overflow-hidden shadow-xl flex flex-col h-full">
+              <CardContent className="p-0 flex flex-col flex-1 overflow-hidden">
                 {/* Browser Chrome */}
-                <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b">
+                <div className="bg-muted px-4 py-3 flex items-center gap-2 border-b border-border flex-shrink-0">
                   <div className="flex gap-2">
                     <div className="w-3 h-3 rounded-full bg-red-400"></div>
-                    <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                    <div className="w-3 h-3 rounded-full bg-primary"></div>
                     <div className="w-3 h-3 rounded-full bg-green-400"></div>
                   </div>
                 </div>
 
                 {/* Preview Content */}
                 <div
-                  className="min-h-[600px] p-8"
+                  className="flex-1 flex overflow-hidden relative"
                   style={{
                     backgroundColor: settings.backgroundColor,
                     color: settings.theme === 'dark' ? '#ffffff' : '#000000'
                   }}
                 >
-                  {/* Logo */}
-                  <div className="flex items-center justify-between mb-8">
-                    <div className="flex items-center gap-3">
-                      {(logoFile || settings.logo) ? (
-                        <img
-                          src={logoFile ? URL.createObjectURL(logoFile) : settings.logo}
-                          alt="Logo"
-                          className="h-8 w-auto object-contain"
-                        />
-                      ) : (
-                        <div className="flex items-center gap-2 text-gray-400">
-                          <ImageIcon className="w-6 h-6" />
-                          <span className="text-sm">Logo</span>
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      style={{ color: settings.primaryColor }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {settings.newChatButtonText}
-                    </Button>
-                  </div>
-
-                  {/* Primary Buttons */}
-                  {settings.primaryButtons.length > 0 && (
-                    <div className="space-y-2 mb-6">
-                      {settings.primaryButtons.map((button) => (
-                        <Button
-                          key={button.id}
-                          variant="outline"
-                          className="w-full justify-start"
-                          style={{ borderColor: settings.primaryColor + '40' }}
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          {button.text || 'Add primary button'}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Secondary Buttons */}
-                  {settings.secondaryButtons.length > 0 && (
-                    <div className="space-y-2 mb-8">
-                      {settings.secondaryButtons.map((button) => (
-                        <Button
-                          key={button.id}
-                          variant="ghost"
-                          className="w-full justify-start"
-                        >
-                          <Plus className="w-4 h-4 mr-2" />
-                          {button.text || 'Add button'}
-                        </Button>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Hero Image */}
-                  <div className="text-center mb-8">
-                    {(heroFile || settings.heroImage) ? (
-                      <img
-                        src={heroFile ? URL.createObjectURL(heroFile) : settings.heroImage}
-                        alt="Hero"
-                        className="w-24 h-24 mx-auto object-cover rounded-lg mb-6"
-                      />
-                    ) : (
-                      <div className="w-24 h-24 mx-auto bg-gray-200 rounded-lg flex items-center justify-center mb-6">
-                        <ImageIcon className="w-12 h-12 text-gray-400" />
-                      </div>
-                    )}
-
-                    <h1 className="text-3xl font-bold mb-6">{settings.headerText}</h1>
-
-                    {/* Input Field */}
-                    <div className="max-w-2xl mx-auto">
-                      <div className="relative">
-                        <Input
-                          placeholder={settings.inputPlaceholder}
-                          className="pr-20 h-12 text-base"
-                          style={{ borderColor: settings.primaryColor + '40' }}
-                        />
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                          <Button size="icon" variant="ghost" className="h-8 w-8">
-                            <Smile className="w-4 h-4 text-gray-400" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            className="h-8 w-8"
-                            style={{ backgroundColor: settings.primaryColor }}
-                          >
-                            <svg
-                              className="w-4 h-4 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                          </Button>
-                        </div>
+                  {/* Sidebar */}
+                  <div
+                    className="w-64 border-r flex flex-col overflow-y-auto bg-card"
+                    style={{ borderColor: settings.primaryColor + '20' }}
+                  >
+                    {/* Sidebar Header */}
+                    <div className="p-4 border-b border-border flex-shrink-0">
+                      {/* Collapse Button - Top Right */}
+                      <div className="flex justify-end mb-4">
+                        <button className="p-2 hover:bg-muted rounded-lg pointer-events-none">
+                          <PanelLeftClose className="w-5 h-5 text-muted-foreground" />
+                        </button>
                       </div>
 
-                      {/* Gradient Bar */}
-                      <div
-                        className="h-1 mt-4 rounded-full"
-                        style={{
-                          background: 'linear-gradient(to right, #ec4899, #8b5cf6, #3b82f6, #10b981, #f59e0b)'
-                        }}
-                      ></div>
+                      {/* New Chat Button */}
+                      <Button
+                        variant="ghost"
+                        className="w-full justify-start mb-3 hover:bg-muted pointer-events-none"
+                      >
+                        <div className="w-6 h-6 rounded-full border-2 border-border flex items-center justify-center mr-2">
+                          <Plus className="w-4 h-4 text-muted-foreground" />
+                        </div>
+                        <span className="font-medium text-foreground">New chat</span>
+                      </Button>
+
+                      {/* Dashboard Button */}
+                      <Button
+                        variant="outline"
+                        className="w-full pointer-events-none border-border"
+                      >
+                        Dashboard
+                      </Button>
+                    </div>
+
+                    {/* Conversations List */}
+                    <div className="flex-1 overflow-y-auto px-4 py-3">
+                      <div className="mb-3">
+                        <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          Recent chats
+                        </h3>
+                      </div>
+
+                      {/* Sample Conversations */}
+                      <div className="space-y-1">
+                        <div className="px-3 py-2.5 rounded-lg hover:bg-muted cursor-pointer">
+                          <p className="text-sm truncate text-foreground">Initial Greeting and Assist...</p>
+                        </div>
+                        <div className="px-3 py-2.5 rounded-lg hover:bg-muted cursor-pointer">
+                          <p className="text-sm truncate text-foreground">How can I help you?</p>
+                        </div>
+                        <div className="px-3 py-2.5 rounded-lg hover:bg-muted cursor-pointer">
+                          <p className="text-sm truncate text-foreground">Getting started</p>
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Suggestions */}
-                  {settings.suggestions.length > 0 && (
-                    <div className="max-w-2xl mx-auto mb-8">
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {settings.suggestions.map((suggestion) => (
-                          <Button
-                            key={suggestion.id}
-                            variant="outline"
-                            size="sm"
-                            className="rounded-full"
-                          >
-                            {suggestion.text || 'Suggestion'}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  {/* Main Content Area */}
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    {/* Main Chat Area - Centered Initial State */}
+                    <div className="flex-1 flex items-center justify-center p-8">
+                      <div className="max-w-3xl w-full text-center">
+                        {/* Header Text */}
+                        <h1
+                          className={`text-4xl font-bold mb-8 text-foreground ${editMode ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 rounded-lg p-2 inline-block transition-all' : ''}`}
+                          onClick={() => handleElementClick('headerText')}
+                        >
+                          {settings.headerText}
+                        </h1>
 
-                  {/* Link Cards */}
-                  {settings.linkCards.length > 0 && (
-                    <div className="max-w-2xl mx-auto space-y-4">
-                      {settings.linkCards.map((card) => (
+                        {/* Input Field */}
                         <div
-                          key={card.id}
-                          className="border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-                          style={{ borderColor: settings.primaryColor + '20' }}
+                          className={`relative mb-6 ${editMode ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 rounded-lg transition-all' : ''}`}
+                          onClick={() => handleElementClick('inputPlaceholder')}
                         >
-                          <h3 className="font-semibold mb-1">
-                            {card.heading || 'Link heading'}
-                          </h3>
-                          <p className="text-sm text-gray-600 mb-2">
-                            {card.description || 'This is a short description to the link'}
-                          </p>
-                          <div className="flex items-center gap-2 text-sm" style={{ color: settings.primaryColor }}>
-                            <LinkIcon className="w-4 h-4" />
-                            <span>{card.url || 'https://'}</span>
+                          <Input
+                            placeholder={settings.inputPlaceholder}
+                            className="h-20 pl-6 pr-16 text-lg rounded-xl border-2 bg-card/90 backdrop-blur-xl shadow-xl pointer-events-none border-border"
+                            style={{ borderColor: settings.primaryColor + '40' }}
+                          />
+                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                            <Smile className="w-5 h-5 text-muted-foreground" />
+                            <ArrowUp
+                              className="w-6 h-6"
+                              style={{ color: settings.primaryColor }}
+                            />
                           </div>
                         </div>
-                      ))}
+
+                        {/* Suggestions */}
+                        {settings.suggestions.length > 0 && (
+                          <div
+                            className={`flex flex-wrap gap-2 justify-center mb-6 ${editMode ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 rounded-lg p-2 transition-all' : ''}`}
+                            onClick={() => handleElementClick('suggestions')}
+                          >
+                            {settings.suggestions.map((suggestion) => (
+                              <Button
+                                key={suggestion.id}
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full pointer-events-none border-border"
+                              >
+                                {suggestion.text || 'Suggestion'}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Link Cards */}
+                        {settings.linkCards.length > 0 && (
+                          <div
+                            className={`space-y-3 ${editMode ? 'cursor-pointer hover:ring-2 hover:ring-primary hover:ring-offset-2 rounded-lg p-2 transition-all' : ''}`}
+                            onClick={() => handleElementClick('linkCards')}
+                          >
+                            {settings.linkCards.map((card) => (
+                              <div
+                                key={card.id}
+                                className="border border-border rounded-lg p-4 hover:shadow-md transition-shadow pointer-events-none text-left bg-card"
+                                style={{ borderColor: settings.primaryColor + '20' }}
+                              >
+                                <h3 className="font-semibold mb-1 text-foreground">
+                                  {card.heading || 'Link heading'}
+                                </h3>
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {card.description || 'Description'}
+                                </p>
+                                <div className="flex items-center gap-2 text-sm" style={{ color: settings.primaryColor }}>
+                                  <LinkIcon className="w-4 h-4" />
+                                  <span>{card.url || 'https://'}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 {/* Edit Mode Toggle */}
-                <div className="bg-gray-50 px-6 py-4 border-t flex items-center justify-between">
+                <div className="bg-muted/50 px-6 py-4 border-t border-border flex items-center justify-between flex-shrink-0">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4" />
-                    <span className="text-sm font-medium">Edit mode</span>
+                    <Sparkles className="w-4 h-4 text-foreground" />
+                    <span className="text-sm font-medium text-foreground">Edit mode</span>
+                    <span className="text-xs text-muted-foreground">Click elements to edit</span>
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                      <span className="text-sm text-green-600 font-medium">On</span>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="icon" variant="ghost" className="h-8 w-8">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button size="icon" variant="ghost" className="h-8 w-8">
-                        <ImageIcon className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Switch
+                      checked={editMode}
+                      onCheckedChange={setEditMode}
+                    />
+                    <span className={`text-sm font-medium ${editMode ? 'text-primary' : 'text-muted-foreground'}`}>
+                      {editMode ? 'On' : 'Off'}
+                    </span>
                   </div>
                 </div>
               </CardContent>

@@ -227,7 +227,7 @@ export default function CustomButtonPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground font-medium">Loading custom button configuration...</p>
@@ -237,26 +237,26 @@ export default function CustomButtonPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <Button
             variant="ghost"
             onClick={handleBack}
-            className="mb-4 p-0 h-auto text-gray-600 hover:text-gray-900"
+            className="mb-4 p-0 h-auto text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Actions
           </Button>
 
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-              <MousePointerClick className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <MousePointerClick className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Custom button</h1>
-              <p className="text-gray-600">Configure custom button action for your AI agent</p>
+              <h1 className="text-3xl font-bold text-foreground">Custom button</h1>
+              <p className="text-muted-foreground">Configure custom button action for your AI agent</p>
             </div>
           </div>
         </div>
@@ -277,8 +277,8 @@ export default function CustomButtonPage() {
                       onClick={() => setActiveSection(id as 'general' | 'button' | 'channels')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                         activeSection === id
-                          ? 'bg-blue-100 text-blue-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100'
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -303,10 +303,10 @@ export default function CustomButtonPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Action Name
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       A descriptive name for this action. This will help the AI Agent know when to use it.
                     </p>
                     <Input
@@ -316,15 +316,15 @@ export default function CustomButtonPage() {
                         general: { ...prev.general, actionName: e.target.value }
                       }))}
                       placeholder="Example_Button_Action"
-                      className="font-mono"
+                      className="font-mono border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Description (Optional)
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       A brief description of what this action does.
                     </p>
                     <Input
@@ -334,14 +334,15 @@ export default function CustomButtonPage() {
                         general: { ...prev.general, description: e.target.value }
                       }))}
                       placeholder="Directs users to our product page"
+                      className="border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       When to use
                     </Label>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                       Explain when the AI Agent should use this action. Include a description of what this action does,
                       the data it provides, and any updates it makes. Include example queries that should trigger this action.
                     </p>
@@ -351,7 +352,7 @@ export default function CustomButtonPage() {
                         ...prev,
                         general: { ...prev.general, whenToUse: e.target.value }
                       }))}
-                      className="min-h-[120px]"
+                      className="min-h-[120px] border-border"
                       placeholder="Example: Use this action when the user asks about a product or service."
                     />
                   </div>
@@ -360,7 +361,7 @@ export default function CustomButtonPage() {
                     <Button
                       onClick={handleReset}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <RotateCcw className="w-4 h-4" />
                       Reset
@@ -369,7 +370,7 @@ export default function CustomButtonPage() {
                       onClick={() => handleSave(false)}
                       disabled={saving}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save'}
@@ -390,10 +391,10 @@ export default function CustomButtonPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Button Text
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       The text displayed on the button.
                     </p>
                     <Input
@@ -403,14 +404,15 @@ export default function CustomButtonPage() {
                         button: { ...prev.button, buttonText: e.target.value }
                       }))}
                       placeholder="Go to Link"
+                      className="border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Button URL
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       The URL to open when the button is clicked.
                     </p>
                     <Input
@@ -421,6 +423,7 @@ export default function CustomButtonPage() {
                       }))}
                       placeholder="https://www.example.com"
                       type="url"
+                      className="border-border"
                     />
                   </div>
 
@@ -431,18 +434,19 @@ export default function CustomButtonPage() {
                         ...prev,
                         button: { ...prev.button, openInNewTab: checked }
                       }))}
+                      className="data-[state=checked]:bg-primary"
                     />
-                    <Label className="text-sm text-gray-700">Open in new tab</Label>
+                    <Label className="text-sm text-foreground">Open in new tab</Label>
                   </div>
 
                   {/* Button Preview */}
-                  <div className="border-t pt-6">
-                    <Label className="text-sm font-medium text-gray-700 mb-3 block">
+                  <div className="border-t border-border pt-6">
+                    <Label className="text-sm font-medium text-foreground mb-3 block">
                       Button Preview
                     </Label>
-                    <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                    <div className="bg-muted/50 rounded-lg p-6 border border-border">
                       <Button
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                        className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                         onClick={() => toast.info('This is a preview - button not functional')}
                       >
                         {config.button.buttonText || 'Button Text'}
@@ -456,7 +460,7 @@ export default function CustomButtonPage() {
                       onClick={() => handleSave(false)}
                       disabled={saving}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save'}
@@ -477,12 +481,12 @@ export default function CustomButtonPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
-                        <MessageSquare className="w-5 h-5 text-gray-600" />
+                        <MessageSquare className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <h4 className="font-medium text-gray-900">Chat widget</h4>
-                          <p className="text-sm text-gray-600">Enable custom button in the chat widget</p>
+                          <h4 className="font-medium text-foreground">Chat widget</h4>
+                          <p className="text-sm text-muted-foreground">Enable custom button in the chat widget</p>
                         </div>
                       </div>
                       <Switch
@@ -491,15 +495,16 @@ export default function CustomButtonPage() {
                           ...prev,
                           channels: { ...prev.channels, chatWidget: checked }
                         }))}
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-gray-600" />
+                        <Globe className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <h4 className="font-medium text-gray-900">Help page</h4>
-                          <p className="text-sm text-gray-600">Enable custom button on help pages</p>
+                          <h4 className="font-medium text-foreground">Help page</h4>
+                          <p className="text-sm text-muted-foreground">Enable custom button on help pages</p>
                         </div>
                       </div>
                       <Switch
@@ -508,16 +513,17 @@ export default function CustomButtonPage() {
                           ...prev,
                           channels: { ...prev.channels, helpPage: checked }
                         }))}
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
                   </div>
 
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-blue-800 mb-1">How it works</h4>
-                        <p className="text-sm text-blue-700">
+                        <h4 className="font-medium text-foreground mb-1">How it works</h4>
+                        <p className="text-sm text-muted-foreground">
                           The AI agent will intelligently decide when to show this button based on your &quot;When to use&quot;
                           instructions. The button will appear dynamically in the conversation when the context matches
                           your specified conditions.
@@ -531,7 +537,7 @@ export default function CustomButtonPage() {
                       onClick={() => handleSave(false)}
                       disabled={saving}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save'}
@@ -539,7 +545,7 @@ export default function CustomButtonPage() {
                     <Button
                       onClick={() => handleSave(true)}
                       disabled={saving}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save & enable'}

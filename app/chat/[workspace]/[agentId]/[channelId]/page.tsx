@@ -33,14 +33,14 @@ export default function ChatWidgetIframePage() {
   const displayName = channel?.settings?.widgetTitle || agent?.name || "Assistant";
   const initialMessage = channel?.settings?.welcomeMessage || "Hi! What can I help you with?";
   const messagePlaceholder = channel?.settings?.placeholder || "Message...";
-  const footerMessage = channel?.settings?.footerMessage || "Powered by Rexa";
+  const footerMessage = channel?.settings?.footerMessage || "Powered by Ragzy";
   const appearance = channel?.settings?.appearance || 'light';
   const profilePictureUrl = channel?.settings?.profilePictureUrl || "";
   const primaryColor = channel?.settings?.primaryColor || "#2563eb";
   const chatBubbleColor = channel?.settings?.chatBubbleColor || "#2563eb";
   const aiInstructions = channel?.settings?.aiInstructions || "";
   const suggestedMessages = channel?.settings?.suggestedMessages || [];
-  const aiModel = channel?.settings?.aiModel || "gpt-4o-mini";
+  const aiModel = channel?.settings?.aiModel || "gpt-5-mini";
 
   // Simple markdown renderer for AI responses
   const renderMarkdown = (text: string) => {
@@ -232,12 +232,12 @@ export default function ChatWidgetIframePage() {
       const streamUrl = `${backendUrl}/api/ai/chat/stream`;
 
       // Use the AI model from channel settings, fallback to agent model
-      let modelToUse = aiModel || agent.settings?.model || agent.aiConfig?.model || 'gpt-4o-mini';
-      const supportedModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      let modelToUse = aiModel || agent.settings?.model || agent.aiConfig?.model || 'gpt-5-mini';
+      const supportedModels = ['gpt-5-mini', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
 
       if (!supportedModels.includes(modelToUse)) {
-        console.log(`Model ${modelToUse} not supported, using gpt-4o-mini instead`);
-        modelToUse = 'gpt-4o-mini';
+        console.log(`Model ${modelToUse} not supported, using gpt-5-mini instead`);
+        modelToUse = 'gpt-5-mini';
       }
 
       console.log('Sending message to AI with config:', {

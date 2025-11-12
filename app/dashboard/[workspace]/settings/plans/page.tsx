@@ -10,100 +10,133 @@ import {
   Crown,
   Check,
   Zap,
-  Users,
-  MessageSquare,
-  BarChart3,
-  Shield,
-  Rocket,
+  Star,
+  Building2,
   AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 
-interface PlanFeature {
-  name: string;
-  included: boolean;
-}
-
 interface Plan {
   id: string;
   name: string;
-  price: number;
-  interval: string;
+  icon: React.ReactNode;
+  price: { monthly: number | string; yearly: number | string };
   description: string;
   popular?: boolean;
-  features: PlanFeature[];
-  maxAgents: number;
-  maxConversations: string;
-  maxMembers: number;
+  color: string;
+  iconBg: string;
+  iconColor: string;
+  features: string[];
+  note?: string;
 }
 
 const plans: Plan[] = [
   {
     id: 'free',
     name: 'Free',
-    price: 0,
-    interval: 'forever',
-    description: 'Perfect for trying out Rexa Engage',
+    icon: <Zap className="w-5 h-5" />,
+    price: { monthly: 0, yearly: 0 },
+    description: 'per month',
+    popular: false,
+    color: 'from-blue-50 to-indigo-100',
+    iconBg: 'bg-blue-100',
+    iconColor: 'text-blue-600',
     features: [
-      { name: '1 AI Agent', included: true },
-      { name: '100 conversations/month', included: true },
-      { name: '2 team members', included: true },
-      { name: 'Basic analytics', included: true },
-      { name: 'Email support', included: true },
-      { name: 'Custom branding', included: false },
-      { name: 'Priority support', included: false },
-      { name: 'Advanced integrations', included: false }
+      'Access to fast models',
+      '100 message credits/month',
+      '1 AI agent',
+      '1 AI Action per AI agent',
+      '400 KB per AI agent',
+      '1 seat',
+      'Integrations',
+      'API access',
+      'Embed on unlimited websites',
+      'Limit of 10 links to train on'
     ],
-    maxAgents: 1,
-    maxConversations: '100/month',
-    maxMembers: 2
+    note: 'AI agents get deleted after 14 days of inactivity on the free plan.'
+  },
+  {
+    id: 'hobby',
+    name: 'Hobby',
+    icon: <Star className="w-5 h-5" />,
+    price: { monthly: 40, yearly: 32 },
+    description: 'per month',
+    popular: false,
+    color: 'from-purple-50 to-pink-100',
+    iconBg: 'bg-purple-100',
+    iconColor: 'text-purple-600',
+    features: [
+      'Everything in Free +',
+      'Access to advanced models',
+      '2,000 message credits/month',
+      '1 AI agent',
+      '5 AI Actions per AI agent',
+      '40 MB per AI agent',
+      'Unlimited links to train on',
+      'Basic analytics'
+    ]
+  },
+  {
+    id: 'standard',
+    name: 'Standard',
+    icon: <Crown className="w-5 h-5" />,
+    price: { monthly: 150, yearly: 120 },
+    description: 'per month',
+    popular: true,
+    color: 'from-orange-50 to-yellow-100',
+    iconBg: 'bg-orange-100',
+    iconColor: 'text-orange-600',
+    features: [
+      'Everything in Hobby +',
+      '12,000 message credits/month',
+      '2 AI agents',
+      '10 AI Actions per AI agent',
+      '3 seats',
+      'Advanced analytics'
+    ]
   },
   {
     id: 'pro',
-    name: 'Professional',
-    price: 49,
-    interval: 'month',
-    description: 'For growing teams and businesses',
-    popular: true,
+    name: 'Pro',
+    icon: <Star className="w-5 h-5" />,
+    price: { monthly: 500, yearly: 400 },
+    description: 'per month',
+    popular: false,
+    color: 'from-green-50 to-emerald-100',
+    iconBg: 'bg-green-100',
+    iconColor: 'text-green-600',
     features: [
-      { name: '5 AI Agents', included: true },
-      { name: 'Unlimited conversations', included: true },
-      { name: '10 team members', included: true },
-      { name: 'Advanced analytics', included: true },
-      { name: 'Priority email support', included: true },
-      { name: 'Custom branding', included: true },
-      { name: 'API access', included: true },
-      { name: 'Advanced integrations', included: false }
-    ],
-    maxAgents: 5,
-    maxConversations: 'Unlimited',
-    maxMembers: 10
+      'Everything in Standard +',
+      '40,000 message credits/month',
+      '3 AI agents',
+      '15 AI Actions per AI agent',
+      '5+ seats'
+    ]
   },
   {
     id: 'enterprise',
     name: 'Enterprise',
-    price: 199,
-    interval: 'month',
-    description: 'For large teams with advanced needs',
+    icon: <Building2 className="w-5 h-5" />,
+    price: { monthly: 'Talk', yearly: 'Talk' },
+    description: "Let's Talk",
+    popular: false,
+    color: 'from-slate-50 to-gray-100',
+    iconBg: 'bg-slate-100',
+    iconColor: 'text-slate-600',
     features: [
-      { name: 'Unlimited AI Agents', included: true },
-      { name: 'Unlimited conversations', included: true },
-      { name: 'Unlimited team members', included: true },
-      { name: 'Advanced analytics', included: true },
-      { name: '24/7 priority support', included: true },
-      { name: 'Custom branding', included: true },
-      { name: 'API access', included: true },
-      { name: 'Advanced integrations', included: true }
-    ],
-    maxAgents: -1,
-    maxConversations: 'Unlimited',
-    maxMembers: -1
+      'Everything in Pro +',
+      'Higher limits',
+      'Priority support',
+      'SLAs',
+      'Success manager (CSM)'
+    ]
   }
 ];
 
 export default function WorkspacePlansSettingsPage() {
   const { userData, workspaceContext } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
 
   const currentWorkspace = workspaceContext?.currentWorkspace;
   const currentPlan = currentWorkspace?.subscription?.plan || 'free';
@@ -170,192 +203,158 @@ export default function WorkspacePlansSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* Billing Toggle */}
+      <div className="flex justify-center mb-8">
+        <div className="inline-flex items-center bg-muted/50 rounded-xl p-1.5 border border-border">
+          <button
+            onClick={() => setBillingCycle('monthly')}
+            className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 ${
+              billingCycle === 'monthly'
+                ? 'bg-background text-foreground shadow-sm border border-border'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Monthly
+          </button>
+          <button
+            onClick={() => setBillingCycle('yearly')}
+            className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 relative ${
+              billingCycle === 'yearly'
+                ? 'bg-background text-foreground shadow-sm border border-border'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Yearly
+            <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+              20%
+            </span>
+          </button>
+        </div>
+      </div>
+
       {/* Pricing Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8 max-w-8xl mx-auto">
         {plans.map((plan) => {
           const isCurrentPlan = plan.id === currentPlan;
           const canUpgrade = plan.id !== 'free' && plan.id !== currentPlan;
 
           return (
-            <Card
+            <div
               key={plan.id}
-              className={`border-2 rounded-xl ${
+              className={`relative border rounded-2xl p-8 transition-all duration-300 hover:shadow-lg ${
                 plan.popular
-                  ? 'border-primary shadow-lg scale-105'
+                  ? 'border-primary shadow-xl scale-105 bg-gradient-to-b from-primary/5 to-primary/10'
                   : isCurrentPlan
                   ? 'border-green-500 bg-green-50/50'
-                  : 'border-border shadow-sm'
-              }`}
+                  : 'border-border hover:border-primary/30 hover:shadow-md'
+              } bg-gradient-to-b ${plan.color}`}
             >
-              <CardHeader className="pb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <CardTitle className="text-xl font-bold text-foreground">
-                    {plan.name}
-                  </CardTitle>
-                  {plan.popular && (
-                    <Badge className="bg-primary text-primary-foreground">
-                      <Zap className="w-3 h-3 mr-1" />
-                      Popular
-                    </Badge>
-                  )}
-                  {isCurrentPlan && (
-                    <Badge className="bg-green-600 text-white">
-                      <Check className="w-3 h-3 mr-1" />
-                      Current
-                    </Badge>
-                  )}
-                </div>
-                <CardDescription>{plan.description}</CardDescription>
-                <div className="mt-4">
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-foreground">
-                      ${plan.price}
-                    </span>
-                    <span className="text-muted-foreground">
-                      /{plan.interval}
-                    </span>
+              {/* Popular Badge */}
+              {plan.popular && (
+                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                  <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground px-6 py-2 rounded-full text-sm font-bold shadow-lg">
+                    Popular
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Quick Stats */}
-                  <div className="pb-4 border-b space-y-2">
-                    <div className="flex items-center gap-2 text-sm">
-                      <Rocket className="w-4 h-4 text-primary" />
-                      <span className="text-foreground">
-                        {plan.maxAgents === -1 ? 'Unlimited' : plan.maxAgents} AI Agent{plan.maxAgents !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <MessageSquare className="w-4 h-4 text-primary" />
-                      <span className="text-foreground">{plan.maxConversations} conversations</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Users className="w-4 h-4 text-primary" />
-                      <span className="text-foreground">
-                        {plan.maxMembers === -1 ? 'Unlimited' : plan.maxMembers} team member{plan.maxMembers !== 1 ? 's' : ''}
-                      </span>
+              )}
+
+              {/* Current Plan Badge */}
+              {isCurrentPlan && (
+                <div className="absolute -top-4 right-4">
+                  <Badge className="bg-green-600 text-white">
+                    <Check className="w-3 h-3 mr-1" />
+                    Current
+                  </Badge>
+                </div>
+              )}
+
+              {/* Plan Header */}
+              <div className="text-center mb-8">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <div className={`p-3 rounded-xl ${plan.iconBg} shadow-sm`}>
+                    <div className={plan.iconColor}>
+                      {plan.icon}
                     </div>
                   </div>
-
-                  {/* Features */}
-                  <div className="space-y-3">
-                    {plan.features.map((feature, index) => (
-                      <div key={index} className="flex items-start gap-2">
-                        {feature.included ? (
-                          <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
-                        ) : (
-                          <div className="w-4 h-4 rounded-full bg-muted flex-shrink-0 mt-0.5" />
-                        )}
-                        <span
-                          className={`text-sm ${
-                            feature.included ? 'text-foreground' : 'text-muted-foreground'
-                          }`}
-                        >
-                          {feature.name}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="pt-4">
-                    {isCurrentPlan ? (
-                      <Button disabled className="w-full" variant="outline">
-                        <Check className="w-4 h-4 mr-2" />
-                        Current Plan
-                      </Button>
-                    ) : canUpgrade ? (
-                      <Button
-                        onClick={() => handleUpgrade(plan.id)}
-                        disabled={loading}
-                        className="w-full bg-foreground hover:bg-foreground/90 text-background"
-                      >
-                        <Crown className="w-4 h-4 mr-2" />
-                        Upgrade Now
-                      </Button>
-                    ) : (
-                      <Button disabled className="w-full" variant="outline">
-                        Not Available
-                      </Button>
+                  <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
+                </div>
+                
+                <div className="mb-6">
+                  <div className="flex items-baseline justify-center gap-1">
+                    {typeof plan.price[billingCycle] === 'number' && (
+                      <span className="text-2xl font-bold text-muted-foreground">$</span>
                     )}
+                    <span className="text-5xl font-bold text-foreground">
+                      {plan.price[billingCycle]}
+                    </span>
                   </div>
+                  <div className="text-sm text-muted-foreground mt-1">{plan.description}</div>
                 </div>
-              </CardContent>
-            </Card>
+
+                {isCurrentPlan ? (
+                  <Button disabled className="w-full py-3 font-semibold" variant="outline">
+                    <Check className="w-4 h-4 mr-2" />
+                    Current Plan
+                  </Button>
+                ) : canUpgrade ? (
+                  <Button
+                    onClick={() => handleUpgrade(plan.id)}
+                    disabled={loading}
+                    className={`w-full py-3 font-semibold transition-all duration-300 ${
+                      plan.popular
+                        ? 'bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl'
+                        : 'hover:scale-105'
+                    }`}
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    {plan.id === 'enterprise' ? 'Contact us' : 'Upgrade Now'}
+                  </Button>
+                ) : (
+                  <Button disabled className="w-full py-3 font-semibold" variant="outline">
+                    Not Available
+                  </Button>
+                )}
+              </div>
+
+              {/* Features */}
+              <div className="space-y-4">
+                {plan.features.map((feature, featureIndex) => (
+                  <div key={featureIndex} className="flex items-start gap-3">
+                    <div className="flex-shrink-0 mt-0.5">
+                      <Check className="w-4 h-4 text-green-600" />
+                    </div>
+                    <span className="text-sm text-foreground leading-relaxed">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Note */}
+              {plan.note && (
+                <div className="mt-8 pt-6 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground leading-relaxed">{plan.note}</p>
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
 
-      {/* Additional Info */}
-      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-0 shadow-sm bg-card rounded-xl">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <Shield className="w-5 h-5 text-primary flex-shrink-0" />
-              <div>
-                <h4 className="font-semibold text-foreground mb-1">Secure Payments</h4>
-                <p className="text-sm text-muted-foreground">
-                  All transactions are encrypted and secure
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm bg-card rounded-xl">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <BarChart3 className="w-5 h-5 text-primary flex-shrink-0" />
-              <div>
-                <h4 className="font-semibold text-foreground mb-1">Flexible Plans</h4>
-                <p className="text-sm text-muted-foreground">
-                  Upgrade or downgrade anytime
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-0 shadow-sm bg-card rounded-xl">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <MessageSquare className="w-5 h-5 text-primary flex-shrink-0" />
-              <div>
-                <h4 className="font-semibold text-foreground mb-1">Need Help?</h4>
-                <p className="text-sm text-muted-foreground">
-                  Contact our support team
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Bottom CTA Section */}
+      <div className="text-center mt-20">
+        <div className="inline-flex items-center gap-4 text-sm text-muted-foreground mb-8">
+          <div className="w-12 h-px bg-border"></div>
+          <span className="font-medium">Need something custom?</span>
+          <div className="w-12 h-px bg-border"></div>
+        </div>
+        <p className="text-muted-foreground mb-6 text-lg">
+          We&apos;re here to help you find the perfect plan for your needs.
+        </p>
+        <Link href="/contact">
+          <Button variant="outline" size="lg" className="px-8 py-3">
+            Contact Sales Team
+          </Button>
+        </Link>
       </div>
-
-      {/* FAQ or Contact */}
-      <Card className="border-0 shadow-sm bg-card rounded-xl mt-6">
-        <CardContent className="pt-6">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-foreground mb-2">
-              Have questions about our plans?
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Our team is here to help you choose the right plan for your needs
-            </p>
-            <div className="flex gap-3 justify-center">
-              <Link href="/contact">
-                <Button variant="outline">Contact Sales</Button>
-              </Link>
-              <Link href="/pricing">
-                <Button className="bg-foreground hover:bg-foreground/90 text-background">
-                  View Full Pricing
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </Container>
   );
 }

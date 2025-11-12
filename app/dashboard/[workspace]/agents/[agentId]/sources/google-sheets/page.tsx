@@ -9,6 +9,7 @@ import { Input } from '@/app/components/ui/input';
 import {
   getGoogleSheetsConnection,
   listGoogleSheets,
+  refreshGoogleSheetsToken,
   type GoogleSheetsConnection,
   type GoogleSpreadsheet
 } from '@/app/lib/google-sheets-utils';
@@ -17,9 +18,11 @@ import {
   getAgentKnowledgeItems,
   type AgentKnowledgeItem
 } from '@/app/lib/agent-knowledge-utils';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
 import { Sheet, Search, Check, Loader2, ExternalLink, CheckCircle2, Database, Trash2, RefreshCw } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 import { deleteAgentKnowledgeItem } from '@/app/lib/agent-knowledge-utils';
 import { useAuth } from '@/app/lib/workspace-auth-context';
 
@@ -65,6 +68,7 @@ export default function GoogleSheetsSourcePage() {
 
   // Deletion
   const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
   // Check for OAuth success/error in URL params
   const googleSheetsData = searchParams.get('google_sheets_data');
@@ -131,9 +135,10 @@ export default function GoogleSheetsSourcePage() {
       // Clean URL and reload connection
       router.replace(`/dashboard/${workspaceSlug}/agents/${agentId}/sources/google-sheets`);
       await checkConnection();
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const firestoreError = error as { code?: string };
       console.error('Error saving Google Sheets connection:', error);
-      const errorMessage = error?.code === 'permission-denied' 
+      const errorMessage = firestoreError?.code === 'permission-denied' 
         ? 'Permission denied. Please ensure you are a member of this workspace.'
         : 'Failed to save connection data. Please try again.';
       alert(errorMessage);
@@ -201,7 +206,50 @@ export default function GoogleSheetsSourcePage() {
         setSpreadsheets(result.spreadsheets);
         setFilteredSheets(result.spreadsheets);
       } else {
-        alert('Failed to load Google Sheets: ' + (result.error || 'Unknown error'));
+        // Check if error is due to expired token (authentication error)
+        const errorMsg = result.error || '';
+        if (errorMsg.includes('authentication') || errorMsg.includes('credentials') || errorMsg.includes('OAuth') || errorMsg.includes('Invalid Credentials')) {
+          console.log('🔄 Token expired, attempting to refresh...');
+
+          // Try to refresh token if we have a refresh token
+          if (connection?.refreshToken) {
+            const refreshResult = await refreshGoogleSheetsToken(connection.refreshToken);
+
+            if (refreshResult.success && refreshResult.accessToken) {
+              console.log('✅ Token refreshed successfully');
+
+              // Update connection in Firestore with new access token
+              const connectionId = `${workspaceId}_google_sheets`;
+              await setDoc(doc(db, 'googleSheetsConnections', connectionId), {
+                ...connection,
+                accessToken: refreshResult.accessToken,
+                updatedAt: serverTimestamp()
+              }, { merge: true });
+
+              // Update local state
+              setConnection({ ...connection, accessToken: refreshResult.accessToken });
+
+              // Retry loading sheets with new token
+              const retryResult = await listGoogleSheets(refreshResult.accessToken);
+              if (retryResult.success && retryResult.spreadsheets) {
+                setSpreadsheets(retryResult.spreadsheets);
+                setFilteredSheets(retryResult.spreadsheets);
+              } else {
+                alert('Failed to load Google Sheets after token refresh: ' + (retryResult.error || 'Unknown error'));
+              }
+            } else {
+              console.error('❌ Failed to refresh token:', refreshResult.error);
+              alert('Your Google Sheets connection expired. Please reconnect.\n\nError: ' + (refreshResult.error || 'Failed to refresh token'));
+              setConnection(null); // Clear connection to show reconnect button
+            }
+          } else {
+            console.error('❌ No refresh token available');
+            alert('Your Google Sheets connection expired and no refresh token is available. Please reconnect.');
+            setConnection(null); // Clear connection to show reconnect button
+          }
+        } else {
+          alert('Failed to load Google Sheets: ' + errorMsg);
+        }
       }
     } catch (error) {
       console.error('Error loading Google Sheets:', error);
@@ -209,7 +257,7 @@ export default function GoogleSheetsSourcePage() {
     } finally {
       setLoadingSheets(false);
     }
-  }, []);
+  }, [connection, workspaceId]);
 
   const handleConnectGoogle = () => {
     if (!workspaceId) {
@@ -220,6 +268,28 @@ export default function GoogleSheetsSourcePage() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
     console.log('Connecting to Google Sheets with workspace ID:', workspaceId);
     window.location.href = `${backendUrl}/api/google-sheets/oauth/authorize?workspace_id=${workspaceId}&agent_id=${agentId}`;
+  };
+
+  const executeDisconnectGoogle = async () => {
+    if (!workspaceId) {
+      toast.error('Workspace not loaded. Please refresh the page.');
+      setShowDisconnectDialog(false);
+      return;
+    }
+    try {
+      await deleteDoc(doc(db, 'googleSheetsConnections', `${workspaceId}_google_sheets`));
+      setConnection(null);
+      setSpreadsheets([]);
+      setFilteredSheets([]);
+      setSelectedSheets(new Set());
+      toast.success('Disconnected Google Sheets. You can now connect a new account.');
+      router.replace(`/dashboard/${workspaceSlug}/agents/${agentId}/sources/google-sheets`);
+    } catch (error) {
+      console.error('Error disconnecting Google Sheets:', error);
+      toast.error('Failed to disconnect Google Sheets. Please try again.');
+    } finally {
+      setShowDisconnectDialog(false);
+    }
   };
 
   const toggleSheetSelection = (sheetId: string) => {
@@ -381,7 +451,7 @@ export default function GoogleSheetsSourcePage() {
 
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto p-8">
+        <div className="max-w-7xl mx-auto px-6 py-8">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
@@ -396,6 +466,7 @@ export default function GoogleSheetsSourcePage() {
                   size="sm"
                   onClick={() => connection && loadSpreadsheets(connection.accessToken)}
                   disabled={loadingSheets}
+                  className="rounded-lg border-border"
                 >
                   {loadingSheets ? (
                     <>
@@ -409,10 +480,41 @@ export default function GoogleSheetsSourcePage() {
                     </>
                   )}
                 </Button>
-                <Badge variant="default" className="bg-green-500">Connected</Badge>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDisconnectDialog(true)}
+                  className="rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Disconnect
+                </Button>
+                <Badge variant="default" className="bg-success text-success-foreground">Connected</Badge>
               </div>
             </div>
           </div>
+
+          {/* Disconnect Confirmation Dialog */}
+          <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Disconnect Google Sheets</DialogTitle>
+                <DialogDescription>
+                  This will disconnect the current Google account from this workspace.
+                  Imported knowledge stays intact. You can connect a different account afterward.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDisconnectDialog(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={executeDisconnectGoogle}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Disconnect
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Search */}
           <div className="mb-4">
@@ -423,17 +525,17 @@ export default function GoogleSheetsSourcePage() {
                 placeholder="Search spreadsheets..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
+                className="pl-10 rounded-lg border-border"
               />
             </div>
           </div>
 
           {/* Action Buttons */}
           {selectedSheets.size > 0 && (
-            <div className="mb-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
+            <div className="mb-4 flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg p-3">
               <div className="flex items-center gap-2">
-                <Check className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium">
+                <Check className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
                   {selectedSheets.size} spreadsheet{selectedSheets.size !== 1 ? 's' : ''} selected
                 </span>
               </div>
@@ -443,6 +545,7 @@ export default function GoogleSheetsSourcePage() {
                   size="sm"
                   onClick={() => setSelectedSheets(new Set())}
                   disabled={importing}
+                  className="rounded-lg border-border"
                 >
                   Clear Selection
                 </Button>
@@ -450,7 +553,7 @@ export default function GoogleSheetsSourcePage() {
                   size="sm"
                   onClick={handleTrainRAG}
                   disabled={importing}
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                  className="bg-primary hover:bg-primary/90 rounded-lg"
                 >
                   {importing ? (
                     <>
@@ -492,21 +595,21 @@ export default function GoogleSheetsSourcePage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Available to Import Section */}
-              {notImportedSheets.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                    Available to Import ({notImportedSheets.length})
-                  </h3>
-                  <div className="space-y-2">
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  Available to Import ({notImportedSheets.length})
+                </h3>
+                {notImportedSheets.length > 0 ? (
+                  <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
                     {notImportedSheets.map((sheet) => {
                       const isSelected = selectedSheets.has(sheet.id);
                       return (
                         <Card
                           key={sheet.id}
-                          className={`cursor-pointer transition-all hover:shadow-sm ${
-                            isSelected ? 'border-blue-500 bg-blue-50' : ''
+                          className={`cursor-pointer transition-all hover:shadow-md border ${
+                            isSelected ? 'border-primary bg-primary/5' : 'border-border'
                           }`}
                           onClick={() => toggleSheetSelection(sheet.id)}
                         >
@@ -514,10 +617,10 @@ export default function GoogleSheetsSourcePage() {
                             <div className="flex items-center gap-3">
                               <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
                                 isSelected
-                                  ? 'border-blue-500 bg-blue-500'
-                                  : 'border-gray-300'
+                                  ? 'border-primary bg-primary'
+                                  : 'border-border'
                               }`}>
-                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                                {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
@@ -542,31 +645,39 @@ export default function GoogleSheetsSourcePage() {
                       );
                     })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <Sheet className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                      <p className="text-sm text-muted-foreground">No spreadsheets available to import</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
 
               {/* Already in Knowledge Base Section */}
-              {alreadyImportedSheets.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                    In Knowledge Base ({alreadyImportedSheets.length})
-                  </h3>
-                  <div className="space-y-2">
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  In Knowledge Base ({alreadyImportedSheets.length + orphanedImportedSheets.length})
+                </h3>
+                {(alreadyImportedSheets.length > 0 || orphanedImportedSheets.length > 0) ? (
+                  <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
+                    {/* Already imported sheets */}
                     {alreadyImportedSheets.map((sheet) => {
                       const imported = importedSheets.get(sheet.id);
                       const isDeleting = deletingItemId === imported?.id;
                       return (
                         <Card
                           key={sheet.id}
-                          className="border-green-200 bg-green-50/50"
+                          className="border border-success/20 bg-success/5"
                         >
                           <CardContent className="p-3">
                             <div className="flex items-center gap-3">
-                              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <h3 className="font-medium text-foreground text-sm truncate">{sheet.name}</h3>
-                                  <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">
+                                  <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
                                     In RAG
                                   </Badge>
                                 </div>
@@ -588,7 +699,7 @@ export default function GoogleSheetsSourcePage() {
                                   size="sm"
                                   onClick={() => imported && handleDeleteSheet(imported.id, sheet.name)}
                                   disabled={isDeleting}
-                                  className="h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600"
+                                  className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive rounded-lg"
                                 >
                                   {isDeleting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -602,17 +713,8 @@ export default function GoogleSheetsSourcePage() {
                         </Card>
                       );
                     })}
-                  </div>
-                </div>
-              )}
 
-              {/* Show imported sheets that are no longer in Google Drive */}
-              {orphanedImportedSheets.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                    Previously Imported (Not in Google Drive) ({orphanedImportedSheets.length})
-                  </h3>
-                  <div className="space-y-2">
+                    {/* Orphaned imported sheets (not in Google Drive anymore) */}
                     {orphanedImportedSheets.map((sheetId) => {
                       const imported = importedSheets.get(sheetId);
                       if (!imported) return null;
@@ -620,15 +722,15 @@ export default function GoogleSheetsSourcePage() {
                       return (
                         <Card
                           key={sheetId}
-                          className="border-yellow-200 bg-yellow-50/50"
+                          className="border border-warning/20 bg-warning/5"
                         >
                           <CardContent className="p-3">
                             <div className="flex items-center gap-3">
-                              <CheckCircle2 className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                              <CheckCircle2 className="w-4 h-4 text-warning flex-shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                   <h3 className="font-medium text-foreground text-sm truncate">{imported.title}</h3>
-                                  <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-300">
+                                  <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/20">
                                     In RAG
                                   </Badge>
                                 </div>
@@ -642,7 +744,7 @@ export default function GoogleSheetsSourcePage() {
                                   size="sm"
                                   onClick={() => handleDeleteSheet(imported.id, imported.title)}
                                   disabled={isDeleting}
-                                  className="h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600"
+                                  className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive rounded-lg"
                                 >
                                   {isDeleting ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -657,8 +759,15 @@ export default function GoogleSheetsSourcePage() {
                       );
                     })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <CheckCircle2 className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                      <p className="text-sm text-muted-foreground">No spreadsheets in knowledge base yet</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -669,7 +778,7 @@ export default function GoogleSheetsSourcePage() {
   // Not connected - show connect option
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto p-8">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-semibold text-foreground">Google Sheets Sources</h1>
@@ -695,7 +804,7 @@ export default function GoogleSheetsSourcePage() {
               <Button
                 onClick={handleConnectGoogle}
                 disabled={connecting}
-                className="bg-foreground hover:bg-foreground/90 text-background px-8 py-2"
+                className="bg-primary hover:bg-primary/90 px-8 py-2 rounded-lg"
               >
                 {connecting ? (
                   <>

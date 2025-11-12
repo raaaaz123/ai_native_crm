@@ -8,23 +8,26 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { Copy, Globe, Check, Settings, MessageCircle, Loader2, HelpCircle, ArrowRight, Plus, Search } from "lucide-react";
+import { Copy, Globe, Check, Settings, MessageCircle, Loader2, HelpCircle, ArrowRight, Plus, Search, Sparkles, Zap } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/app/lib/workspace-auth-context";
 import { getAgent, Agent } from "@/app/lib/agent-utils";
-import { 
-  createAgentChannel, 
-  getAgentChannels, 
+import {
+  createAgentChannel,
+  getAgentChannels,
   updateChannelStatus,
-  AgentChannel 
+  AgentChannel
 } from "@/app/lib/agent-channel-utils";
+import { checkZapierIntegrationStatus } from "@/app/lib/zapier-utils";
+import { checkZendeskIntegrationStatus } from "@/app/lib/zendesk-utils";
+import { checkWhatsAppIntegrationStatus } from "@/app/lib/whatsapp-utils";
 import { toast } from "sonner";
 
 export default function AgentDeployPage() {
@@ -33,7 +36,7 @@ export default function AgentDeployPage() {
   const workspaceSlug = params.workspace as string;
   const agentId = params.agentId as string;
   const { workspaceContext } = useAuth();
-  
+
   const [agent, setAgent] = useState<Agent | null>(null);
   const [channels, setChannels] = useState<AgentChannel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,11 +45,56 @@ export default function AgentDeployPage() {
   const [creating, setCreating] = useState(false);
   const [channelName, setChannelName] = useState('');
   const [copiedChannelId, setCopiedChannelId] = useState<string | null>(null);
+  const [zapierConfigured, setZapierConfigured] = useState(false);
+  const [zendeskConfigured, setZendeskConfigured] = useState(false);
+  const [whatsappConfigured, setWhatsappConfigured] = useState(false);
 
   useEffect(() => {
     loadAgent();
     loadChannels();
+    checkZapierStatus();
+    checkZendeskStatus();
+    checkWhatsAppStatus();
   }, [agentId, workspaceContext]);
+
+  const checkZapierStatus = async () => {
+    if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
+    try {
+      const isConfigured = await checkZapierIntegrationStatus(
+        workspaceContext.currentWorkspace.id,
+        agentId
+      );
+      setZapierConfigured(isConfigured);
+    } catch (error) {
+      console.error('Error checking Zapier status:', error);
+    }
+  };
+
+  const checkZendeskStatus = async () => {
+    if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
+    try {
+      const isConfigured = await checkZendeskIntegrationStatus(
+        workspaceContext.currentWorkspace.id,
+        agentId
+      );
+      setZendeskConfigured(isConfigured);
+    } catch (error) {
+      console.error('Error checking Zendesk status:', error);
+    }
+  };
+
+  const checkWhatsAppStatus = async () => {
+    if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
+    try {
+      const isConfigured = await checkWhatsAppIntegrationStatus(
+        workspaceContext.currentWorkspace.id,
+        agentId
+      );
+      setWhatsappConfigured(isConfigured);
+    } catch (error) {
+      console.error('Error checking WhatsApp status:', error);
+    }
+  };
 
   const loadAgent = async () => {
     if (!agentId) {
@@ -57,7 +105,7 @@ export default function AgentDeployPage() {
     try {
       setLoading(true);
       const response = await getAgent(agentId);
-      
+
       if (response.success) {
         setAgent(response.data);
       } else {
@@ -156,77 +204,103 @@ export default function AgentDeployPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading channels...</p>
+          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-primary" />
+          <p className="text-muted-foreground font-medium">Loading deployment options...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Header */}
-        <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Deploy your agent</h1>
-          <p className="text-gray-600 text-lg">Connect your AI agent across multiple channels and platforms</p>
+        <div className="mb-12">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 mb-4">
+            <Sparkles className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-primary">Deployment Center</span>
+          </div>
+          <h1 className="text-4xl sm:text-5xl font-bold mb-4 text-foreground">
+            Deploy {agent?.name || 'your agent'}
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl">
+            Connect your AI agent across multiple channels and start engaging with customers instantly
+          </p>
         </div>
 
-        {/* Top Section - Chat Widget and Help Page */}
-        <div className="mb-12">
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Primary Channels</h2>
+        {/* Primary Channels - Featured Section */}
+        <div className="mb-16">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-8 w-1 bg-primary rounded-full"></div>
+            <h2 className="text-2xl font-bold text-foreground">Primary Channels</h2>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Chat Widget */}
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden">
-              <div className="aspect-video bg-blue-600 relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center p-6">
-                  <div className="bg-white rounded-lg p-5 shadow-lg max-w-sm w-full">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                        <MessageCircle className="w-4 h-4 text-white" />
+            {/* Chat Widget Card */}
+            <Card className="group relative border border-border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+              {/* Preview Section */}
+              <div className="relative h-48 bg-primary/5 overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <div className="bg-card rounded-lg p-4 shadow-lg max-w-xs w-full transform group-hover:scale-105 transition-transform duration-300 border border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                        <MessageCircle className="w-4 h-4 text-primary-foreground" />
                       </div>
-                      <span className="text-sm font-semibold text-gray-800">{agent?.name || 'My Agent'}</span>
+                      <span className="font-bold text-foreground text-sm">{agent?.name || 'AI Assistant'}</span>
+                      <div className="ml-auto flex gap-1">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                      </div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-3 mb-3">
-                      <p className="text-xs text-gray-700">Hi! What can I help you with today?</p>
+                    <div className="bg-muted rounded-lg p-2.5 mb-3 border border-border">
+                      <p className="text-xs text-foreground leading-relaxed">Hi! How can I help you today? 👋</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full"></div>
-                      <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center">
-                        <ArrowRight className="w-3 h-3 text-white" />
+                      <div className="flex-1 h-8 bg-background rounded-lg border border-border"></div>
+                      <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                        <ArrowRight className="w-4 h-4 text-primary-foreground" />
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-              <CardContent className="p-6 bg-white">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold text-gray-900">Chat Widget</h3>
-                    {hasWidget && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        Active
-                      </Badge>
-                    )}
+
+              {/* Content Section */}
+              <CardContent className="relative p-6 bg-card">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <MessageCircle className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-foreground">Chat Widget</h3>
+                      {hasWidget && (
+                        <Badge className="mt-1 bg-green-100 text-green-700 border-0 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+                          <div className="w-1.5 h-1.5 bg-green-600 rounded-full mr-1.5"></div>
+                          Active
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   {hasWidget && (
                     <Switch
                       checked={widgetChannel?.isActive || false}
                       onCheckedChange={() => widgetChannel && handleToggleChannel(widgetChannel.id, widgetChannel.isActive)}
-                      className="data-[state=checked]:bg-blue-600 data-[state=unchecked]:bg-gray-200"
+                      className="data-[state=checked]:bg-primary"
                     />
                   )}
                 </div>
-                <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-                  Add a floating chat window to your website. Perfect for real-time customer support.
+
+                <p className="text-muted-foreground mb-6 leading-relaxed">
+                  Embed a beautiful floating chat window on your website for instant customer support
                 </p>
+
                 <div className="flex gap-3">
                   {hasWidget && (
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => widgetChannel && handleCopyCode(widgetChannel.id)}
-                      className="flex-1"
+                      className="flex-1 border-border hover:border-primary hover:text-primary"
                     >
                       {copiedChannelId === widgetChannel?.id ? (
                         <>
@@ -243,7 +317,7 @@ export default function AgentDeployPage() {
                   )}
                   <Button
                     onClick={() => hasWidget ? router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/chat-widget`) : handleSetupChannel('chat-widget')}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                    className="flex-1 bg-primary hover:bg-primary/90"
                   >
                     {hasWidget ? (
                       <>
@@ -252,8 +326,8 @@ export default function AgentDeployPage() {
                       </>
                     ) : (
                       <>
-                        <Globe className="w-4 h-4 mr-2" />
-                        Setup
+                        <Zap className="w-4 h-4 mr-2" />
+                        Setup Now
                       </>
                     )}
                   </Button>
@@ -261,24 +335,28 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            {/* Help Page */}
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow rounded-lg overflow-hidden">
-              <div className="aspect-video bg-orange-600 relative overflow-hidden">
-                <div className="absolute inset-0 flex items-center justify-center p-6">
-                  <div className="bg-white rounded-lg p-5 shadow-lg max-w-sm w-full">
-                    <div className="flex items-center gap-2 mb-4">
-                      <div className="w-3 h-3 bg-red-400 rounded-full"></div>
-                      <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                      <div className="w-3 h-3 bg-green-400 rounded-full"></div>
+            {/* Help Center Card */}
+            <Card className="group relative border border-border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+              {/* Preview Section */}
+              <div className="relative h-48 bg-primary/5 overflow-hidden">
+                <div className="absolute inset-0 flex items-center justify-center p-4">
+                  <div className="bg-card rounded-lg p-4 shadow-lg max-w-xs w-full transform group-hover:scale-105 transition-transform duration-300 border border-border">
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                      <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
+                      <div className="w-2 h-2 bg-green-400 rounded-full"></div>
                     </div>
                     <div className="text-center">
-                      <h4 className="font-bold text-gray-900 mb-3 text-base">How can we help you?</h4>
-                      <div className="bg-gray-50 rounded-lg p-3 flex items-center gap-2">
-                        <Search className="w-4 h-4 text-gray-400" />
+                      <div className="inline-flex items-center gap-2 mb-3">
+                        <HelpCircle className="w-4 h-4 text-primary" />
+                        <h4 className="font-bold text-foreground text-sm">How can we help?</h4>
+                      </div>
+                      <div className="bg-muted rounded-lg p-2.5 flex items-center gap-2 border border-border">
+                        <Search className="w-4 h-4 text-muted-foreground" />
                         <input
                           type="text"
-                          placeholder="Search for help..."
-                          className="w-full text-xs bg-transparent border-none outline-none text-gray-600"
+                          placeholder="Search for answers..."
+                          className="w-full bg-transparent border-none outline-none text-xs text-foreground placeholder-muted-foreground"
                           readOnly
                         />
                       </div>
@@ -286,30 +364,40 @@ export default function AgentDeployPage() {
                   </div>
                 </div>
               </div>
-              <CardContent className="p-6 bg-white">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-xl font-bold text-gray-900">Help Center</h3>
-                    {hasHelpPage && (
-                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                        Active
-                      </Badge>
-                    )}
+
+              {/* Content Section */}
+              <CardContent className="relative p-6 bg-card">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-lg">
+                      <HelpCircle className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-foreground">Help Center</h3>
+                      {hasHelpPage && (
+                        <Badge className="mt-1 bg-green-100 text-green-700 border-0 hover:bg-green-100 dark:bg-green-900/30 dark:text-green-400">
+                          <div className="w-1.5 h-1.5 bg-green-600 rounded-full mr-1.5"></div>
+                          Active
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   {hasHelpPage && (
                     <Switch
                       checked={helpPageChannel?.isActive || false}
                       onCheckedChange={() => helpPageChannel && handleToggleChannel(helpPageChannel.id, helpPageChannel.isActive)}
-                      className="data-[state=checked]:bg-orange-600 data-[state=unchecked]:bg-gray-200"
+                      className="data-[state=checked]:bg-primary"
                     />
                   )}
                 </div>
-                <p className="text-sm text-gray-600 mb-5 leading-relaxed">
-                  ChatGPT-style help center. Deploy standalone or under a custom path like /help.
+
+                <p className="text-muted-foreground mb-6 leading-relaxed">
+                  ChatGPT-style help center page, perfect for comprehensive self-service support
                 </p>
+
                 <Button
                   onClick={() => hasHelpPage ? router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/help-page`) : handleSetupChannel('help-page')}
-                  className="w-full bg-orange-600 hover:bg-orange-700"
+                  className="w-full bg-primary hover:bg-primary/90"
                 >
                   {hasHelpPage ? (
                     <>
@@ -318,8 +406,8 @@ export default function AgentDeployPage() {
                     </>
                   ) : (
                     <>
-                      <HelpCircle className="w-4 h-4 mr-2" />
-                      Setup
+                      <Zap className="w-4 h-4 mr-2" />
+                      Setup Now
                     </>
                   )}
                 </Button>
@@ -328,45 +416,150 @@ export default function AgentDeployPage() {
           </div>
         </div>
 
-        {/* Bottom Section - Other Integrations */}
+        {/* Integrations Section */}
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-6">Integrations</h2>
+          <div className="flex items-center gap-2 mb-6">
+            <div className="h-8 w-1 bg-primary rounded-full"></div>
+            <h2 className="text-2xl font-bold text-foreground">Integrations</h2>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
+            {/* Zapier */}
+            <Card
+              className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card cursor-pointer"
+              onClick={() => router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/zapier`)}
+            >
+              <CardContent className="relative p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">Z</span>
+                  <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-white font-bold text-xl">Z</span>
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
+                  {zapierConfigured ? (
+                    <Badge className="bg-green-100 text-green-700 border-0 dark:bg-green-900/30 dark:text-green-400">
+                      <Check className="w-3 h-3 mr-1" />
+                      Setup
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      Available
+                    </Badge>
+                  )}
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Zapier</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Connect with 5000+ apps through automation workflows</p>
+                <h3 className="font-bold text-foreground mb-2 text-lg">Zapier</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Connect your agent to 5,000+ apps and automate workflows
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
-                  onClick={() => toast.info('Zapier integration coming soon!')}
+                  className="w-full border-border hover:border-primary hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/zapier`);
+                  }}
                 >
-                  Learn More
+                  {zapierConfigured ? 'Manage' : 'Setup'}
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
+            {/* WhatsApp */}
+            <Card
+              className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card cursor-pointer"
+              onClick={() => router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/whatsapp`)}
+            >
+              <CardContent className="relative p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">#</span>
+                  <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <MessageCircle className="w-6 h-6 text-white" />
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
+                  {whatsappConfigured ? (
+                    <Badge className="bg-green-100 text-green-700 border-0 dark:bg-green-900/30 dark:text-green-400">
+                      <Check className="w-3 h-3 mr-1" />
+                      Setup
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      Available
+                    </Badge>
+                  )}
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Slack</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Let your agent respond to mentions in Slack channels</p>
+                <h3 className="font-bold text-foreground mb-2 text-lg">WhatsApp</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Connect WhatsApp Business for automated customer messaging
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
+                  className="w-full border-border hover:border-primary hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/whatsapp`);
+                  }}
+                >
+                  {whatsappConfigured ? 'Manage' : 'Setup'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Zendesk */}
+            <Card
+              className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card cursor-pointer"
+              onClick={() => router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/zendesk`)}
+            >
+              <CardContent className="relative p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-teal-500 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-white font-bold text-xl">Z</span>
+                  </div>
+                  {zendeskConfigured ? (
+                    <Badge className="bg-green-100 text-green-700 border-0 dark:bg-green-900/30 dark:text-green-400">
+                      <Check className="w-3 h-3 mr-1" />
+                      Setup
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="border-border text-muted-foreground">
+                      Available
+                    </Badge>
+                  )}
+                </div>
+                <h3 className="font-bold text-foreground mb-2 text-lg">Zendesk</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Auto-reply to Zendesk tickets with AI-powered responses
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-border hover:border-primary hover:text-primary"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/deploy/zendesk`);
+                  }}
+                >
+                  {zendeskConfigured ? 'Manage' : 'Setup'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Slack - Coming Soon */}
+            <Card className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card opacity-75">
+              <CardContent className="relative p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                    <span className="text-white font-bold text-xl">#</span>
+                  </div>
+                  <Badge variant="outline" className="border-border text-muted-foreground">
+                    Coming Soon
+                  </Badge>
+                </div>
+                <h3 className="font-bold text-foreground mb-2 text-lg">Slack</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Let your agent respond to mentions in Slack channels
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-border"
                   onClick={() => toast.info('Slack integration coming soon!')}
                 >
                   Learn More
@@ -374,62 +567,25 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
+            {/* Messenger - Coming Soon */}
+            <Card className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card opacity-75">
+              <CardContent className="relative p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">W</span>
+                  <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                    <MessageCircle className="w-6 h-6 text-primary-foreground" />
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
+                  <Badge variant="outline" className="border-border text-muted-foreground">
+                    Coming Soon
+                  </Badge>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">WordPress</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Official plugin for seamless WordPress integration</p>
+                <h3 className="font-bold text-foreground mb-2 text-lg">Messenger</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Connect Facebook Messenger for social customer support
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
-                  onClick={() => toast.info('WordPress integration coming soon!')}
-                >
-                  Learn More
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center">
-                    <MessageCircle className="w-6 h-6 text-white" />
-                  </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">WhatsApp</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Respond to customer messages on WhatsApp Business</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => toast.info('WhatsApp integration coming soon!')}
-                >
-                  Learn More
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-                    <MessageCircle className="w-6 h-6 text-white" />
-                  </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
-                </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Messenger</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Connect to Facebook Messenger for social support</p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
+                  className="w-full border-border"
                   onClick={() => toast.info('Messenger integration coming soon!')}
                 >
                   Learn More
@@ -437,20 +593,25 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
+            {/* Instagram - Coming Soon */}
+            <Card className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card opacity-75">
+              <CardContent className="relative p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center">
+                  <div className="w-12 h-12 bg-pink-500 rounded-lg flex items-center justify-center">
                     <span className="text-white font-bold text-sm">IG</span>
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
+                  <Badge variant="outline" className="border-border text-muted-foreground">
+                    Coming Soon
+                  </Badge>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Instagram</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Handle Instagram Direct Messages automatically</p>
+                <h3 className="font-bold text-foreground mb-2 text-lg">Instagram</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Handle Instagram Direct Messages automatically with AI
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
+                  className="w-full border-border"
                   onClick={() => toast.info('Instagram integration coming soon!')}
                 >
                   Learn More
@@ -458,41 +619,51 @@ export default function AgentDeployPage() {
               </CardContent>
             </Card>
 
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
+            {/* WordPress - Coming Soon */}
+            <Card className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card opacity-75">
+              <CardContent className="relative p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-teal-600 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">Z</span>
+                  <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center">
+                    <span className="text-primary-foreground font-bold text-lg">W</span>
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
+                  <Badge variant="outline" className="border-border text-muted-foreground">
+                    Coming Soon
+                  </Badge>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">Zendesk</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Integrate with Zendesk for unified support</p>
+                <h3 className="font-bold text-foreground mb-2 text-lg">WordPress</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Official WordPress plugin for seamless integration
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
-                  onClick={() => toast.info('Zendesk integration coming soon!')}
+                  className="w-full border-border"
+                  onClick={() => toast.info('WordPress plugin coming soon!')}
                 >
                   Learn More
                 </Button>
               </CardContent>
             </Card>
 
-            <Card className="border border-gray-200 shadow-sm hover:shadow-md transition-shadow overflow-hidden bg-white cursor-pointer">
-              <CardContent className="p-5">
+            {/* REST API - Coming Soon */}
+            <Card className="group relative border border-border hover:border-primary/50 hover:shadow-md transition-all duration-300 overflow-hidden bg-card opacity-75">
+              <CardContent className="relative p-6">
                 <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center">
-                    <Globe className="w-6 h-6 text-white" />
+                  <div className="w-12 h-12 bg-muted-foreground rounded-lg flex items-center justify-center">
+                    <Globe className="w-6 h-6 text-background" />
                   </div>
-                  <Badge variant="outline" className="text-xs bg-gray-50">Coming Soon</Badge>
+                  <Badge variant="outline" className="border-border text-muted-foreground">
+                    Coming Soon
+                  </Badge>
                 </div>
-                <h3 className="font-semibold text-gray-900 mb-2">REST API</h3>
-                <p className="text-xs text-gray-600 mb-4 leading-relaxed">Build custom integrations with our REST API</p>
+                <h3 className="font-bold text-foreground mb-2 text-lg">REST API</h3>
+                <p className="text-sm text-muted-foreground mb-4 leading-relaxed min-h-[40px]">
+                  Build custom integrations with our powerful REST API
+                </p>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full"
+                  className="w-full border-border"
                   onClick={() => toast.info('API documentation coming soon!')}
                 >
                   View Docs
@@ -503,14 +674,15 @@ export default function AgentDeployPage() {
         </div>
       </div>
 
-      {/* Create Channel Dialog */}
+      {/* Create Channel Dialog - Enhanced */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader className="space-y-3">
-            <DialogTitle className="text-2xl font-bold">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2 text-foreground">
+              <Sparkles className="w-6 h-6 text-primary" />
               Setup {selectedChannelType === 'chat-widget' ? 'Chat Widget' : 'Help Center'}
             </DialogTitle>
-            <DialogDescription className="text-base">
+            <DialogDescription className="text-base text-muted-foreground">
               {selectedChannelType === 'chat-widget'
                 ? 'Create a floating chat widget that provides instant support to your website visitors.'
                 : 'Create a dedicated help center page where customers can find answers and get help.'
@@ -520,7 +692,7 @@ export default function AgentDeployPage() {
 
           <div className="space-y-5 mt-6">
             <div className="space-y-2">
-              <Label htmlFor="channelName" className="text-sm font-medium text-gray-900">
+              <Label htmlFor="channelName" className="text-sm font-semibold text-foreground">
                 Channel Name
               </Label>
               <Input
@@ -528,7 +700,7 @@ export default function AgentDeployPage() {
                 value={channelName}
                 onChange={(e) => setChannelName(e.target.value)}
                 placeholder={`e.g., ${selectedChannelType === 'chat-widget' ? 'Main Website Chat' : 'Support Center'}`}
-                className="h-11"
+                className="h-11 border-border focus:border-primary focus:ring-primary"
                 autoFocus
               />
             </div>
@@ -540,14 +712,14 @@ export default function AgentDeployPage() {
                   setSelectedChannelType(null);
                   setChannelName('');
                 }}
-                className="flex-1 h-11"
+                className="flex-1 h-11 border-border"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateChannel}
                 disabled={!channelName.trim() || creating}
-                className="flex-1 h-11 bg-blue-600 hover:bg-blue-700"
+                className="flex-1 h-11 bg-primary hover:bg-primary/90"
               >
                 {creating ? (
                   <>

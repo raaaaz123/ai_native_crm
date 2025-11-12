@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const result = await sendSendPulseEmail(
       { email, name: email },
       template,
-      { email: 'support@rexahire.com', name: `${inviterName} via Rexa AI` }
+      { email: 'support@ragzy.ai', name: `${inviterName} via Ragzy` }
     );
 
     if (result.success) {

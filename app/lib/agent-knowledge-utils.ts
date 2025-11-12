@@ -14,11 +14,49 @@ import {
 } from 'firebase/firestore';
 import {
   ref,
-  uploadBytes,
-  getDownloadURL,
   deleteObject
 } from 'firebase/storage';
 import { db, storage } from './firebase';
+
+// Helper function to send KB processed email (non-blocking)
+async function sendKBProcessedEmailHelper(
+  workspaceId: string,
+  articleTitle: string,
+  articleType: string,
+  chunksCount?: number,
+  agentId?: string
+): Promise<void> {
+  try {
+    const { sendKnowledgeBaseProcessedEmail } = await import('./email-utils');
+    // Get workspace to find owner
+    const workspaceDoc = await getDoc(doc(db, 'workspaces', workspaceId));
+    if (workspaceDoc.exists()) {
+      const workspaceData = workspaceDoc.data();
+      const ownerId = workspaceData.ownerId;
+      if (ownerId) {
+        const ownerDoc = await getDoc(doc(db, 'users', ownerId));
+        if (ownerDoc.exists()) {
+          const ownerData = ownerDoc.data();
+          const userEmail = ownerData.email || '';
+          const userName = ownerData.displayName || ownerData.firstName || 'User';
+          if (userEmail) {
+            await sendKnowledgeBaseProcessedEmail(
+              userEmail,
+              userName,
+              articleTitle,
+              articleType,
+              chunksCount,
+              agentId,
+              workspaceId
+            );
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error('❌ [KB Processed] Failed to send email:', error);
+  }
+}
 
 export interface AgentKnowledgeItem {
   id: string;
@@ -66,10 +104,12 @@ async function storeInQdrant(
       },
       body: JSON.stringify({
         id: item.id,
+        businessId: item.workspaceId, // businessId is required by the API - use workspaceId
         workspaceId: item.workspaceId,
         agentId: item.agentId,
         title: item.title,
         content: item.content,
+        embedding_provider: embeddingProvider,
         type: item.type,
         fileName: item.fileName,
         fileUrl: item.fileUrl,
@@ -216,7 +256,8 @@ async function storeFAQInQdrant(
   title: string,
   embeddingProvider: string = 'voyage',
   embeddingModel: string = 'voyage-3',
-  widgetId?: string
+  widgetId?: string,
+  itemId?: string // NEW: Accept Firestore document ID
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
@@ -233,6 +274,11 @@ async function storeFAQInQdrant(
         workspace_id: workspaceId
       }
     };
+
+    // Pass Firestore document ID to backend if provided
+    if (itemId) {
+      faqRequest.item_id = itemId;
+    }
 
     if (widgetId) {
       faqRequest.widget_id = widgetId;
@@ -270,7 +316,8 @@ async function uploadFileToBackend(
   title: string,
   documentType: 'pdf' | 'text',
   embeddingProvider: string = 'voyage',
-  embeddingModel: string = 'voyage-3'
+  embeddingModel: string = 'voyage-3',
+  itemId?: string // NEW: Accept Firestore document ID
 ): Promise<{ success: boolean; message?: string; error?: string }> {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
@@ -285,6 +332,11 @@ async function uploadFileToBackend(
     uploadFormData.append('metadata', JSON.stringify({
       workspace_id: workspaceId
     }));
+
+    // Pass Firestore document ID if provided
+    if (itemId) {
+      uploadFormData.append('item_id', itemId);
+    }
 
     const response = await fetch(`${backendUrl}/api/knowledge-base/upload`, {
       method: 'POST',
@@ -344,23 +396,7 @@ export async function createAgentKnowledgeItem(
 
     // Handle FAQ type
     if (itemData.type === 'faq' && itemData.faqQuestion && itemData.faqAnswer) {
-      // Store FAQ in Qdrant first
-      const qdrantResult = await storeFAQInQdrant(
-        agentId,
-        workspaceId,
-        itemData.faqQuestion,
-        itemData.faqAnswer,
-        itemData.title,
-        embeddingProvider,
-        embeddingModel,
-        itemData.widgetId
-      );
-
-      if (!qdrantResult.success) {
-        throw new Error(qdrantResult.error || 'Failed to store FAQ in Qdrant');
-      }
-
-      // Create Firestore record
+      // Create Firestore record FIRST to get the document ID
       const docData: Record<string, unknown> = {
         agentId,
         workspaceId,
@@ -376,9 +412,34 @@ export async function createAgentKnowledgeItem(
       };
 
       const docRef = await addDoc(collection(db, 'agentKnowledge'), docData);
+      const firestoreId = docRef.id;
+
+      console.log(`✅ Created Firestore document with ID: ${firestoreId}`);
+
+      // Now store FAQ in Qdrant with the Firestore ID
+      const qdrantResult = await storeFAQInQdrant(
+        agentId,
+        workspaceId,
+        itemData.faqQuestion,
+        itemData.faqAnswer,
+        itemData.title,
+        embeddingProvider,
+        embeddingModel,
+        itemData.widgetId,
+        firestoreId // Pass Firestore ID to use in Qdrant
+      );
+
+      if (!qdrantResult.success) {
+        // If Qdrant fails, delete the Firestore document to keep data consistent
+        console.error('❌ Qdrant storage failed, rolling back Firestore document...');
+        await deleteDoc(docRef);
+        throw new Error(qdrantResult.error || 'Failed to store FAQ in Qdrant');
+      }
+
+      console.log(`✅ Stored FAQ in Qdrant with itemId: ${firestoreId}`);
 
       const newItem: AgentKnowledgeItem = {
-        id: docRef.id,
+        id: firestoreId,
         agentId,
         workspaceId,
         title: itemData.title,
@@ -391,6 +452,9 @@ export async function createAgentKnowledgeItem(
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
+
+      // Send KB processed email notification (non-blocking)
+      sendKBProcessedEmailHelper(workspaceId, itemData.title, 'faq', undefined, agentId).catch(() => {});
 
       return {
         success: true,
@@ -446,6 +510,9 @@ export async function createAgentKnowledgeItem(
         updatedAt: Date.now()
       };
 
+      // Send KB processed email notification (non-blocking)
+      sendKBProcessedEmailHelper(workspaceId, itemData.title, 'notion', qdrantResult.chunks_created, agentId).catch(() => {});
+
       return {
         success: true,
         data: newItem
@@ -478,7 +545,6 @@ export async function createAgentKnowledgeItem(
         content: qdrantResult.content || itemData.content,
         type: 'google_sheets',
         googleSheetId: itemData.googleSheetId,
-        sheetName: itemData.sheetName,
         rowsCount: qdrantResult.rows_count || 0,
         chunksCreated: qdrantResult.chunks_created || 0,
         embeddingProvider,
@@ -486,6 +552,11 @@ export async function createAgentKnowledgeItem(
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
+
+      // Only add sheetName if it's defined (not undefined)
+      if (itemData.sheetName !== undefined && itemData.sheetName !== null) {
+        docData.sheetName = itemData.sheetName;
+      }
 
       const docRef = await addDoc(collection(db, 'agentKnowledge'), docData);
 
@@ -506,6 +577,9 @@ export async function createAgentKnowledgeItem(
         updatedAt: Date.now()
       };
 
+      // Send KB processed email notification (non-blocking)
+      sendKBProcessedEmailHelper(workspaceId, itemData.title, 'google_sheets', qdrantResult.chunks_created, agentId).catch(() => {});
+
       return {
         success: true,
         data: newItem
@@ -514,22 +588,7 @@ export async function createAgentKnowledgeItem(
 
     // Handle file upload (PDF or text)
     if ((itemData.type === 'pdf' || itemData.type === 'text') && itemData.file) {
-      // Upload file to backend
-      const uploadResult = await uploadFileToBackend(
-        itemData.file,
-        agentId,
-        workspaceId,
-        itemData.title,
-        itemData.type,
-        embeddingProvider,
-        embeddingModel
-      );
-
-      if (!uploadResult.success) {
-        throw new Error(uploadResult.error || 'Failed to upload file');
-      }
-
-      // Create Firestore record
+      // Create Firestore record FIRST to get the document ID
       const docData: Record<string, unknown> = {
         agentId,
         workspaceId,
@@ -538,7 +597,7 @@ export async function createAgentKnowledgeItem(
         type: itemData.type,
         fileName: itemData.file.name,
         fileSize: itemData.file.size,
-        fileUrl: (uploadResult as { fileUrl?: string }).fileUrl || null,
+        fileUrl: null, // Will be updated after upload
         embeddingProvider,
         embeddingModel,
         createdAt: serverTimestamp(),
@@ -546,9 +605,40 @@ export async function createAgentKnowledgeItem(
       };
 
       const docRef = await addDoc(collection(db, 'agentKnowledge'), docData);
+      const firestoreId = docRef.id;
+
+      console.log(`✅ Created Firestore document with ID: ${firestoreId}`);
+
+      // Now upload file to backend with the Firestore ID
+      const uploadResult = await uploadFileToBackend(
+        itemData.file,
+        agentId,
+        workspaceId,
+        itemData.title,
+        itemData.type,
+        embeddingProvider,
+        embeddingModel,
+        firestoreId // Pass Firestore ID to use in Qdrant
+      );
+
+      if (!uploadResult.success) {
+        // If upload fails, delete the Firestore document
+        console.error('❌ Upload failed, rolling back Firestore document...');
+        await deleteDoc(docRef);
+        throw new Error(uploadResult.error || 'Failed to upload file');
+      }
+
+      // Update Firestore with file URL if provided
+      if ((uploadResult as { fileUrl?: string }).fileUrl) {
+        await updateDoc(docRef, {
+          fileUrl: (uploadResult as { fileUrl?: string }).fileUrl
+        });
+      }
+
+      console.log(`✅ Stored file in Qdrant with itemId: ${firestoreId}`);
 
       const newItem: AgentKnowledgeItem = {
-        id: docRef.id,
+        id: firestoreId,
         agentId,
         workspaceId,
         title: itemData.title,
@@ -556,11 +646,16 @@ export async function createAgentKnowledgeItem(
         type: itemData.type,
         fileName: itemData.file.name,
         fileSize: itemData.file.size,
+        fileUrl: (uploadResult as { fileUrl?: string }).fileUrl,
         embeddingProvider,
         embeddingModel,
         createdAt: Date.now(),
         updatedAt: Date.now()
       };
+
+      // Send KB processed email notification (non-blocking)
+      const chunksCount = (uploadResult as { chunks_created?: number }).chunks_created;
+      sendKBProcessedEmailHelper(workspaceId, itemData.title, itemData.type, chunksCount, agentId).catch(() => {});
 
       return {
         success: true,
@@ -604,6 +699,9 @@ export async function createAgentKnowledgeItem(
       } catch (qdrantError) {
         console.warn('⚠️ Failed to store in Qdrant (continuing with Firestore only):', qdrantError);
       }
+
+      // Send KB processed email notification (non-blocking)
+      sendKBProcessedEmailHelper(workspaceId, itemData.title, 'text', undefined, agentId).catch(() => {});
 
       return {
         success: true,
@@ -657,6 +755,8 @@ export async function getAgentKnowledgeItems(agentId: string): Promise<ApiRespon
 // Delete an agent knowledge item
 export async function deleteAgentKnowledgeItem(itemId: string): Promise<ApiResponse<void>> {
   try {
+    console.log(`🗑️ Starting deletion process for itemId: ${itemId}`);
+
     // Get item data to access file URL and for Qdrant deletion
     const itemRef = doc(db, 'agentKnowledge', itemId);
     const itemSnap = await getDoc(itemRef);
@@ -664,36 +764,58 @@ export async function deleteAgentKnowledgeItem(itemId: string): Promise<ApiRespo
     if (itemSnap.exists()) {
       const itemData = itemSnap.data();
 
-      // Delete from Qdrant first
+      // Delete from Qdrant first (CRITICAL - must succeed)
+      console.log('🔄 Attempting to delete from Qdrant...');
       try {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
+        console.log(`🔗 Backend URL: ${backendUrl}`);
+
         const qdrantResponse = await fetch(`${backendUrl}/api/knowledge-base/delete/${itemId}`, {
           method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+          },
         });
+
+        console.log(`📡 Qdrant API response status: ${qdrantResponse.status}`);
 
         if (qdrantResponse.ok) {
           const qdrantResult = await qdrantResponse.json();
           console.log(`✅ Deleted ${qdrantResult.deleted_chunks || 0} vector chunks from Qdrant`);
+        } else {
+          const errorText = await qdrantResponse.text();
+          console.error(`❌ Qdrant deletion failed with status ${qdrantResponse.status}:`, errorText);
+          throw new Error(`Failed to delete from Qdrant: ${errorText}`);
         }
       } catch (qdrantError) {
-        console.warn('Could not delete from Qdrant:', qdrantError);
+        console.error('❌ Critical error deleting from Qdrant:', qdrantError);
+        // Throw error to prevent Firestore deletion if Qdrant fails
+        throw new Error(
+          `Failed to delete vector embeddings. Please ensure the backend server is running at ${
+            process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com'
+          }. Error: ${qdrantError instanceof Error ? qdrantError.message : 'Unknown error'}`
+        );
       }
 
       // Delete file from Storage if it exists
       if (itemData.fileUrl) {
+        console.log('🗑️ Deleting file from storage...');
         try {
           const fileRef = ref(storage, itemData.fileUrl);
           await deleteObject(fileRef);
+          console.log('✅ File deleted from storage');
         } catch (storageError) {
-          console.warn('Could not delete file from storage:', storageError);
+          console.warn('⚠️ Could not delete file from storage (continuing anyway):', storageError);
         }
       }
     }
 
-    // Delete document from Firestore
+    // Delete document from Firestore (only if Qdrant deletion succeeded)
+    console.log('🗑️ Deleting from Firestore...');
     await deleteDoc(itemRef);
 
     console.log('✅ Successfully deleted from Firestore:', itemId);
+    console.log('✅ Complete deletion successful!');
 
     return {
       success: true,

@@ -145,25 +145,19 @@ export function AgentWorkspaceSelector({
         suppressHydrationWarning
       >
         <div className="flex items-center space-x-2 min-w-0">
-          {/* Workspace Icon */}
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="flex-shrink-0">
-            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-            <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-          </svg>
-          <span className="text-gray-400 text-sm">/</span>
+          <span className="text-gray-400 text-base">/</span>
 
           {/* Current Workspace */}
-          <p className="text-sm font-medium text-gray-900 truncate max-w-24">
+          <p className="text-base font-medium text-gray-900 truncate max-w-24">
             {currentWorkspace.name}
           </p>
 
           {/* Agent separator and name if on agent page */}
           {currentAgentName && (
             <>
-              <span className="text-gray-400 text-sm">/</span>
+              <span className="text-gray-400 text-base">/</span>
               <Bot className="w-4 h-4 text-gray-600 flex-shrink-0" />
-              <p className="text-sm font-medium text-gray-900 truncate max-w-32">
+              <p className="text-base font-medium text-gray-900 truncate max-w-32">
                 {currentAgentName}
               </p>
             </>

@@ -58,7 +58,7 @@ const integrations: Integration[] = [
 
 export default function IntegrationsSection() {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-gradient-to-b from-muted/50 to-background" id="integrations">
+    <section className="py-4 sm:py-2 lg:py-4 bg-gradient-to-b from-muted/50 to-background" id="integrations">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Upload, Bot, Zap, Rocket } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface Step {
   id: string;
@@ -49,7 +50,7 @@ const steps: Step[] = [
 
 export default function HowItWorksSection() {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-muted/30" id="how-it-works">
+    <section className="py-2 sm:py-2 lg:py-4 bg-muted/30" id="how-it-works">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
@@ -74,21 +75,28 @@ export default function HowItWorksSection() {
                 <div className="hidden lg:block absolute top-16 left-[60%] w-full h-0.5 bg-gradient-to-r from-border to-transparent"></div>
               )}
 
-              <div className="relative bg-card p-8 rounded-2xl shadow-sm border border-border hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full">
-                {/* Step number */}
-                <div className="absolute -top-4 -left-4 w-12 h-12 bg-gradient-to-br from-primary to-primary/70 rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-primary-foreground font-bold text-lg">{step.number}</span>
-                </div>
+              <Card className="relative border border-border hover:shadow-2xl hover:border-primary/30 transition-all duration-300 hover:-translate-y-2 h-full group overflow-visible">
+                <CardContent className="relative p-8">
+                  {/* Step number */}
+                  <div className="absolute -top-4 -left-4 w-12 h-12 bg-gradient-to-br from-primary to-primary/70 rounded-lg flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                    <span className="text-primary-foreground font-bold text-lg">{step.number}</span>
+                  </div>
 
-                {/* Icon */}
-                <div className={`w-14 h-14 bg-gradient-to-br ${step.color} rounded-xl flex items-center justify-center text-white mb-6 shadow-lg`}>
-                  {step.icon}
-                </div>
+                  {/* Background gradient overlay */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${step.color} opacity-0 group-hover:opacity-5 rounded-lg transition-opacity duration-300 pointer-events-none`}></div>
 
-                {/* Content */}
-                <h3 className="text-xl font-bold text-foreground mb-4">{step.title}</h3>
-                <p className="text-muted-foreground leading-relaxed">{step.description}</p>
-              </div>
+                  {/* Icon */}
+                  <div className={`relative w-16 h-16 bg-gradient-to-br ${step.color} rounded-lg flex items-center justify-center text-white mb-6 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
+                    {step.icon}
+                  </div>
+
+                  {/* Content */}
+                  <div className="relative">
+                    <h3 className="text-xl font-bold text-foreground mb-4 group-hover:text-primary transition-colors duration-300">{step.title}</h3>
+                    <p className="text-muted-foreground leading-relaxed">{step.description}</p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           ))}
         </div>

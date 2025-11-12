@@ -1,19 +1,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
+import { Slider } from '@/components/ui/slider';
 import { 
   ArrowLeft, 
   Save, 
-  Zap, 
   Brain, 
   MessageSquare,
   Loader2
@@ -27,15 +26,11 @@ import Link from 'next/link';
 interface LLMModel {
   id: string;
   name: string;
-  provider: string;
-  description: string;
-  maxTokens: number;
-  costPer1kTokens: number;
+  provider?: string;
 }
 
 export default function AISettingsPage() {
   const params = useParams();
-  const router = useRouter();
   const workspaceSlug = params.workspace as string;
   const agentId = params.agentId as string;
   const { workspaceContext } = useAuth();
@@ -45,6 +40,22 @@ export default function AISettingsPage() {
   const [saving, setSaving] = useState(false);
   const [loadingModels, setLoadingModels] = useState(true);
   const [availableModels, setAvailableModels] = useState<LLMModel[]>([]);
+
+  const [originalAiConfig, setOriginalAiConfig] = useState({
+    enabled: true,
+    provider: 'openrouter',
+    model: 'openai/gpt-4o-mini',
+    temperature: 0.7,
+    maxTokens: 500,
+    confidenceThreshold: 0.6,
+    maxRetrievalDocs: 5,
+    ragEnabled: true,
+    fallbackToHuman: true,
+    systemPrompt: 'support',
+    customSystemPrompt: '',
+    autoRetrain: true,
+    lastTrainedAt: new Date().toISOString()
+  });
 
   const [aiConfig, setAiConfig] = useState({
     enabled: true,
@@ -70,68 +81,61 @@ export default function AISettingsPage() {
   const loadAvailableModels = async () => {
     try {
       setLoadingModels(true);
-      // Fetch available models from backend
-      const response = await fetch('/api/ai/models');
+      // Fetch available models from OpenRouter API
+      const response = await fetch('https://openrouter.ai/api/v1/models', {
+        headers: {
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'Ragzy CRM'
+        }
+      });
+      
       if (response.ok) {
-        const models = await response.json();
-        setAvailableModels(models);
+        const data = await response.json() as {
+          data?: Array<{ id?: string; name?: string }>;
+        };
+        // Transform OpenRouter models to our format
+        const models: LLMModel[] = data.data
+          ?.filter((model): model is { id: string; name?: string } => typeof model.id === 'string' && model.id.length > 0)
+          .map((model) => ({
+            id: model.id,
+            name: model.name || model.id.split('/').pop() || model.id,
+            provider: model.id.split('/')[0]
+          })) || [];
+        
+        if (models.length > 0) {
+          setAvailableModels(models);
+        } else {
+          // Fallback to common models if API returns empty
+          setAvailableModels([
+            { id: 'deepseek/deepseek-chat-v3.1:free', name: 'DeepSeek Chat v3.1 (Free)' },
+            { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini' },
+            { id: 'openai/gpt-4o', name: 'GPT-4o' },
+            { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
+            { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+            { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B' }
+          ]);
+        }
       } else {
-        // Fallback to default models if API fails
+        // Fallback to common models if API fails
         setAvailableModels([
-          {
-            id: 'openai/gpt-4o-mini',
-            name: 'GPT-4o Mini',
-            provider: 'OpenAI',
-            description: 'Fast and efficient model for most tasks',
-            maxTokens: 16384,
-            costPer1kTokens: 0.15
-          },
-          {
-            id: 'openai/gpt-4o',
-            name: 'GPT-4o',
-            provider: 'OpenAI',
-            description: 'Most capable model with multimodal abilities',
-            maxTokens: 128000,
-            costPer1kTokens: 2.50
-          },
-          {
-            id: 'anthropic/claude-3.5-sonnet',
-            name: 'Claude 3.5 Sonnet',
-            provider: 'Anthropic',
-            description: 'Excellent reasoning and analysis capabilities',
-            maxTokens: 200000,
-            costPer1kTokens: 3.00
-          },
-          {
-            id: 'google/gemini-1.5-pro',
-            name: 'Gemini 1.5 Pro',
-            provider: 'Google',
-            description: 'Large context window and multimodal support',
-            maxTokens: 2000000,
-            costPer1kTokens: 1.25
-          },
-          {
-            id: 'meta-llama/llama-3.1-70b-instruct',
-            name: 'Llama 3.1 70B',
-            provider: 'Meta',
-            description: 'Open source model with strong performance',
-            maxTokens: 131072,
-            costPer1kTokens: 0.88
-          }
+          { id: 'deepseek/deepseek-chat-v3.1:free', name: 'DeepSeek Chat v3.1 (Free)' },
+          { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini' },
+          { id: 'openai/gpt-4o', name: 'GPT-4o' },
+          { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
+          { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+          { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B' }
         ]);
       }
     } catch (error) {
       console.error('Error loading models:', error);
       // Use fallback models
       setAvailableModels([
-        {
-          id: 'openai/gpt-4o-mini',
-          name: 'GPT-4o Mini',
-          provider: 'OpenAI',
-          description: 'Fast and efficient model for most tasks',
-          maxTokens: 16384,
-          costPer1kTokens: 0.15
-        }
+        { id: 'deepseek/deepseek-chat-v3.1:free', name: 'DeepSeek Chat v3.1 (Free)' },
+        { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini' },
+        { id: 'openai/gpt-4o', name: 'GPT-4o' },
+        { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet' },
+        { id: 'google/gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
+        { id: 'meta-llama/llama-3.1-70b-instruct', name: 'Llama 3.1 70B' }
       ]);
     } finally {
       setLoadingModels(false);
@@ -151,25 +155,71 @@ export default function AISettingsPage() {
       if (response.success) {
         setAgent(response.data);
 
-        // Load AI config if it exists in agent settings
-        const agentData = response.data as Agent & { aiConfig?: Record<string, unknown> };
-        if (agentData.aiConfig) {
-          setAiConfig({
-            enabled: agentData.aiConfig.enabled ?? true,
-            provider: agentData.aiConfig.provider ?? 'openrouter',
-            model: agentData.aiConfig.model ?? 'openai/gpt-4o-mini',
-            temperature: agentData.aiConfig.temperature ?? 0.7,
-            maxTokens: agentData.aiConfig.maxTokens ?? 500,
-            confidenceThreshold: agentData.aiConfig.confidenceThreshold ?? 0.6,
-            maxRetrievalDocs: agentData.aiConfig.maxRetrievalDocs ?? 5,
-            ragEnabled: agentData.aiConfig.ragEnabled ?? true,
-            fallbackToHuman: agentData.aiConfig.fallbackToHuman ?? true,
-            systemPrompt: agentData.aiConfig.systemPrompt ?? 'support',
-            customSystemPrompt: agentData.aiConfig.customSystemPrompt ?? '',
-            autoRetrain: agentData.aiConfig.autoRetrain ?? true,
-            lastTrainedAt: agentData.aiConfig.lastTrainedAt ?? new Date().toISOString()
-          });
-        }
+        // Load AI config - check both aiConfig and settings
+        const agentData = response.data as Agent & { 
+          aiConfig?: Record<string, unknown>;
+          settings?: { temperature?: number; model?: string; maxTokens?: number; systemPrompt?: string };
+        };
+        
+        // Get temperature from aiConfig first, then settings, then default
+        const getTemperature = () => {
+          if (agentData.aiConfig?.temperature !== undefined && agentData.aiConfig?.temperature !== null) {
+            return typeof agentData.aiConfig.temperature === 'number' 
+              ? agentData.aiConfig.temperature 
+              : parseFloat(String(agentData.aiConfig.temperature)) || 0.7;
+          }
+          if (agentData.settings?.temperature !== undefined && agentData.settings?.temperature !== null) {
+            return agentData.settings.temperature;
+          }
+          return 0.7;
+        };
+
+        // Get model from aiConfig first, then settings, then default
+        const getModel = () => {
+          return agentData.aiConfig?.model 
+            ?? agentData.settings?.model 
+            ?? 'openai/gpt-4o-mini';
+        };
+
+        // Get maxTokens from aiConfig first, then settings, then default
+        const getMaxTokens = () => {
+          if (agentData.aiConfig?.maxTokens !== undefined && agentData.aiConfig?.maxTokens !== null) {
+            return typeof agentData.aiConfig.maxTokens === 'number'
+              ? agentData.aiConfig.maxTokens
+              : parseInt(String(agentData.aiConfig.maxTokens)) || 500;
+          }
+          if (agentData.settings?.maxTokens !== undefined && agentData.settings?.maxTokens !== null) {
+            return agentData.settings.maxTokens;
+          }
+          return 500;
+        };
+
+        const loadedConfig = {
+          enabled: agentData.aiConfig?.enabled ?? true,
+          provider: agentData.aiConfig?.provider ?? 'openrouter',
+          model: getModel(),
+          temperature: getTemperature(),
+          maxTokens: getMaxTokens(),
+          confidenceThreshold: agentData.aiConfig?.confidenceThreshold !== undefined && agentData.aiConfig?.confidenceThreshold !== null
+            ? (typeof agentData.aiConfig.confidenceThreshold === 'number'
+                ? agentData.aiConfig.confidenceThreshold
+                : parseFloat(String(agentData.aiConfig.confidenceThreshold)) || 0.6)
+            : 0.6,
+          maxRetrievalDocs: agentData.aiConfig?.maxRetrievalDocs !== undefined && agentData.aiConfig?.maxRetrievalDocs !== null
+            ? (typeof agentData.aiConfig.maxRetrievalDocs === 'number'
+                ? agentData.aiConfig.maxRetrievalDocs
+                : parseInt(String(agentData.aiConfig.maxRetrievalDocs)) || 5)
+            : 5,
+          ragEnabled: agentData.aiConfig?.ragEnabled ?? true,
+          fallbackToHuman: agentData.aiConfig?.fallbackToHuman ?? true,
+          systemPrompt: agentData.aiConfig?.systemPrompt ?? agentData.settings?.systemPrompt ?? 'support',
+          customSystemPrompt: agentData.aiConfig?.customSystemPrompt ?? '',
+          autoRetrain: agentData.aiConfig?.autoRetrain ?? true,
+          lastTrainedAt: agentData.aiConfig?.lastTrainedAt ?? new Date().toISOString()
+        };
+        
+        setOriginalAiConfig(loadedConfig);
+        setAiConfig(loadedConfig);
       } else {
         console.error('Failed to load agent:', response.error);
         setAgent(null);
@@ -199,6 +249,8 @@ export default function AISettingsPage() {
       if (response.success) {
         toast.success('AI settings saved successfully!');
         setAgent(response.data);
+        // Update original config to reflect saved state
+        setOriginalAiConfig({ ...aiConfig });
       } else {
         throw new Error(response.error || 'Failed to save settings');
       }
@@ -221,6 +273,9 @@ export default function AISettingsPage() {
     return availableModels.find(model => model.id === aiConfig.model);
   };
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = JSON.stringify(aiConfig) !== JSON.stringify(originalAiConfig);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -234,16 +289,33 @@ export default function AISettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-2 sm:px-3 py-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <Link href={`/dashboard/${workspaceSlug}/agents/${agentId}/settings`}>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="border-border hover:bg-accent">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
             </Link>
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !hasUnsavedChanges} 
+              className="bg-primary hover:bg-primary/90 shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
           </div>
           <h1 className="text-2xl font-semibold text-foreground mb-2">AI Configuration</h1>
           <p className="text-muted-foreground">Configure AI model settings and behavior for your agent</p>
@@ -251,7 +323,7 @@ export default function AISettingsPage() {
 
         <div className="space-y-6">
           {/* AI Toggle */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center justify-between py-2">
                 <div className="flex-1">
@@ -262,7 +334,7 @@ export default function AISettingsPage() {
                   <Switch
                     checked={aiConfig.enabled}
                     onCheckedChange={(checked) => handleAiConfigChange('enabled', checked)}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                    className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                   />
                 </div>
               </div>
@@ -272,7 +344,7 @@ export default function AISettingsPage() {
           {aiConfig.enabled && (
             <>
               {/* AI Model Selection */}
-              <Card className="border border-border bg-card rounded-md">
+              <Card className="border border-border bg-card rounded-lg shadow-sm">
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Brain className="w-5 h-5" />
@@ -281,9 +353,9 @@ export default function AISettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-sm font-medium">Select Model</Label>
+                    <Label className="text-sm font-medium mb-2 block">Select Model</Label>
                     {loadingModels ? (
-                      <div className="flex items-center gap-2 mt-2 p-3 border rounded-md">
+                      <div className="flex items-center gap-2 p-3 border border-border rounded-lg">
                         <Loader2 className="w-4 h-4 animate-spin" />
                         <span className="text-sm text-muted-foreground">Loading available models...</span>
                       </div>
@@ -292,66 +364,40 @@ export default function AISettingsPage() {
                         value={aiConfig.model}
                         onValueChange={(value) => handleAiConfigChange('model', value)}
                       >
-                        <SelectTrigger className="mt-2 rounded-md">
+                        <SelectTrigger className="border-border">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-card border border-border">
                           {availableModels.map((model) => (
                             <SelectItem key={model.id} value={model.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{model.name}</span>
-                                <span className="text-xs text-muted-foreground">{model.provider} • ${model.costPer1kTokens}/1K tokens</span>
-                              </div>
+                              {model.name}
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     )}
-
-                    {getSelectedModel() && (
-                      <div className="mt-3 p-3 bg-muted rounded-md">
-                        <p className="text-sm font-medium text-foreground mb-1">{getSelectedModel()?.name}</p>
-                        <p className="text-xs text-muted-foreground">{getSelectedModel()?.description}</p>
-                        <div className="flex gap-4 mt-2 text-xs text-muted-foreground">
-                          <span>Max tokens: {getSelectedModel()?.maxTokens.toLocaleString()}</span>
-                          <span>Cost: ${getSelectedModel()?.costPer1kTokens}/1K tokens</span>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
                       <Label className="text-sm font-medium">Temperature</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value={aiConfig.temperature}
-                        onChange={(e) => handleAiConfigChange('temperature', parseFloat(e.target.value))}
-                        className="mt-1 rounded-md"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">Higher = more creative (0-2)</p>
+                      <span className="text-sm text-muted-foreground">{aiConfig.temperature.toFixed(1)}</span>
                     </div>
-                    <div>
-                      <Label className="text-sm font-medium">Max Tokens</Label>
-                      <Input
-                        type="number"
-                        min="1"
-                        max="4000"
-                        value={aiConfig.maxTokens}
-                        onChange={(e) => handleAiConfigChange('maxTokens', parseInt(e.target.value))}
-                        className="mt-1 rounded-md"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">Max response length</p>
-                    </div>
+                    <Slider
+                      value={[aiConfig.temperature]}
+                      onValueChange={(value) => handleAiConfigChange('temperature', value[0])}
+                      min={0}
+                      max={2}
+                      step={0.1}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground mt-2">Higher = more creative (0-2)</p>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Language Tutor Configuration */}
-              <Card className="border border-border bg-card rounded-md">
+              <Card className="border border-border bg-card rounded-lg shadow-sm">
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <MessageSquare className="w-5 h-5" />
@@ -360,7 +406,7 @@ export default function AISettingsPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label className="text-sm font-medium">Agent Type</Label>
+                    <Label className="text-sm font-medium mb-2 block">Agent Type</Label>
                     <Select
                       value={aiConfig.systemPrompt}
                       onValueChange={(value) => {
@@ -385,7 +431,7 @@ export default function AISettingsPage() {
                         }
                       }}
                     >
-                      <SelectTrigger className="mt-1 rounded-md">
+                      <SelectTrigger className="border-border">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-card border border-border">
@@ -398,17 +444,17 @@ export default function AISettingsPage() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium">System Prompt</Label>
+                    <Label className="text-sm font-medium mb-2 block">System Prompt</Label>
                     <Textarea
                       value={aiConfig.customSystemPrompt}
                       onChange={(e) => handleAiConfigChange('customSystemPrompt', e.target.value)}
                       rows={8}
-                      className="mt-1 rounded-md"
+                      className="border-border focus-visible:ring-ring"
                       placeholder="Enter your system prompt here..."
                       readOnly={aiConfig.systemPrompt !== 'custom'}
                     />
                     {aiConfig.systemPrompt !== 'custom' && (
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-muted-foreground mt-2">
                         This is a preset prompt. Select &quot;Custom Prompt&quot; to edit.
                       </p>
                     )}
@@ -417,7 +463,7 @@ export default function AISettingsPage() {
               </Card>
 
               {/* Training Configuration */}
-              <Card className="border border-border bg-card rounded-md">
+              <Card className="border border-border bg-card rounded-lg shadow-sm">
                 <CardHeader className="pb-4">
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Brain className="w-5 h-5" />
@@ -430,14 +476,14 @@ export default function AISettingsPage() {
                     <p className="text-sm text-muted-foreground mt-1">
                       View the timestamp of your agent&apos;s last training and track when it was last updated with new content or sources.
                     </p>
-                    <div className="mt-2 p-3 bg-muted rounded-md">
+                    <div className="mt-2 p-3 bg-muted rounded-lg">
                       <p className="text-sm font-medium">
                         Last trained at {new Date(aiConfig.lastTrainedAt).toLocaleDateString()} at {new Date(aiConfig.lastTrainedAt).toLocaleTimeString()}
                       </p>
                     </div>
                   </div>
 
-                  <Separator />
+                  <Separator className="bg-border" />
 
                   <div className="flex items-center justify-between py-2">
                     <div className="flex-1">
@@ -448,7 +494,7 @@ export default function AISettingsPage() {
                       <Switch
                         checked={aiConfig.autoRetrain}
                         onCheckedChange={(checked) => handleAiConfigChange('autoRetrain', checked)}
-                        className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                        className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                       />
                     </div>
                   </div>
@@ -458,7 +504,7 @@ export default function AISettingsPage() {
               {/* AI Features */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* RAG/Knowledge Base */}
-                <Card className="border border-border bg-card rounded-md">
+                <Card className="border border-border bg-card rounded-lg shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between py-2">
                       <div className="flex-1">
@@ -469,7 +515,7 @@ export default function AISettingsPage() {
                         <Switch
                           checked={aiConfig.ragEnabled}
                           onCheckedChange={(checked) => handleAiConfigChange('ragEnabled', checked)}
-                          className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                          className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                         />
                       </div>
                     </div>
@@ -477,7 +523,7 @@ export default function AISettingsPage() {
                 </Card>
 
                 {/* Fallback to Human */}
-                <Card className="border border-border bg-card rounded-md">
+                <Card className="border border-border bg-card rounded-lg shadow-sm">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between py-2">
                       <div className="flex-1">
@@ -488,7 +534,7 @@ export default function AISettingsPage() {
                         <Switch
                           checked={aiConfig.fallbackToHuman}
                           onCheckedChange={(checked) => handleAiConfigChange('fallbackToHuman', checked)}
-                          className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                          className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                         />
                       </div>
                     </div>
@@ -497,23 +543,6 @@ export default function AISettingsPage() {
               </div>
             </>
           )}
-
-          {/* Save Button */}
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90 rounded-md">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save AI Settings
-                </>
-              )}
-            </Button>
-          </div>
         </div>
       </div>
     </div>

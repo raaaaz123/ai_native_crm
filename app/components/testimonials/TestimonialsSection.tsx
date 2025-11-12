@@ -13,7 +13,7 @@ interface Testimonial {
 const testimonials: Testimonial[] = [
   {
     id: '1',
-    quote: "Rexa has completely transformed our customer support. The AI agents handle 80% of inquiries automatically, and our response time dropped from hours to seconds.",
+    quote: "Ragzy has completely transformed our customer support. The AI agents handle 80% of inquiries automatically, and our response time dropped from hours to seconds.",
     author: "Sarah Chen",
     company: "TechFlow Inc"
   },
@@ -34,7 +34,7 @@ const additionalTestimonials: Testimonial[] = [
   },
   {
     id: '4',
-    quote: "Rexa's AI agents work 24/7 without breaks. We've seen a 60% reduction in support tickets and our team can focus on strategic initiatives.",
+    quote: "Ragzy's AI agents work 24/7 without breaks. We've seen a 60% reduction in support tickets and our team can focus on strategic initiatives.",
     author: "David Kim",
     company: "InnovateLab"
   }
@@ -43,7 +43,7 @@ const additionalTestimonials: Testimonial[] = [
 
 export default function TestimonialsSection() {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-gradient-to-b from-background to-muted/30">
+    <section className="py-4 sm:py-2 lg:py-4 bg-gradient-to-b from-background to-muted/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
@@ -55,7 +55,7 @@ export default function TestimonialsSection() {
             Loved by <span className="bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">9000+ businesses</span>
           </h2>
           <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Join thousands of companies that trust Rexa Engage to deliver exceptional customer experiences.
+            Join thousands of companies that trust Ragzy to deliver exceptional customer experiences.
           </p>
         </div>
 
@@ -122,7 +122,7 @@ export default function TestimonialsSection() {
                 9000+
               </div>
               <div className="text-lg text-foreground font-semibold mb-4">
-                Businesses Trust Rexa Engage
+                Businesses Trust Ragzy
               </div>
               <div className="space-y-3 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">

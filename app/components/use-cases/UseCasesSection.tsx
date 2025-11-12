@@ -65,7 +65,7 @@ const useCases: UseCase[] = [
 
 export default function UseCasesSection() {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-background" id="use-cases">
+    <section className="py-4 sm:py-2 lg:py-4 bg-background" id="use-cases">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">

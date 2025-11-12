@@ -68,7 +68,7 @@ interface MenuItem {
 const getNavigationItems = (workspaceSlug?: string): MenuItem[] => [
   {
     name: 'Dashboard',
-    href: '/dashboard',
+    href: workspaceSlug ? `/dashboard/${workspaceSlug}` : '/dashboard',
     icon: <Home className="w-4 h-4" />
   },
   {
@@ -156,6 +156,11 @@ const agentMenuItems: MenuItem[] = [
     icon: <Users className="w-5 h-5" />
   },
   {
+    name: 'Analytics',
+    href: '#', // Will be dynamically set based on current agent
+    icon: <BarChart3 className="w-5 h-5" />
+  },
+  {
     name: 'Sources',
     href: '#', // Will be dynamically set based on current agent
     icon: <FileText className="w-5 h-5" />,
@@ -213,21 +218,11 @@ const agentMenuItems: MenuItem[] = [
         icon: <Shield className="w-4 h-4" />
       },
       {
-        name: 'Custom Domains',
-        href: '#', // Will be dynamically set
-        icon: <Globe className="w-4 h-4" />
-      },
-      {
         name: 'Integrations',
         href: '#', // Will be dynamically set
         icon: <ExternalLink className="w-4 h-4" />
       }
     ]
-  },
-  {
-    name: 'Analytics',
-    href: '#', // Will be dynamically set based on current agent
-    icon: <BarChart3 className="w-5 h-5" />
   }
 ];
 
@@ -304,7 +299,6 @@ export function AppSidebar() {
           'General': 'general',
           'AI Configuration': 'ai',
           'Security': 'security',
-          'Custom Domains': 'domains',
           'Integrations': 'integrations'
         };
 
@@ -592,43 +586,6 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter className="mt-auto px-1 pb-3">
-        {/* Subscription Plan Section - Compact */}
-        {mounted && userData && (
-          <div className="px-2 py-2 mb-2 rounded-md bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/60">
-            <Link
-              href={workspaceSlug ? `/dashboard/${workspaceSlug}/settings/plans` : '/dashboard/settings/plans'}
-              className="block group"
-            >
-              <div className="flex items-center gap-2">
-                <div className="p-1 rounded bg-blue-100 text-blue-600">
-                  <Crown className="w-3.5 h-3.5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-semibold text-gray-800">
-                    {(() => {
-                      const subInfo = getSubscriptionInfo(userData);
-                      return subInfo.planDisplay;
-                    })()}
-                  </p>
-                  {(() => {
-                    const subInfo = getSubscriptionInfo(userData);
-                    return subInfo.isTrialActive ? (
-                      <p className="text-[10px] text-gray-600 font-medium">
-                        {subInfo.trialDaysRemaining} {subInfo.trialDaysRemaining === 1 ? 'day' : 'days'} left
-                      </p>
-                    ) : (
-                      <p className="text-[10px] text-gray-600 font-medium">
-                        {subInfo.statusDisplay}
-                      </p>
-                    );
-                  })()}
-                </div>
-                <div className="text-[10px] text-blue-600 group-hover:text-blue-700 font-medium">→</div>
-              </div>
-            </Link>
-          </div>
-        )}
-
         <SidebarSeparator className="mb-2" />
 
         {/* Sign Out Button */}
@@ -648,7 +605,7 @@ export function AppSidebar() {
         {/* Footer */}
         <div className="px-3 py-2 mt-2">
           <div className="text-xs text-muted-foreground/60 text-center font-medium">
-            Rexa Engage v1.0
+            Ragzy v1.0
           </div>
         </div>
       </SidebarFooter>

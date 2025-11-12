@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { MessageCircle, X, Send, Plus, ArrowLeft, Clock, MoreVertical, Smile, Copy, RotateCw, ThumbsUp, ThumbsDown, Check } from 'lucide-react';
 import { getAgent, Agent } from '@/app/lib/agent-utils';
-import { getAgentChannel } from '@/app/lib/agent-channel-utils';
+import { getAgentChannel, getAgentChannels } from '@/app/lib/agent-channel-utils';
+import EmojiPicker from '@/app/components/ui/emoji-picker';
 import { 
   collection, 
   addDoc, 
@@ -21,7 +22,7 @@ import { db } from '@/app/lib/firebase';
 interface ChatWidgetProps {
   agentId: string;
   workspaceSlug: string;
-  channelId: string;
+  channelId?: string;
   baseUrl?: string;
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
   className?: string;
@@ -44,9 +45,14 @@ interface WidgetConfig {
   profilePictureUrl?: string;
   chatIconUrl?: string;
   suggestedMessages?: string[];
+  // Messages to show when the widget is closed (near the bubble)
+  closedWelcomeMessages?: string[];
+  keepSuggestedMessages?: boolean;
   footerMessage?: string;
   aiInstructions?: string;
   aiModel?: string;
+  // Show preset suggestions when the widget is closed
+  showClosedSuggestions?: boolean;
 }
 
 export default function ChatWidget({
@@ -61,8 +67,7 @@ export default function ChatWidget({
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const [widgetConfig, setWidgetConfig] = useState<WidgetConfig | null>(null);
   const [agentData, setAgentData] = useState<Agent | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -83,7 +88,20 @@ export default function ChatWidget({
   const [likedMessages, setLikedMessages] = useState<Set<string>>(new Set());
   const [dislikedMessages, setDislikedMessages] = useState<Set<string>>(new Set());
   const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
-  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
+  // Closed-state suggestions dismissal (session-only)
+  const [closedSuggestionsDismissed, setClosedSuggestionsDismissed] = useState<boolean>(false);
+
+  // Initialize dismissal state from session storage when config is available
+  useEffect(() => {
+    if (!widgetConfig) return;
+    const key = `rexa_closed_suggestions_dismissed_${agentId}_${channelId || 'default'}`;
+    try {
+      const dismissed = sessionStorage.getItem(key);
+      setClosedSuggestionsDismissed(dismissed === '1');
+    } catch {
+      setClosedSuggestionsDismissed(false);
+    }
+  }, [widgetConfig, agentId, channelId]);
 
   // Generate or get persistent device ID
   const getDeviceId = () => {
@@ -171,18 +189,66 @@ export default function ChatWidget({
         // Load channel configuration from Firestore
         let channelData = null;
         try {
+          // If channelId is provided, use it directly
+          // Otherwise, fetch the chat-widget channel for this agent
+          if (channelId) {
           const channelResponse = await getAgentChannel(channelId);
           if (channelResponse.success && channelResponse.data) {
             channelData = channelResponse.data;
             console.log('Loaded channel data:', channelData);
           } else {
             console.error('Failed to load channel:', channelResponse.error);
+            }
+          } else {
+            // Fetch agent channels and find the chat-widget channel
+            const channelsResponse = await getAgentChannels(agentId);
+            if (channelsResponse.success && channelsResponse.data) {
+              const widgetChannel = channelsResponse.data.find(ch => ch.type === 'chat-widget');
+              if (widgetChannel) {
+                channelData = widgetChannel;
+                console.log('Auto-loaded chat-widget channel:', channelData);
+              } else {
+                console.warn('No chat-widget channel found for agent');
+              }
+            } else {
+              console.error('Failed to load agent channels:', channelsResponse.error);
+            }
           }
         } catch (error) {
           console.error('Error loading channel data:', error);
         }
 
         const settings = channelData?.settings || {};
+        
+        // List of valid new models
+        const validNewModels = [
+          'gpt-5-mini',
+          'gpt-5-nano',
+          'gpt-4.1-mini',
+          'gpt-4.1-nano',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-2.5-pro'
+        ];
+
+        // Map old model names to new ones if needed
+        const modelMapping: Record<string, string> = {
+          'gpt-4o': 'gpt-5-mini',
+          'gpt-4o-mini': 'gpt-4.1-mini',
+          'gpt-4-turbo': 'gpt-5-mini',
+          'openai/gpt-4o': 'gpt-5-mini',
+          'openai/gpt-4o-mini': 'gpt-4.1-mini',
+          'x-ai/grok-4-fast:free': 'gpt-4.1-mini',
+          'gemini-2.0-flash-exp': 'gemini-2.5-flash',
+          'gemini-1.5-flash': 'gemini-2.5-flash',
+          'gemini-1.5-pro': 'gemini-2.5-pro',
+        };
+
+        // Get the model from settings, with mapping for old models
+        const savedModel = settings.aiModel || agent?.settings?.model || agent?.aiConfig?.model || 'gpt-5-mini';
+        const mappedModel = validNewModels.includes(savedModel) 
+          ? savedModel 
+          : (modelMapping[savedModel] || 'gpt-5-mini');
         
         // Create widget configuration with real data
         const config = {
@@ -195,9 +261,12 @@ export default function ChatWidget({
           profilePictureUrl: settings.profilePictureUrl,
           chatIconUrl: settings.chatIconUrl,
           suggestedMessages: settings.suggestedMessages || ['How can you help me?', 'Tell me more about your services', 'What are your hours?'],
-          footerMessage: settings.footerMessage || 'Powered by Rexa',
+          closedWelcomeMessages: settings.closedWelcomeMessages || [],
+          keepSuggestedMessages: settings.keepSuggestedMessages || false,
+          footerMessage: settings.footerMessage || 'Powered by Ragzy',
           aiInstructions: settings.aiInstructions || agent?.settings?.systemPrompt || 'You are a helpful AI assistant. Provide clear, concise, and helpful responses to user questions.',
-          aiModel: settings.aiModel || 'gpt-4o-mini'
+          aiModel: mappedModel,
+          showClosedSuggestions: settings.showClosedSuggestions ?? true
         };
         
         setWidgetConfig(config);
@@ -223,7 +292,7 @@ export default function ChatWidget({
             createdAt: new Date(),
             updatedAt: new Date(),
             settings: {
-              model: 'gpt-4o-mini',
+              model: 'gpt-5-mini',
               temperature: 0.7,
               maxTokens: 500
             },
@@ -245,8 +314,11 @@ export default function ChatWidget({
           chatBubbleColor: '#3B82F6',
           appearance: 'light',
           suggestedMessages: ['How can you help me?', 'Tell me more about your services'],
+          closedWelcomeMessages: [],
+          keepSuggestedMessages: false,
           footerMessage: 'Powered by Rexa',
-          aiInstructions: 'You are a helpful AI assistant.'
+          aiInstructions: 'You are a helpful AI assistant.',
+          showClosedSuggestions: true
         });
         
         setAgentData({
@@ -257,7 +329,7 @@ export default function ChatWidget({
           createdAt: new Date(),
           updatedAt: new Date(),
           settings: {
-            model: 'gpt-4o-mini',
+            model: 'gpt-5-mini',
             temperature: 0.7,
             maxTokens: 500
           },
@@ -286,7 +358,7 @@ export default function ChatWidget({
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   // Close menu and emoji picker when clicking outside
   useEffect(() => {
@@ -636,9 +708,6 @@ export default function ChatWidget({
     setShowMainInterface(true);
   };
 
-  // Common emojis for quick access
-  const commonEmojis = ['😊', '👍', '❤️', '😂', '🎉', '🤔', '👋', '🙏', '✨', '🔥', '💯', '👏', '😎', '💪', '🚀'];
-
   // Format timestamp
   const formatTime = (date: Date) => {
     const now = new Date();
@@ -726,30 +795,11 @@ export default function ChatWidget({
   };
 
   const sendMessage = async () => {
-    if (!inputValue.trim() || isLoading || isSending || !widgetConfig || !conversationId) return;
+    if (!inputValue.trim() || isTyping || !widgetConfig || !conversationId) return;
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue,
-      timestamp: new Date()
-    };
-
-    // Add user message to local state immediately
-    setMessages(prev => [...prev, userMessage]);
     const messageContent = inputValue;
     setInputValue('');
-    setIsSending(true); // Show sending state immediately
-
-    // Add assistant message placeholder with sending state
-    const assistantMessageId = (Date.now() + 1).toString();
-    setStreamingMessageId(assistantMessageId); // Mark as streaming
-    setMessages(prev => [...prev, {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date()
-    }]);
+    setIsTyping(true);
 
     try {
       // Try to save user message to Firestore (skip if permission denied)
@@ -777,7 +827,7 @@ export default function ChatWidget({
 
       // Get AI response with conversation history
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
-      
+
       // Prepare conversation history (exclude welcome messages and limit to last 20 messages)
       const conversationHistory = messages
         .filter(msg => msg.id !== 'welcome') // Exclude welcome message
@@ -786,19 +836,12 @@ export default function ChatWidget({
           role: msg.role,
           content: msg.content
         }));
-      
+
       // Add the current user message to history
       conversationHistory.push({
         role: 'user',
         content: messageContent
       });
-      
-      // Switch from sending to loading (AI thinking)
-      setIsSending(false);
-      setIsLoading(true);
-      
-      // Small delay to ensure typing animation is visible
-      await new Promise(resolve => setTimeout(resolve, 500));
       
       const response = await fetch(`${apiUrl}/api/ai/chat/stream`, {
         method: 'POST',
@@ -812,7 +855,7 @@ export default function ChatWidget({
           conversationId: conversationId,
           aiConfig: {
             enabled: true,
-            model: widgetConfig.aiModel || agentData?.settings?.model || agentData?.aiConfig?.model || 'gpt-4o-mini',
+            model: widgetConfig.aiModel || agentData?.settings?.model || agentData?.aiConfig?.model || 'gpt-5-mini',
             temperature: agentData?.settings?.temperature || agentData?.aiConfig?.temperature || 0.7,
             systemPrompt: 'custom',
             customSystemPrompt: widgetConfig.aiInstructions || '',
@@ -838,80 +881,62 @@ export default function ChatWidget({
       let assistantContent = '';
 
       if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
 
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const jsonData = line.slice(6).trim();
-                if (!jsonData) continue;
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const jsonData = line.slice(6).trim();
+                  if (!jsonData || jsonData === '[DONE]') continue;
 
-                const data = JSON.parse(jsonData);
-                if (data.type === 'content') {
-                  assistantContent += data.content;
-                  // Only update content if we have actual content to show
-                  if (assistantContent.trim()) {
-                    setMessages(prev => prev.map(msg =>
-                      msg.id === assistantMessageId
-                        ? { ...msg, content: assistantContent }
-                        : msg
-                    ));
+                  const data = JSON.parse(jsonData);
+                  if (data.type === 'content' && data.content) {
+                    assistantContent += data.content;
                   }
-                } else if (data.type === 'complete') {
-                  // Try to save assistant message to Firestore (skip if permission denied)
-                  if (!conversationId.startsWith('local_')) {
-                    try {
-                      await addDoc(collection(db, 'messages'), {
-                        conversationId: conversationId,
-                        content: assistantContent,
-                        role: 'assistant',
-                        timestamp: serverTimestamp(),
-                        agentId: agentId
-                      });
-
-                      // Update conversation with assistant's last message
-                      await updateDoc(doc(db, 'conversations', conversationId), {
-                        lastMessage: assistantContent,
-                        lastMessageTime: serverTimestamp(),
-                        messageCount: messages.length + 2
-                      });
-                    } catch (firestoreError) {
-                      console.warn('Firestore save failed for assistant message:', firestoreError);
-                      // Continue without Firestore - messages will be stored locally in state
-                    }
-                  }
-
-                  setMessages(prev => prev.map(msg =>
-                    msg.id === assistantMessageId
-                      ? { ...msg, content: assistantContent }
-                      : msg
-                  ));
-                } else if (data.type === 'error') {
-                  throw new Error(data.message);
+                } catch (parseError) {
+                  console.error('Error parsing SSE data:', parseError);
                 }
-              } catch (parseError) {
-                console.error('Error parsing SSE data:', parseError);
               }
             }
           }
+        } finally {
+          reader.releaseLock();
         }
       }
+
+      // Save assistant message to Firestore
+      if (!conversationId.startsWith('local_') && assistantContent) {
+        try {
+          await addDoc(collection(db, 'messages'), {
+            conversationId: conversationId,
+            content: assistantContent,
+            role: 'assistant',
+            timestamp: serverTimestamp(),
+            agentId: agentId
+          });
+
+          // Update conversation with assistant's last message
+          await updateDoc(doc(db, 'conversations', conversationId), {
+            lastMessage: assistantContent,
+            lastMessageTime: serverTimestamp(),
+            messageCount: messages.length + 2
+          });
+        } catch (firestoreError) {
+          console.warn('Firestore save failed for assistant message:', firestoreError);
+        }
+      }
+
+      // Turn off typing indicator
+      setIsTyping(false);
     } catch (error) {
       console.error('Error sending message:', error);
-      setMessages(prev => prev.map(msg =>
-        msg.id === assistantMessageId
-          ? { ...msg, content: "I'm sorry, I encountered an error. Please try again." }
-          : msg
-      ));
-    } finally {
-      setIsSending(false);
-      setIsLoading(false);
-      setStreamingMessageId(null); // Clear streaming state
+      setIsTyping(false);
     }
   };
 
@@ -956,40 +981,50 @@ export default function ChatWidget({
     // Mobile: Full screen with proper spacing
     const mobileClasses = 'inset-4 w-auto h-auto max-h-[90vh]';
 
-    // Desktop: Reduced gap from button (24px gap) and proper top spacing (80px from top)
+    // Desktop: Maximized height with minimal spacing
     let desktopClasses = '';
     if (position === 'bottom-right') {
-      desktopClasses = 'md:bottom-24 md:right-6 md:w-[420px] md:h-[calc(100vh-180px)] md:max-h-[680px] lg:w-[440px] lg:max-h-[700px] md:inset-auto';
+      desktopClasses = 'md:bottom-24 md:right-6 md:w-[420px] md:h-[calc(100vh-120px)] md:max-h-[900px] lg:w-[440px] lg:max-h-[920px] md:inset-auto';
     } else if (position === 'bottom-left') {
-      desktopClasses = 'md:bottom-24 md:left-6 md:w-[420px] md:h-[calc(100vh-180px)] md:max-h-[680px] lg:w-[440px] lg:max-h-[700px] md:inset-auto';
+      desktopClasses = 'md:bottom-24 md:left-6 md:w-[420px] md:h-[calc(100vh-120px)] md:max-h-[900px] lg:w-[440px] lg:max-h-[920px] md:inset-auto';
     } else if (position === 'top-right') {
-      desktopClasses = 'md:top-24 md:right-6 md:w-[420px] md:h-[calc(100vh-180px)] md:max-h-[680px] lg:w-[440px] lg:max-h-[700px] md:inset-auto';
+      desktopClasses = 'md:top-12 md:right-6 md:w-[420px] md:h-[calc(100vh-120px)] md:max-h-[900px] lg:w-[440px] lg:max-h-[920px] md:inset-auto';
     } else if (position === 'top-left') {
-      desktopClasses = 'md:top-24 md:left-6 md:w-[420px] md:h-[calc(100vh-180px)] md:max-h-[680px] lg:w-[440px] lg:max-h-[700px] md:inset-auto';
+      desktopClasses = 'md:top-12 md:left-6 md:w-[420px] md:h-[calc(100vh-120px)] md:max-h-[900px] lg:w-[440px] lg:max-h-[920px] md:inset-auto';
     }
 
     return `${baseClasses} ${mobileClasses} ${desktopClasses}`;
   };
 
-  // Theme classes
+  // Theme classes - Matching preview colors from chat widget config page
   const themeClasses = {
     light: {
       bg: 'bg-white',
       text: 'text-gray-900',
       border: 'border-gray-200',
       input: 'bg-gray-50',
-      userBubble: `text-white`,
-      assistantBubble: 'bg-gray-100 text-gray-900',
+      messagesBg: '#f9fafb',
+      mutedText: '#737373',
+      footerText: '#a3a3a3',
+      userBubbleBg: '#dbeafe',
+      userBubbleText: '#1e40af',
+      assistantBubbleBg: '#f3f4f6',
+      assistantBubbleText: '#0a0a0a',
       header: 'bg-white border-gray-200'
     },
     dark: {
-      bg: 'bg-gray-800',
-      text: 'text-white',
-      border: 'border-gray-600',
-      input: 'bg-gray-700',
-      userBubble: `text-white`,
-      assistantBubble: 'bg-gray-700 text-white',
-      header: 'bg-gray-800 border-gray-600'
+      bg: '#1a1a1a',
+      text: '#f5f5f5',
+      border: '#404040',
+      input: '#171717',
+      messagesBg: '#0a0a0a',
+      mutedText: '#a3a3a3',
+      footerText: '#737373',
+      userBubbleBg: '#3b4252',
+      userBubbleText: '#e5e9f0',
+      assistantBubbleBg: '#262626',
+      assistantBubbleText: '#f5f5f5',
+      header: '#262626'
     }
   };
 
@@ -1004,12 +1039,24 @@ export default function ChatWidget({
       {/* Chat Window */}
       {isOpen && (
         <div className={getChatWindowClasses()}>
-          <div className={`w-full h-full ${currentTheme.bg} ${currentTheme.border} border-2 rounded-2xl shadow-2xl flex flex-col overflow-hidden`}>
+          <div 
+            className={`w-full h-full border-2 rounded-2xl shadow-2xl flex flex-col overflow-hidden ${widgetConfig.appearance === 'dark' ? '' : currentTheme.bg}`}
+            style={{
+              backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.bg : undefined,
+              borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : undefined
+            }}
+          >
             {showMainInterface ? (
                 /* Main Interface */
                 <>
-                  {/* Header - Clean minimal design with top padding */}
-                  <div className={`pt-6 pb-5 px-5 md:pt-7 md:pb-6 md:px-6 ${currentTheme.header} border-b-2 flex items-center justify-between`}>
+                  {/* Header - Clean minimal design with minimal top padding */}
+                  <div 
+                    className={`pt-3 pb-4 px-5 md:pt-4 md:pb-5 md:px-6 border-b-2 flex items-center justify-between ${widgetConfig.appearance === 'dark' ? '' : currentTheme.header}`}
+                    style={{
+                      backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.header : undefined,
+                      borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : undefined
+                    }}
+                  >
                     <div className="flex items-center gap-3">
                       {safeProfilePictureUrl ? (
                         <Image
@@ -1028,37 +1075,65 @@ export default function ChatWidget({
                         </div>
                       )}
                       <div>
-                        <h3 className={`font-semibold text-base md:text-lg ${currentTheme.text}`}>
+                        <h3 
+                          className={`font-semibold text-base md:text-lg ${widgetConfig.appearance === 'dark' ? '' : currentTheme.text}`}
+                          style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined }}
+                        >
                           {widgetConfig.widgetTitle}
                         </h3>
                         <div className="flex items-center gap-1.5">
                           <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                          <p className="text-xs text-gray-500 font-medium">Online</p>
+                          <p 
+                            className={`text-xs font-medium ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                            style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                          >
+                            Online
+                          </p>
                         </div>
                       </div>
                     </div>
                     <button
                       onClick={() => setIsOpen(false)}
-                      className={`p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 ${currentTheme.text}`}
+                      className={`p-2 rounded-xl transition-all duration-200 ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+                      style={{ color: currentTheme.text }}
                     >
                       <X className="w-5 h-5" />
                     </button>
                   </div>
 
-                {/* Main Content - Clean minimal design */}
-                  <div className="flex-1 p-6 md:p-8 overflow-y-auto">
+                {/* Main Content - Clean minimal design with minimal top padding */}
+                  <div 
+                    className="flex-1 pt-3 pb-6 px-6 md:pt-4 md:pb-8 md:px-8 overflow-y-auto"
+                    style={{ backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.messagesBg : undefined }}
+                  >
                     {/* Welcome Section - Clean centered design */}
                     <div className="text-center mb-8">
-                      <div
-                        className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-white text-2xl md:text-3xl font-bold mx-auto mb-5 shadow-lg"
-                        style={{ backgroundColor: widgetConfig.primaryColor }}
+                      {safeProfilePictureUrl ? (
+                        <Image
+                          src={safeProfilePictureUrl}
+                          alt="Agent"
+                          width={96}
+                          height={96}
+                          className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover mx-auto mb-5 shadow-lg ring-4 ring-gray-100"
+                        />
+                      ) : (
+                        <div
+                          className="w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-white text-2xl md:text-3xl font-bold mx-auto mb-5 shadow-lg"
+                          style={{ backgroundColor: widgetConfig.primaryColor }}
+                        >
+                          {widgetConfig.widgetTitle.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <h2 
+                        className={`text-xl md:text-2xl font-bold mb-3 ${widgetConfig.appearance === 'dark' ? '' : currentTheme.text}`}
+                        style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined }}
                       >
-                        {widgetConfig.widgetTitle.charAt(0).toUpperCase()}
-                      </div>
-                      <h2 className={`text-xl md:text-2xl font-bold ${currentTheme.text} mb-3`}>
                         Welcome to {widgetConfig.widgetTitle}
                       </h2>
-                      <p className="text-sm md:text-base text-gray-500 px-4 leading-relaxed">
+                      <p 
+                        className={`text-sm md:text-base px-4 leading-relaxed ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                        style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                      >
                         {widgetConfig.welcomeMessage || 'How can I help you today?'}
                       </p>
                     </div>
@@ -1080,8 +1155,18 @@ export default function ChatWidget({
                           <Plus className="w-6 h-6" />
                         </div>
                         <div className="text-left flex-1">
-                          <div className={`font-semibold text-base ${currentTheme.text}`}>Start New Chat</div>
-                          <div className="text-sm text-gray-500">Begin a fresh conversation</div>
+                          <div 
+                            className={`font-semibold text-base ${widgetConfig.appearance === 'dark' ? '' : currentTheme.text}`}
+                            style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined }}
+                          >
+                            Start New Chat
+                          </div>
+                          <div 
+                            className={`text-sm ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                            style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                          >
+                            Begin a fresh conversation
+                          </div>
                         </div>
                       </div>
                     </button>
@@ -1090,26 +1175,48 @@ export default function ChatWidget({
                     {loadingConversations ? (
                       <div className="text-center py-10">
                         <div className="animate-spin rounded-full h-10 w-10 border-b-2 mx-auto mb-3" style={{ borderColor: widgetConfig.primaryColor }}></div>
-                        <p className="text-sm text-gray-500">Loading conversations...</p>
+                        <p 
+                          className={`text-sm ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                          style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                        >
+                          Loading conversations...
+                        </p>
                       </div>
                     ) : previousConversations.length > 0 ? (
                       <div>
-                        <h3 className={`font-semibold text-sm ${currentTheme.text} mb-3`}>Recent Conversations</h3>
+                        <h3 
+                          className={`font-semibold text-sm mb-3 ${widgetConfig.appearance === 'dark' ? '' : currentTheme.text}`}
+                          style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined }}
+                        >
+                          Recent Conversations
+                        </h3>
                         <div className="space-y-2.5">
                           {previousConversations.slice(0, 5).map((conversation) => (
                             <button
                               key={conversation.id}
                               onClick={() => handleSelectConversation(conversation)}
-                              className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${currentTheme.border}`}
-                              style={{ backgroundColor: widgetConfig.appearance === 'dark' ? '#374151' : '#f9fafb' }}
+                              className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-[0.99] ${widgetConfig.appearance === 'dark' ? '' : currentTheme.border}`}
+                              style={{ 
+                                backgroundColor: widgetConfig.appearance === 'dark' ? '#374151' : '#f9fafb',
+                                borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : undefined
+                              }}
                             >
                               <div className="flex items-center gap-3">
-                                <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                <Clock 
+                                  className={`w-4 h-4 flex-shrink-0 ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-400'}`}
+                                  style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                                />
                                 <div className="flex-1 min-w-0">
-                                  <div className={`text-sm font-semibold ${currentTheme.text} truncate mb-0.5`}>
+                                  <div 
+                                    className={`text-sm font-semibold truncate mb-0.5 ${widgetConfig.appearance === 'dark' ? '' : currentTheme.text}`}
+                                    style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined }}
+                                  >
                                     {String(conversation.lastMessage || 'New conversation')}
                                   </div>
-                                  <div className="text-xs text-gray-500">
+                                  <div 
+                                    className={`text-xs ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                                    style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                                  >
                                     {conversation.updatedAt && typeof conversation.updatedAt === 'object' && 'toDate' in conversation.updatedAt && typeof (conversation.updatedAt as { toDate: () => Date }).toDate === 'function'
                                       ? (conversation.updatedAt as { toDate: () => Date }).toDate().toLocaleDateString()
                                       : 'Recent'}
@@ -1122,19 +1229,39 @@ export default function ChatWidget({
                       </div>
                     ) : (
                       <div className="text-center py-10">
-                        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-                          <MessageCircle className="w-8 h-8 text-gray-400" />
+                        <div 
+                          className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${widgetConfig.appearance === 'dark' ? '' : 'bg-gray-100'}`}
+                          style={{ backgroundColor: widgetConfig.appearance === 'dark' ? '#262626' : undefined }}
+                        >
+                          <MessageCircle 
+                            className={`w-8 h-8 ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-400'}`}
+                            style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                          />
                         </div>
-                        <p className="text-sm text-gray-500 font-medium">No previous conversations</p>
+                        <p 
+                          className={`text-sm font-medium ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                          style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                        >
+                          No previous conversations
+                        </p>
                       </div>
                     )}
                 </div>
 
                 {/* Footer - Clean minimal design */}
                   {widgetConfig.footerMessage && (
-                    <div className={`p-4 ${currentTheme.border} border-t-2 bg-gray-50/50`}>
+                    <div 
+                      className={`p-4 border-t-2 ${widgetConfig.appearance === 'dark' ? '' : 'bg-gray-50/50'} ${widgetConfig.appearance === 'dark' ? '' : currentTheme.border}`}
+                      style={{ 
+                        borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : undefined,
+                        backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.header : undefined
+                      }}
+                    >
                       <div className="flex items-center justify-center">
-                        <span className="text-xs text-gray-500 font-medium">
+                        <span 
+                          className={`text-xs font-medium ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                          style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.footerText : undefined }}
+                        >
                           {widgetConfig.footerMessage}
                         </span>
                       </div>
@@ -1144,12 +1271,19 @@ export default function ChatWidget({
             ) : (
               /* Chat Interface - Clean minimal design */
               <>
-                {/* Header - Clean minimal spacing with top padding */}
-                <div className={`pt-6 pb-5 px-5 md:pt-7 md:pb-6 md:px-6 ${currentTheme.header} border-b-2 flex items-center justify-between`}>
+                {/* Header - Clean minimal spacing with minimal top padding */}
+                <div 
+                  className={`pt-3 pb-4 px-5 md:pt-4 md:pb-5 md:px-6 border-b-2 flex items-center justify-between ${widgetConfig.appearance === 'dark' ? '' : currentTheme.header}`}
+                  style={{
+                    backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.header : undefined,
+                    borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : undefined
+                  }}
+                >
                   <div className="flex items-center gap-3">
                     <button
                       onClick={handleBackToMain}
-                      className={`p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 ${currentTheme.text}`}
+                      className={`p-2 rounded-xl transition-all duration-200 ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+                      style={{ color: currentTheme.text }}
                     >
                       <ArrowLeft className="w-4 h-4 md:w-5 md:h-5" />
                     </button>
@@ -1170,12 +1304,20 @@ export default function ChatWidget({
                       </div>
                     )}
                     <div>
-                      <h3 className={`font-semibold text-sm md:text-base ${currentTheme.text}`}>
+                      <h3 
+                        className={`font-semibold text-sm md:text-base ${widgetConfig.appearance === 'dark' ? '' : currentTheme.text}`}
+                        style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined }}
+                      >
                         {widgetConfig.widgetTitle}
                       </h3>
                       <div className="flex items-center gap-1.5">
                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <p className="text-xs text-gray-500 font-medium">Online</p>
+                        <p 
+                          className={`text-xs font-medium ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                          style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                        >
+                          Online
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1184,31 +1326,44 @@ export default function ChatWidget({
                   <div className="relative">
                     <button
                       onClick={() => setIsMenuOpen(!isMenuOpen)}
-                      className={`menu-button p-2 hover:bg-gray-100 rounded-xl transition-all duration-200 ${currentTheme.text}`}
+                      className={`menu-button p-2 rounded-xl transition-all duration-200 ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+                      style={{ color: currentTheme.text }}
                     >
                       <MoreVertical className="w-5 h-5" />
                     </button>
 
                     {/* Menu dropdown */}
                     {isMenuOpen && (
-                      <div className={`menu-dropdown absolute right-0 top-12 ${currentTheme.bg} border-2 ${currentTheme.border} rounded-xl shadow-xl z-50 min-w-[200px] overflow-hidden`}>
+                      <div 
+                        className={`menu-dropdown absolute right-0 top-12 border-2 rounded-xl shadow-xl z-50 min-w-[200px] overflow-hidden ${widgetConfig.appearance === 'dark' ? '' : currentTheme.bg}`}
+                        style={{
+                          backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.bg : undefined,
+                          borderColor: currentTheme.border
+                        }}
+                      >
                         <button
                           onClick={handleStartNewChat}
-                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${currentTheme.text} text-left text-sm`}
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left text-sm ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}
+                          style={{ color: currentTheme.text }}
                         >
                           <Plus className="w-4 h-4" />
                           <span>Start New Chat</span>
                         </button>
                         <button
                           onClick={handleViewRecentChats}
-                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors ${currentTheme.text} text-left text-sm`}
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left text-sm ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-50'}`}
+                          style={{ color: currentTheme.text }}
                         >
                           <Clock className="w-4 h-4" />
                           <span>View Recent Chats</span>
                         </button>
                         <button
                           onClick={handleEndChat}
-                          className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-red-600 text-left text-sm border-t ${currentTheme.border}`}
+                          className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-red-600 text-left text-sm border-t`}
+                          style={{ 
+                            borderColor: currentTheme.border,
+                            backgroundColor: widgetConfig.appearance === 'dark' ? 'transparent' : undefined
+                          }}
                         >
                           <X className="w-4 h-4" />
                           <span>End Chat</span>
@@ -1219,7 +1374,10 @@ export default function ChatWidget({
                 </div>
 
                 {/* Messages Area - Clean minimal design with proper width constraints */}
-                <div className="flex-1 p-4 md:p-6 overflow-y-auto space-y-4">
+                <div 
+                  className="flex-1 pt-3 pb-4 px-4 md:pt-4 md:pb-6 md:px-6 overflow-y-auto space-y-4"
+                  style={{ backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.messagesBg : undefined }}
+                >
                   {messages.map((message) => (
                     <div
                       key={message.id}
@@ -1247,76 +1405,70 @@ export default function ChatWidget({
 
                           {/* Message Bubble - Fixed width with proper word breaking */}
                           <div className="min-w-0 flex-1" style={{ maxWidth: 'calc(100% - 44px)' }}>
-                            {streamingMessageId === message.id && (!message.content || message.content.length < 10) ? (
-                              /* Typing Animation - Visible animated dots like preview */
-                              <div className={`px-4 py-3 rounded-xl shadow-sm ${currentTheme.assistantBubble} w-fit`}>
-                                <div className="flex items-center gap-1">
-                                  <span className="text-2xl animate-bounce" style={{ animationDuration: '1s' }}>•</span>
-                                  <span className="text-2xl animate-bounce" style={{ animationDuration: '1s', animationDelay: '0.2s' }}>•</span>
-                                  <span className="text-2xl animate-bounce" style={{ animationDuration: '1s', animationDelay: '0.4s' }}>•</span>
-                                </div>
-                              </div>
-                            ) : (
-                              <>
-                                <div
-                                  className={`px-4 py-3 rounded-xl shadow-sm ${currentTheme.assistantBubble}`}
-                                  style={{
-                                    wordBreak: 'break-word',
-                                    overflowWrap: 'break-word',
-                                    wordWrap: 'break-word'
-                                  }}
-                                >
-                                  <div
-                                    className="prose prose-sm max-w-none [&>p]:m-0 [&>p]:text-sm [&>p]:leading-relaxed [&>p]:break-words [&>ul]:my-2 [&>ul]:ml-0 [&>li]:text-sm [&>li]:break-words [&_a]:break-all [&_a]:text-blue-600 [&_a]:underline"
-                                    style={{
-                                      wordBreak: 'break-word',
-                                      overflowWrap: 'break-word'
-                                    }}
-                                    dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
-                                  />
-                                </div>
+                            <div
+                              className="px-4 py-3 rounded-xl shadow-sm"
+                              style={{
+                                backgroundColor: currentTheme.assistantBubbleBg,
+                                color: currentTheme.assistantBubbleText,
+                                wordBreak: 'break-word',
+                                overflowWrap: 'break-word',
+                                wordWrap: 'break-word'
+                              }}
+                            >
+                              <div
+                                className="prose prose-sm max-w-none [&>p]:m-0 [&>p]:text-sm [&>p]:leading-relaxed [&>p]:break-words [&>ul]:my-2 [&>ul]:ml-0 [&>li]:text-sm [&>li]:break-words [&_a]:break-all [&_a]:text-blue-600 [&_a]:underline"
+                                style={{
+                                  wordBreak: 'break-word',
+                                  overflowWrap: 'break-word'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: renderMarkdown(message.content) }}
+                              />
+                            </div>
 
-                                {/* Action icons and timestamp */}
-                                <div className="flex items-center gap-2 mt-1.5 px-1">
-                                  <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
-                                  <div className="flex items-center gap-1 ml-auto">
-                                    <button
-                                      onClick={() => handleCopyMessage(message.id, message.content)}
-                                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                                      title="Copy message"
-                                    >
-                                      {copiedMessageId === message.id ? (
-                                        <Check className="w-3.5 h-3.5 text-green-600" />
-                                      ) : (
-                                        <Copy className="w-3.5 h-3.5 text-gray-500" />
-                                      )}
-                                    </button>
-                                    <button
-                                      onClick={() => handleRegenerateResponse(message.id)}
-                                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                                      title="Regenerate response"
-                                      disabled={regeneratingMessageId === message.id}
-                                    >
-                                      <RotateCw className={`w-3.5 h-3.5 text-gray-500 ${regeneratingMessageId === message.id ? 'animate-spin' : ''}`} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleLikeMessage(message.id)}
-                                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                                      title="Like"
-                                    >
-                                      <ThumbsUp className={`w-3.5 h-3.5 ${likedMessages.has(message.id) ? 'text-blue-600 fill-blue-600' : 'text-gray-500'}`} />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDislikeMessage(message.id)}
-                                      className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                                      title="Dislike"
-                                    >
-                                      <ThumbsDown className={`w-3.5 h-3.5 ${dislikedMessages.has(message.id) ? 'text-red-600 fill-red-600' : 'text-gray-500'}`} />
-                                    </button>
-                                  </div>
-                                </div>
-                              </>
-                            )}
+                            {/* Action icons and timestamp */}
+                            <div className="flex items-center gap-2 mt-1.5 px-1">
+                              <span 
+                                className={`text-xs ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-400'}`}
+                                style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                              >
+                                {formatTime(message.timestamp)}
+                              </span>
+                              <div className="flex items-center gap-1 ml-auto">
+                                <button
+                                  onClick={() => handleCopyMessage(message.id, message.content)}
+                                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Copy message"
+                                >
+                                  {copiedMessageId === message.id ? (
+                                    <Check className="w-3.5 h-3.5 text-green-600" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5 text-gray-500" />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => handleRegenerateResponse(message.id)}
+                                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Regenerate response"
+                                  disabled={regeneratingMessageId === message.id}
+                                >
+                                  <RotateCw className={`w-3.5 h-3.5 text-gray-500 ${regeneratingMessageId === message.id ? 'animate-spin' : ''}`} />
+                                </button>
+                                <button
+                                  onClick={() => handleLikeMessage(message.id)}
+                                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Like"
+                                >
+                                  <ThumbsUp className={`w-3.5 h-3.5 ${likedMessages.has(message.id) ? 'text-blue-600 fill-blue-600' : 'text-gray-500'}`} />
+                                </button>
+                                <button
+                                  onClick={() => handleDislikeMessage(message.id)}
+                                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                                  title="Dislike"
+                                >
+                                  <ThumbsDown className={`w-3.5 h-3.5 ${dislikedMessages.has(message.id) ? 'text-red-600 fill-red-600' : 'text-gray-500'}`} />
+                                </button>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       )}
@@ -1324,36 +1476,83 @@ export default function ChatWidget({
                       {message.role === 'user' && (
                         <div style={{ maxWidth: 'min(90%, 340px)' }}>
                           <div
-                            className={`px-4 py-3 rounded-xl shadow-sm ${currentTheme.userBubble}`}
+                            className="px-4 py-3 rounded-xl shadow-sm"
                             style={{
-                              backgroundColor: widgetConfig.chatBubbleColor,
+                              backgroundColor: currentTheme.userBubbleBg,
+                              color: currentTheme.userBubbleText,
                               wordBreak: 'break-word',
                               overflowWrap: 'break-word',
                               wordWrap: 'break-word'
                             }}
                           >
-                            <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">{message.content}</div>
+                            <div className="text-sm font-medium leading-relaxed whitespace-pre-wrap break-words">{message.content}</div>
                           </div>
                           {/* Timestamp for user message */}
                           <div className="flex justify-end mt-1.5 px-1">
-                            <span className="text-xs text-gray-400">{formatTime(message.timestamp)}</span>
+                            <span 
+                              className={`text-xs ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-400'}`}
+                              style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                            >
+                              {formatTime(message.timestamp)}
+                            </span>
                           </div>
                         </div>
                       )}
                     </div>
                   ))}
 
+                  {/* Typing Indicator - Separate from messages */}
+                  {isTyping && (
+                    <div className="flex justify-start">
+                      <div className="flex items-start gap-2.5 w-full max-w-[90%]">
+                        {/* AI Avatar */}
+                        {safeProfilePictureUrl ? (
+                          <Image
+                            src={safeProfilePictureUrl}
+                            alt="AI"
+                            width={32}
+                            height={32}
+                            className="w-7 h-7 md:w-8 md:h-8 rounded-full object-cover flex-shrink-0 mt-0.5 ring-2 ring-gray-100"
+                          />
+                        ) : (
+                          <div
+                            className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-white text-xs font-semibold flex-shrink-0 mt-0.5 shadow-sm"
+                            style={{ backgroundColor: widgetConfig.primaryColor }}
+                          >
+                            AI
+                          </div>
+                        )}
+
+                        {/* Typing Animation */}
+                        <div
+                          className="px-4 py-3 rounded-xl shadow-sm w-fit"
+                          style={{ 
+                            backgroundColor: currentTheme.assistantBubbleBg,
+                            color: currentTheme.assistantBubbleText
+                          }}
+                        >
+                          <div className="flex items-center gap-1">
+                            <span className="text-2xl animate-bounce" style={{ animationDuration: '1s' }}>•</span>
+                            <span className="text-2xl animate-bounce" style={{ animationDuration: '1s', animationDelay: '0.2s' }}>•</span>
+                            <span className="text-2xl animate-bounce" style={{ animationDuration: '1s', animationDelay: '0.4s' }}>•</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Suggested Messages - Clean minimal pills */}
-                  {widgetConfig.suggestedMessages && widgetConfig.suggestedMessages.length > 0 && messages.length <= 1 && (
-                    <div className="flex flex-wrap gap-2 pt-3">
+                  {widgetConfig.suggestedMessages && widgetConfig.suggestedMessages.length > 0 && (widgetConfig.keepSuggestedMessages || messages.length <= 1) && (
+                    <div className="flex flex-wrap gap-2 pt-3 justify-end">
                       {widgetConfig.suggestedMessages.slice(0, 3).map((suggestion, index) => (
                         <button
                           key={index}
                           onClick={() => handleSuggestedMessage(suggestion)}
-                          className={`px-4 py-2 border-2 rounded-full text-xs font-medium transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${currentTheme.border} ${currentTheme.text}`}
+                          className={`px-4 py-2 border-2 rounded-full text-xs font-medium transition-all duration-200 hover:shadow-md hover:scale-105 active:scale-95 ${widgetConfig.appearance === 'dark' ? '' : currentTheme.border}`}
                           style={{
                             backgroundColor: widgetConfig.appearance === 'dark' ? '#374151' : '#f9fafb',
-                            borderColor: widgetConfig.primaryColor + '30'
+                            borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : widgetConfig.primaryColor + '30',
+                            color: currentTheme.text
                           }}
                         >
                           {suggestion}
@@ -1366,20 +1565,24 @@ export default function ChatWidget({
                 </div>
 
                 {/* Input Area - Clean minimal design with emoji picker */}
-                <div className={`p-4 md:p-5 ${currentTheme.border} border-t bg-gray-50/50`}>
-                  {/* Emoji Picker */}
+                <div 
+                  className={`p-4 md:p-5 border-t relative ${widgetConfig.appearance === 'dark' ? '' : 'bg-gray-50/50'} ${widgetConfig.appearance === 'dark' ? '' : currentTheme.border}`}
+                  style={{
+                    borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : undefined,
+                    backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.header : undefined
+                  }}
+                >
+                  {/* Emoji Picker - Positioned to stay within widget bounds */}
                   {showEmojiPicker && (
-                    <div className="emoji-picker mb-3 p-3 bg-white border-2 rounded-xl shadow-lg">
-                      <div className="flex flex-wrap gap-2">
-                        {commonEmojis.map((emoji, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleEmojiSelect(emoji)}
-                            className="text-2xl hover:scale-125 transition-transform p-1"
-                          >
-                            {emoji}
-                          </button>
-                        ))}
+                    <div className="emoji-picker absolute bottom-full left-0 right-0 mb-2 px-4 z-50 flex justify-center md:justify-start">
+                      <div className="max-w-full">
+                        <EmojiPicker
+                          onEmojiSelect={handleEmojiSelect}
+                          onClose={() => setShowEmojiPicker(false)}
+                          showQuickAccess={true}
+                          width="w-full md:w-[360px] max-w-[calc(100vw-2rem)]"
+                          className="shadow-xl"
+                        />
                       </div>
                     </div>
                   )}
@@ -1388,10 +1591,13 @@ export default function ChatWidget({
                     {/* Emoji Button */}
                     <button
                       onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                      className="emoji-button p-3 hover:bg-gray-100 rounded-xl transition-colors flex-shrink-0"
+                      className={`emoji-button p-3 rounded-xl transition-colors flex-shrink-0 ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
                       title="Add emoji"
                     >
-                      <Smile className="w-5 h-5 text-gray-500" />
+                      <Smile 
+                        className={`w-5 h-5 ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                        style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.mutedText : undefined }}
+                      />
                     </button>
 
                     <input
@@ -1400,12 +1606,17 @@ export default function ChatWidget({
                       onChange={(e) => setInputValue(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder={widgetConfig.placeholder}
-                      className={`flex-1 px-4 py-3 ${currentTheme.input} ${currentTheme.text} border-2 ${currentTheme.border} rounded-xl text-sm focus:outline-none focus:border-blue-400 transition-all duration-200`}
-                      disabled={isLoading || isSending}
+                      className={`flex-1 px-4 py-3 border-2 rounded-xl text-sm focus:outline-none focus:border-blue-400 transition-all duration-200 ${widgetConfig.appearance === 'dark' ? '' : `${currentTheme.input} ${currentTheme.text} ${currentTheme.border}`}`}
+                      style={{
+                        backgroundColor: widgetConfig.appearance === 'dark' ? currentTheme.input : undefined,
+                        color: currentTheme.text,
+                        borderColor: currentTheme.border
+                      }}
+                      disabled={isTyping}
                     />
                     <button
                       onClick={sendMessage}
-                      disabled={!inputValue.trim() || isLoading || isSending}
+                      disabled={!inputValue.trim() || isTyping}
                       className="px-4 py-3 text-white rounded-xl hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 active:scale-95 shadow-md flex-shrink-0"
                       style={{ backgroundColor: widgetConfig.primaryColor }}
                     >
@@ -1416,7 +1627,10 @@ export default function ChatWidget({
                   {/* Footer Message - Clean minimal design */}
                   {widgetConfig.footerMessage && (
                     <div className="flex items-center justify-center mt-3">
-                      <span className="text-xs text-gray-500 font-medium">
+                      <span 
+                        className={`text-xs font-medium ${widgetConfig.appearance === 'dark' ? '' : 'text-gray-500'}`}
+                        style={{ color: widgetConfig.appearance === 'dark' ? currentTheme.footerText : undefined }}
+                      >
                         {widgetConfig.footerMessage}
                       </span>
                     </div>
@@ -1428,11 +1642,60 @@ export default function ChatWidget({
         </div>
       )}
 
+      {/* Closed-state welcome messages (compact bubbles, open on click) */}
+      {!isOpen && widgetConfig.showClosedSuggestions && !closedSuggestionsDismissed && widgetConfig.closedWelcomeMessages && widgetConfig.closedWelcomeMessages.length > 0 && (
+        <div
+          className={`relative mb-3 max-w-[280px] ${position.includes('right') ? 'ml-auto' : ''}`}
+        >
+          <div
+            className={`relative ${widgetConfig.appearance === 'dark' ? '' : currentTheme.bg}`}
+            style={{
+              backgroundColor: widgetConfig.appearance === 'dark' ? 'transparent' : undefined,
+              color: widgetConfig.appearance === 'dark' ? currentTheme.text : undefined
+            }}
+          >
+            <button
+              aria-label="Dismiss"
+              className={`absolute -top-1 -right-1 p-1 rounded-full shadow-sm ${widgetConfig.appearance === 'dark' ? 'hover:bg-white/10' : 'hover:bg-gray-100'}`}
+              onClick={() => {
+                setClosedSuggestionsDismissed(true);
+                const key = `rexa_closed_suggestions_dismissed_${agentId}_${channelId || 'default'}`;
+                try {
+                  sessionStorage.setItem(key, '1');
+                } catch {
+                  // ignore
+                }
+              }}
+            >
+              <X className="w-3 h-3" />
+            </button>
+            <div className="space-y-1.5">
+              {widgetConfig.closedWelcomeMessages.slice(0, 2).map((msg, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => {
+                    setIsOpen(true);
+                  }}
+                  className={`cursor-pointer inline-block px-3 py-1.5 rounded-2xl text-[12px] transition-all duration-200 hover:shadow-md hover:scale-[1.01] active:scale-95 border ${widgetConfig.appearance === 'dark' ? '' : currentTheme.border}`}
+                  style={{
+                    backgroundColor: widgetConfig.appearance === 'dark' ? '#374151' : '#f9fafb',
+                    borderColor: widgetConfig.appearance === 'dark' ? currentTheme.border : widgetConfig.primaryColor + '30',
+                    color: currentTheme.text
+                  }}
+                >
+                  {msg}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Chat Button - Clean minimal design */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-14 h-14 md:w-16 md:h-16 rounded-full shadow-2xl flex items-center justify-center text-white hover:scale-110 active:scale-95 transition-all duration-300 ring-4 ring-white"
-        style={{ backgroundColor: widgetConfig.primaryColor }}
+        style={{ backgroundColor: widgetConfig.chatBubbleColor }}
       >
         {isOpen ? (
           <X className="w-6 h-6 md:w-7 md:h-7" />

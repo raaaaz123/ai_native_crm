@@ -1,4 +1,4 @@
-// Centralized theme configuration for Rexa Engage
+// Centralized theme configuration for Ragzy AI
 // All colors, spacing, and design tokens in one place
 
 export const theme = {

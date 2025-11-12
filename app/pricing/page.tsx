@@ -4,8 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Check, Star, Zap, Crown, Building2 } from 'lucide-react';
-import { Navbar } from '../components/layout/Navbar';
-import { Footer } from '../components/layout/Footer';
 
 export default function PricingPage() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
@@ -120,10 +118,8 @@ export default function PricingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar />
-      
       {/* Main Content */}
-      <main className="pt-8">
+      <main className="pt-16">
         {/* Header Section */}
         <section className="py-16 sm:py-24 lg:py-20">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -138,13 +134,13 @@ export default function PricingPage() {
               </p>
 
               {/* Billing Toggle - Enhanced */}
-              <div className="inline-flex items-center bg-muted/50 rounded-xl p-1.5 mb-20 border border-border">
+              <div className="inline-flex items-center bg-muted/50 dark:bg-muted/30 rounded-xl p-1.5 mb-20 border border-border dark:border-border/50">
                 <button
                   onClick={() => setBillingCycle('monthly')}
                   className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 ${
                     billingCycle === 'monthly'
-                      ? 'bg-background text-foreground shadow-sm border border-border'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-card dark:bg-card text-foreground shadow-md border border-border dark:border-border/50'
+                      : 'text-muted-foreground hover:text-foreground bg-transparent'
                   }`}
                 >
                   Monthly
@@ -153,12 +149,12 @@ export default function PricingPage() {
                   onClick={() => setBillingCycle('yearly')}
                   className={`px-8 py-3 rounded-lg text-sm font-semibold transition-all duration-300 relative ${
                     billingCycle === 'yearly'
-                      ? 'bg-background text-foreground shadow-sm border border-border'
-                      : 'text-muted-foreground hover:text-foreground'
+                      ? 'bg-card dark:bg-card text-foreground shadow-md border border-border dark:border-border/50'
+                      : 'text-muted-foreground hover:text-foreground bg-transparent'
                   }`}
                 >
                   Yearly
-                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                  <span className="absolute -top-1 -right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold shadow-sm">
                     20%
                   </span>
                 </button>
@@ -172,9 +168,9 @@ export default function PricingPage() {
                    key={plan.name}
                    className={`relative border rounded-2xl p-8 transition-all duration-300 hover:shadow-lg ${
                      plan.popular
-                       ? 'border-primary shadow-xl scale-105 bg-gradient-to-b from-primary/5 to-primary/10'
-                       : 'border-border hover:border-primary/30 hover:shadow-md'
-                   } bg-gradient-to-b ${plan.color}`}
+                       ? 'border-primary shadow-xl scale-105 bg-gradient-to-b from-primary/5 via-card to-primary/10 dark:from-primary/10 dark:via-card dark:to-primary/20'
+                       : `border-border dark:border-border/50 hover:border-primary/30 dark:hover:border-primary/40 hover:shadow-md bg-gradient-to-b ${plan.color} dark:from-slate-900/50 dark:via-card dark:to-slate-800/50`
+                   }`}
                  >
                    {/* Popular Badge */}
                    {plan.popular && (
@@ -262,8 +258,6 @@ export default function PricingPage() {
           </div>
         </section>
       </main>
-
-      <Footer />
     </div>
   );
 }

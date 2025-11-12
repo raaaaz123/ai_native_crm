@@ -146,19 +146,19 @@ export default function TextSourcePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-8">
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Add Text</h1>
-          <p className="text-gray-600">Add custom text content to train your AI agent</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Add Text</h1>
+          <p className="text-muted-foreground">Add custom text content to train your AI agent</p>
         </div>
 
         {/* Status Message */}
         {uploadStatus !== 'idle' && uploadMessage && (
-          <div className={`mb-4 p-4 rounded-lg flex items-center gap-3 ${
-            uploadStatus === 'success' ? 'bg-green-50 text-green-800 border border-green-200' :
-            uploadStatus === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
-            'bg-blue-50 text-blue-800 border border-blue-200'
+          <div className={`mb-4 p-4 rounded-lg flex items-center gap-3 border ${
+            uploadStatus === 'success' ? 'bg-success/10 text-success border-success/20' :
+            uploadStatus === 'error' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+            'bg-primary/10 text-primary border-primary/20'
           }`}>
             {uploadStatus === 'success' && <CheckCircle className="w-5 h-5" />}
             {uploadStatus === 'error' && <AlertCircle className="w-5 h-5" />}
@@ -167,10 +167,10 @@ export default function TextSourcePage() {
           </div>
         )}
 
-        <Card>
+        <Card className="border border-border">
           <CardContent className="p-6 space-y-6">
             <div>
-              <Label htmlFor="title" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="title" className="text-sm font-medium text-foreground">
                 Title *
               </Label>
               <Input
@@ -178,12 +178,12 @@ export default function TextSourcePage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="Enter a title for this text"
-                className="mt-2"
+                className="mt-2 rounded-lg border-border"
               />
             </div>
 
             <div>
-              <Label htmlFor="content" className="text-sm font-medium text-gray-700">
+              <Label htmlFor="content" className="text-sm font-medium text-foreground">
                 Text Content *
               </Label>
               <Textarea
@@ -192,9 +192,9 @@ export default function TextSourcePage() {
                 onChange={(e) => setContent(e.target.value)}
                 rows={12}
                 placeholder="Enter the text content..."
-                className="mt-2"
+                className="mt-2 rounded-lg border-border"
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 {content.length} characters
               </p>
             </div>
@@ -207,17 +207,18 @@ export default function TextSourcePage() {
                   setContent('');
                 }}
                 disabled={saving}
+                className="rounded-lg border-border"
               >
                 Clear
               </Button>
               <Button
                 onClick={handleSave}
                 disabled={!title.trim() || !content.trim() || saving}
-                className="bg-blue-600 hover:bg-blue-700"
+                className="bg-primary hover:bg-primary/90 rounded-lg"
               >
                 {saving ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Saving...
                   </>
                 ) : (
@@ -232,32 +233,32 @@ export default function TextSourcePage() {
         </Card>
 
         {/* Existing Text Content */}
-        <Card className="mt-6">
+        <Card className="mt-6 border border-border">
           <CardContent className="p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Existing Text Content</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-4">Existing Text Content</h3>
 
             {loading ? (
               <div className="text-center py-8">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-gray-400" />
-                <p className="text-gray-500">Loading text content...</p>
+                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-muted-foreground" />
+                <p className="text-muted-foreground">Loading text content...</p>
               </div>
             ) : existingTexts.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <AlignLeft className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-muted-foreground">
+                <AlignLeft className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
                 <p>No text content added yet</p>
               </div>
             ) : (
               <div className="space-y-4">
                 {existingTexts.map((item) => (
-                  <Card key={item.id} className="border border-gray-200">
+                  <Card key={item.id} className="border border-border hover:shadow-md transition-shadow">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-gray-900 mb-2">{item.title}</h4>
-                          <p className="text-sm text-gray-600 mb-3 line-clamp-3">
+                          <h4 className="font-semibold text-foreground mb-2">{item.title}</h4>
+                          <p className="text-sm text-muted-foreground mb-3 line-clamp-3">
                             {item.content}
                           </p>
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
                             <span>{item.content.length} characters</span>
                             <span>•</span>
                             <span>Added {new Date(item.createdAt).toLocaleDateString()}</span>
@@ -267,7 +268,7 @@ export default function TextSourcePage() {
                           variant="outline"
                           size="sm"
                           onClick={() => handleDelete(item.id)}
-                          className="ml-4 text-red-600 hover:bg-red-50"
+                          className="ml-4 text-destructive hover:bg-destructive/10 hover:border-destructive/50 rounded-lg border-border"
                         >
                           <Trash2 className="w-4 h-4" />
                         </Button>

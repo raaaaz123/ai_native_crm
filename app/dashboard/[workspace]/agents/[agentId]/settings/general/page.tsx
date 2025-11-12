@@ -37,6 +37,16 @@ export default function GeneralSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingConversations, setDeletingConversations] = useState(false);
+  const [originalData, setOriginalData] = useState({
+    name: '',
+    description: '',
+    status: 'active',
+    publicAccess: false,
+    allowAnonymous: false,
+    maxConversations: 100,
+    sessionTimeout: 30,
+    creditLimit: 1000
+  });
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -64,7 +74,7 @@ export default function GeneralSettingsPage() {
       
       if (response.success) {
         setAgent(response.data);
-        setFormData({
+        const initialData = {
           name: response.data.name || '',
           description: response.data.description || '',
           status: response.data.status || 'active',
@@ -73,7 +83,9 @@ export default function GeneralSettingsPage() {
           maxConversations: 100,
           sessionTimeout: 30,
           creditLimit: 1000
-        });
+        };
+        setOriginalData(initialData);
+        setFormData(initialData);
       } else {
         console.error('Failed to load agent:', response.error);
         setAgent(null);
@@ -100,6 +112,17 @@ export default function GeneralSettingsPage() {
       if (response.success) {
         toast.success('Settings saved successfully!');
         setAgent(response.data);
+        // Update original data to reflect saved state
+        setOriginalData({
+          name: formData.name,
+          description: formData.description,
+          status: formData.status,
+          publicAccess: formData.publicAccess,
+          allowAnonymous: formData.allowAnonymous,
+          maxConversations: formData.maxConversations,
+          sessionTimeout: formData.sessionTimeout,
+          creditLimit: formData.creditLimit
+        });
       } else {
         toast.error('Failed to save settings');
       }
@@ -152,6 +175,17 @@ export default function GeneralSettingsPage() {
     }
   };
 
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = 
+    formData.name !== originalData.name ||
+    formData.description !== originalData.description ||
+    formData.status !== originalData.status ||
+    formData.publicAccess !== originalData.publicAccess ||
+    formData.allowAnonymous !== originalData.allowAnonymous ||
+    formData.maxConversations !== originalData.maxConversations ||
+    formData.sessionTimeout !== originalData.sessionTimeout ||
+    formData.creditLimit !== originalData.creditLimit;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -165,16 +199,33 @@ export default function GeneralSettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-2 sm:px-3 py-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <Link href={`/dashboard/${workspaceSlug}/agents/${agentId}/settings`}>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="border-border hover:bg-accent">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
             </Link>
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !hasUnsavedChanges} 
+              className="bg-primary hover:bg-primary/90 shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
           </div>
           <h1 className="text-2xl font-semibold text-foreground mb-2">General Settings</h1>
           <p className="text-muted-foreground">Configure basic agent information and behavior</p>
@@ -182,7 +233,7 @@ export default function GeneralSettingsPage() {
 
         <div className="space-y-6">
           {/* Basic Information */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <SettingsIcon className="w-5 h-5" />
@@ -192,103 +243,42 @@ export default function GeneralSettingsPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="agentName" className="text-sm font-medium">Agent Name</Label>
+                  <Label htmlFor="agentName" className="text-sm font-medium mb-2 block">Agent Name</Label>
                   <Input 
                     id="agentName" 
                     value={formData.name}
                     onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                     placeholder="Enter agent name"
-                    className="mt-1 rounded-md"
+                    className="border-border focus-visible:ring-ring"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="agentSlug" className="text-sm font-medium">Agent ID</Label>
+                  <Label htmlFor="agentSlug" className="text-sm font-medium mb-2 block">Agent ID</Label>
                   <Input 
                     id="agentSlug" 
                     value={agentId}
                     disabled
-                    className="mt-1 bg-muted rounded-md"
+                    className="bg-muted border-border"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Agent ID cannot be changed</p>
+                  <p className="text-xs text-muted-foreground mt-2">Agent ID cannot be changed</p>
                 </div>
               </div>
               <div>
-                <Label htmlFor="description" className="text-sm font-medium">Description</Label>
+                <Label htmlFor="description" className="text-sm font-medium mb-2 block">Description</Label>
                 <Textarea 
                   id="description" 
                   value={formData.description}
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                   placeholder="Describe what this agent does..."
                   rows={3}
-                  className="mt-1 rounded-md"
+                  className="border-border focus-visible:ring-ring"
                 />
               </div>
             </CardContent>
           </Card>
 
-          {/* Status & Visibility */}
-          <Card className="border border-border bg-card rounded-md">
-            <CardHeader className="pb-4">
-              <CardTitle className="text-lg">Status & Visibility</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between py-2">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium">Agent Status</Label>
-                  <p className="text-sm text-muted-foreground">Enable or disable the agent</p>
-                </div>
-                <div className="flex items-center gap-3 ml-4">
-                  <Switch 
-                    checked={formData.status === 'active'}
-                    onCheckedChange={(checked) => setFormData(prev => ({ 
-                      ...prev, 
-                      status: checked ? 'active' : 'inactive' 
-                    }))}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
-                  />
-                  <Badge 
-                    variant={formData.status === 'active' ? 'default' : 'secondary'}
-                    className="min-w-[70px] justify-center"
-                  >
-                    {formData.status}
-                  </Badge>
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="flex items-center justify-between py-2">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium">Public Access</Label>
-                  <p className="text-sm text-muted-foreground">Allow public access to this agent</p>
-                </div>
-                <div className="ml-4">
-                   <Switch 
-                     checked={formData.publicAccess}
-                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, publicAccess: checked }))}
-                     className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
-                   />
-                 </div>
-              </div>
-              
-              <div className="flex items-center justify-between py-2">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium">Allow Anonymous Users</Label>
-                  <p className="text-sm text-muted-foreground">Allow users without accounts to interact</p>
-                </div>
-                <div className="ml-4">
-                   <Switch 
-                     checked={formData.allowAnonymous}
-                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, allowAnonymous: checked }))}
-                     className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
-                   />
-                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Credits Limit */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CreditCard className="w-5 h-5" />
@@ -307,12 +297,12 @@ export default function GeneralSettingsPage() {
                    <Switch 
                      checked={true}
                      onCheckedChange={() => {}}
-                     className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                     className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                    />
                  </div>
               </div>
               <div className="max-w-xs">
-                <Label htmlFor="creditLimit" className="text-sm font-medium">Enter credit limit</Label>
+                <Label htmlFor="creditLimit" className="text-sm font-medium mb-2 block">Enter credit limit</Label>
                 <Input 
                   id="creditLimit" 
                   type="number" 
@@ -320,21 +310,21 @@ export default function GeneralSettingsPage() {
                   value={formData.creditLimit}
                   onChange={(e) => setFormData(prev => ({ ...prev, creditLimit: parseInt(e.target.value) || 1000 }))}
                   placeholder="1000"
-                  className="mt-1 rounded-md"
+                  className="border-border focus-visible:ring-ring"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Limits & Timeouts */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">Limits & Timeouts</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="maxConversations" className="text-sm font-medium">Max Conversations per User</Label>
+                  <Label htmlFor="maxConversations" className="text-sm font-medium mb-2 block">Max Conversations per User</Label>
                   <Input 
                     id="maxConversations" 
                     type="number" 
@@ -342,12 +332,12 @@ export default function GeneralSettingsPage() {
                     max="1000"
                     value={formData.maxConversations}
                     onChange={(e) => setFormData(prev => ({ ...prev, maxConversations: parseInt(e.target.value) || 100 }))}
-                    className="mt-1 rounded-md"
+                    className="border-border focus-visible:ring-ring"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Maximum number of conversations per user per day</p>
+                  <p className="text-xs text-muted-foreground mt-2">Maximum number of conversations per user per day</p>
                 </div>
                 <div>
-                  <Label htmlFor="sessionTimeout" className="text-sm font-medium">Session Timeout (minutes)</Label>
+                  <Label htmlFor="sessionTimeout" className="text-sm font-medium mb-2 block">Session Timeout (minutes)</Label>
                   <Input 
                     id="sessionTimeout" 
                     type="number" 
@@ -355,28 +345,28 @@ export default function GeneralSettingsPage() {
                     max="1440"
                     value={formData.sessionTimeout}
                     onChange={(e) => setFormData(prev => ({ ...prev, sessionTimeout: parseInt(e.target.value) || 30 }))}
-                    className="mt-1 rounded-md"
+                    className="border-border focus-visible:ring-ring"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">How long before a session expires</p>
+                  <p className="text-xs text-muted-foreground mt-2">How long before a session expires</p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           {/* Danger Zone */}
-          <Card className="border-2 border-red-200 bg-card rounded-md">
-            <CardHeader className="pb-4 border-b border-red-200">
+          <Card className="border border-red-200 bg-card rounded-lg shadow-sm">
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg text-red-600">
                 <AlertTriangle className="w-5 h-5" />
                 Danger Zone
               </CardTitle>
-              <p className="text-sm text-red-600/80 mt-1">
+              <p className="text-sm text-muted-foreground mt-1">
                 These actions are irreversible. Please proceed with caution.
               </p>
             </CardHeader>
             <CardContent className="space-y-4 pt-4">
               {/* Delete Conversations */}
-              <div className="flex items-start justify-between p-4 border-2 border-red-200 rounded-md bg-card">
+              <div className="flex items-start justify-between p-4 border border-border rounded-lg bg-card">
                 <div className="flex-1">
                   <h4 className="font-medium text-foreground mb-1">Delete all conversations</h4>
                   <p className="text-sm text-muted-foreground">
@@ -387,7 +377,7 @@ export default function GeneralSettingsPage() {
                   variant="destructive" 
                   onClick={handleDeleteConversations}
                   disabled={deletingConversations}
-                  className="ml-4 bg-red-600 hover:bg-red-700 border-red-600 rounded-md"
+                  className="ml-4 bg-red-500 hover:bg-red-600 border-red-500 rounded-lg"
                 >
                   {deletingConversations ? (
                     <>
@@ -404,7 +394,7 @@ export default function GeneralSettingsPage() {
               </div>
 
               {/* Reset Agent Settings */}
-              <div className="flex items-start justify-between p-4 border-2 border-red-200 rounded-md bg-card">
+              <div className="flex items-start justify-between p-4 border border-border rounded-lg bg-card">
                 <div className="flex-1">
                   <h4 className="font-medium text-foreground mb-1">Reset agent settings</h4>
                   <p className="text-sm text-muted-foreground">
@@ -415,7 +405,7 @@ export default function GeneralSettingsPage() {
                   variant="outline" 
                   onClick={() => {
                     if (confirm('Are you sure you want to reset all settings to default?')) {
-                      setFormData({
+                      const resetData = {
                         name: agent?.name || '',
                         description: '',
                         status: 'active',
@@ -424,11 +414,13 @@ export default function GeneralSettingsPage() {
                         maxConversations: 100,
                         sessionTimeout: 30,
                         creditLimit: 1000
-                      });
+                      };
+                      setFormData(resetData);
+                      setOriginalData(resetData);
                       toast.success('Settings reset to default values');
                     }
                   }}
-                  className="ml-4 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-md"
+                  className="ml-4 border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 rounded-lg"
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Reset Settings
@@ -436,10 +428,10 @@ export default function GeneralSettingsPage() {
               </div>
 
               {/* Delete Agent */}
-              <div className="flex items-start justify-between p-4 border-2 border-red-300 rounded-md bg-red-50">
+              <div className="flex items-start justify-between p-4 border border-border rounded-lg bg-card">
                 <div className="flex-1">
-                  <h4 className="font-medium text-red-800 mb-1">Delete agent permanently</h4>
-                  <p className="text-sm text-red-700">
+                  <h4 className="font-medium text-foreground mb-1">Delete agent permanently</h4>
+                  <p className="text-sm text-muted-foreground">
                     Once you delete your agent, there is no going back. Please be certain. All data associated with this agent will be permanently deleted including conversations, settings, and knowledge sources.
                   </p>
                 </div>
@@ -447,7 +439,7 @@ export default function GeneralSettingsPage() {
                   variant="destructive" 
                   onClick={handleDeleteAgent}
                   disabled={deleting}
-                  className="ml-4 bg-red-700 hover:bg-red-800 border-red-700 rounded-md"
+                  className="ml-4 bg-red-600 hover:bg-red-700 border-red-600 rounded-lg"
                 >
                   {deleting ? (
                     <>
@@ -464,23 +456,6 @@ export default function GeneralSettingsPage() {
               </div>
             </CardContent>
           </Card>
-
-          {/* Save Button */}
-          <div className="flex justify-end pt-4">
-            <Button onClick={handleSave} disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Changes
-                </>
-              )}
-            </Button>
-          </div>
         </div>
       </div>
     </div>

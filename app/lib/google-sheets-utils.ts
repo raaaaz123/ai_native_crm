@@ -156,6 +156,51 @@ export async function importGoogleSheet(
 }
 
 /**
+ * Refresh Google OAuth access token using refresh token
+ */
+export async function refreshGoogleSheetsToken(refreshToken: string): Promise<{
+  success: boolean;
+  accessToken?: string;
+  expiresIn?: number;
+  error?: string;
+}> {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
+
+    const response = await fetch(`${backendUrl}/api/google-sheets/refresh-token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        refresh_token: refreshToken
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: errorText || 'Failed to refresh token'
+      };
+    }
+
+    const result = await response.json();
+    return {
+      success: true,
+      accessToken: result.access_token,
+      expiresIn: result.expires_in
+    };
+  } catch (error) {
+    console.error('Error refreshing Google Sheets token:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Initiate Google OAuth flow
  */
 export function initiateGoogleOAuth(workspaceId: string, agentId?: string) {

@@ -82,7 +82,7 @@ export function generateWelcomeEmail(userName: string): EmailTemplate {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Welcome to Rexa AI</title>
+  <title>Welcome to Ragzy</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
@@ -93,7 +93,7 @@ export function generateWelcomeEmail(userName: string): EmailTemplate {
           <tr>
             <td style="background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%); padding: 40px 30px; text-align: center;">
               <h1 style="margin: 0; color: #ffffff; font-size: 32px; font-weight: bold;">
-                Welcome to Rexa AI! 🎉
+                Welcome to Ragzy! 🎉
               </h1>
             </td>
           </tr>
@@ -106,11 +106,11 @@ export function generateWelcomeEmail(userName: string): EmailTemplate {
               </p>
               
               <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                I'm <strong>James William</strong>, founder of Rexa AI, and I wanted to personally welcome you to our platform! 🚀
+                I'm <strong>James William</strong>, founder of Ragzy, and I wanted to personally welcome you to our platform! 🚀
               </p>
               
               <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                You're now part of a growing community of businesses using AI to transform their customer engagement. Here's what you can do with Rexa:
+                You're now part of a growing community of businesses using AI to transform their customer engagement. Here's what you can do with Ragzy:
               </p>
               
               <!-- Features List -->
@@ -182,7 +182,7 @@ export function generateWelcomeEmail(userName: string): EmailTemplate {
               <p style="margin: 20px 0 0 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
                 Best regards,<br/>
                 <strong style="color: #1f2937; font-size: 18px;">James William</strong><br/>
-                <span style="color: #6b7280; font-size: 14px;">Founder, Rexa AI</span>
+                <span style="color: #6b7280; font-size: 14px;">Founder, Ragzy</span>
               </p>
             </td>
           </tr>
@@ -191,7 +191,7 @@ export function generateWelcomeEmail(userName: string): EmailTemplate {
           <tr>
             <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                © ${new Date().getFullYear()} Rexa AI. All rights reserved.
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
               </p>
               <p style="margin: 0; font-size: 12px;">
                 <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/terms" style="color: #3b82f6; text-decoration: none;">Terms</a>
@@ -213,11 +213,11 @@ export function generateWelcomeEmail(userName: string): EmailTemplate {
   const text = `
 Hi ${firstName},
 
-I'm James William, founder of Rexa AI, and I wanted to personally welcome you to our platform! 🚀
+I'm James William, founder of Ragzy, and I wanted to personally welcome you to our platform! 🚀
 
 You're now part of a growing community of businesses using AI to transform their customer engagement.
 
-Here's what you can do with Rexa:
+Here's what you can do with Ragzy:
 
 💬 AI-Powered Chat Widgets
 Create smart chat widgets for your website with advanced AI capabilities
@@ -243,13 +243,13 @@ If you have any questions or need help getting started, don't hesitate to reach 
 
 Best regards,
 James William
-Founder, Rexa AI
+Founder, Ragzy
 
-© ${new Date().getFullYear()} Rexa AI. All rights reserved.
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
   `;
 
   return {
-    subject: `Welcome to Rexa AI, ${firstName}! 🎉`,
+    subject: `Welcome to Ragzy, ${firstName}! 🎉`,
     html,
     text
   };
@@ -262,8 +262,8 @@ export async function sendSendPulseEmail(
   to: EmailRecipient,
   template: EmailTemplate,
   from: EmailRecipient = {
-    email: 'support@rexahire.com',
-    name: 'James William - Rexa AI'
+    email: 'support@ragzy.ai',
+    name: 'Ragzy Team'
   }
 ): Promise<{ success: boolean; error?: string; messageId?: string }> {
   try {
@@ -341,7 +341,7 @@ export async function sendWelcomeEmail(
     const result = await sendSendPulseEmail(
       { email: userEmail, name: userName },
       template,
-      { email: 'support@rexahire.com', name: 'James William' }
+      { email: 'support@ragzy.ai', name: 'Ragzy Team' }
     );
 
     return result;
@@ -364,7 +364,7 @@ export function generateInviteEmail(inviterName: string, companyName: string, in
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Team Invitation - Rexa AI</title>
+  <title>Team Invitation - Ragzy</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
@@ -388,7 +388,7 @@ export function generateInviteEmail(inviterName: string, companyName: string, in
               </p>
               
               <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Rexa AI!
+                <strong>${inviterName}</strong> has invited you to join <strong>${companyName}</strong> on Ragzy!
               </p>
               
               <!-- Invitation Details Box -->
@@ -415,7 +415,7 @@ export function generateInviteEmail(inviterName: string, companyName: string, in
               </table>
               
               <p style="margin: 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
-                By joining, you'll be able to collaborate with your team, manage conversations, and access all the powerful features of Rexa AI.
+                By joining, you'll be able to collaborate with your team, manage conversations, and access all the powerful features of Ragzy.
               </p>
               
               <!-- CTA Button -->
@@ -450,7 +450,7 @@ export function generateInviteEmail(inviterName: string, companyName: string, in
           <tr>
             <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                © ${new Date().getFullYear()} Rexa AI. All rights reserved.
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 If you didn't expect this invitation, you can safely ignore this email.
@@ -470,14 +470,14 @@ You're Invited to Join ${companyName}!
 
 Hello!
 
-${inviterName} has invited you to join ${companyName} on Rexa AI!
+${inviterName} has invited you to join ${companyName} on Ragzy!
 
 Invitation Details:
 - Company: ${companyName}
 - Role: ${role}
 - Invited by: ${inviterName}
 
-By joining, you'll be able to collaborate with your team, manage conversations, and access all the powerful features of Rexa AI.
+By joining, you'll be able to collaborate with your team, manage conversations, and access all the powerful features of Ragzy.
 
 Accept your invitation by clicking this link:
 ${inviteLink}
@@ -486,11 +486,11 @@ Note: This invitation will expire in 7 days.
 
 If you didn't expect this invitation, you can safely ignore this email.
 
-© ${new Date().getFullYear()} Rexa AI. All rights reserved.
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
   `;
 
   return {
-    subject: `${inviterName} invited you to join ${companyName} on Rexa AI`,
+    subject: `${inviterName} invited you to join ${companyName} on Ragzy`,
     html,
     text
   };
@@ -498,7 +498,7 @@ If you didn't expect this invitation, you can safely ignore this email.
 
 export function generatePasswordResetEmail(resetLink: string): EmailTemplate {
   return {
-    subject: 'Reset your Rexa AI password',
+    subject: 'Reset your Ragzy password',
     html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2>Reset your password</h2>
@@ -537,7 +537,7 @@ export function generateKnowledgeBaseArticleEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Knowledge Base Article - Rexa AI</title>
+  <title>New Knowledge Base Article - Ragzy</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
@@ -654,7 +654,7 @@ export function generateKnowledgeBaseArticleEmail(
           <tr>
             <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                © ${new Date().getFullYear()} Rexa AI. All rights reserved.
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 You're receiving this because you manage this knowledge base.
@@ -690,7 +690,7 @@ ${dashboardLink ? `View your knowledge base: ${dashboardLink}` : ''}
 
 Keep adding more content to make your AI assistant even smarter! 🚀
 
-© ${new Date().getFullYear()} Rexa AI. All rights reserved.
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
   `;
 
   return {
@@ -718,7 +718,7 @@ export function generateNewCustomerMessageEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Customer Message - Rexa AI</title>
+  <title>New Customer Message - Ragzy</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
@@ -804,7 +804,7 @@ export function generateNewCustomerMessageEmail(
           <tr>
             <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                © ${new Date().getFullYear()} Rexa AI. All rights reserved.
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 You're receiving this because you have an active conversation.
@@ -837,7 +837,7 @@ ${conversationLink}
 
 💡 Tip: Quick responses improve customer satisfaction!
 
-© ${new Date().getFullYear()} Rexa AI. All rights reserved.
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
   `;
 
   return {
@@ -865,7 +865,7 @@ export function generateBusinessReplyEmail(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>New Reply from ${businessName} - Rexa AI</title>
+  <title>New Reply from ${businessName} - Ragzy</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
@@ -926,7 +926,7 @@ export function generateBusinessReplyEmail(
           <tr>
             <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
               <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
-                © ${new Date().getFullYear()} Rexa AI. All rights reserved.
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
               </p>
               <p style="margin: 0; color: #9ca3af; font-size: 12px;">
                 You're receiving this because you have an active conversation with ${businessName}.
@@ -954,11 +954,578 @@ Their Reply:
 View and continue your conversation:
 ${conversationLink}
 
-© ${new Date().getFullYear()} Rexa AI. All rights reserved.
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
   `;
 
   return {
     subject: `${businessName} replied to your message`,
+    html,
+    text
+  };
+}
+
+/**
+ * Generate email for workspace creation confirmation
+ */
+export function generateWorkspaceCreatedEmail(
+  userName: string,
+  workspaceName: string,
+  dashboardLink?: string
+): EmailTemplate {
+  const firstName = userName.split(' ')[0] || userName;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Workspace Created - Ragzy</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                🎉 Workspace Created!
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="margin: 0 0 20px 0; color: #1f2937; font-size: 18px; line-height: 1.6;">
+                Hi <strong>${firstName}</strong>! 👋
+              </p>
+              
+              <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Congratulations! Your workspace <strong>"${workspaceName}"</strong> has been successfully created.
+              </p>
+              
+              <!-- Workspace Details Box -->
+              <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 25px 0; background-color: #e3f2fd; border-radius: 12px; overflow: hidden;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 12px 0; color: #1565c0; font-size: 15px; font-weight: 600;">
+                      📋 Workspace Details
+                    </p>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Name:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${workspaceName}</span>
+                    </div>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Created:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${new Date().toLocaleString()}</span>
+                    </div>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Status:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">Active ✅</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                You're all set! Now you can start building AI agents, adding knowledge bases, and engaging with your customers.
+              </p>
+              
+              <!-- CTA Button -->
+              ${dashboardLink ? `
+              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${dashboardLink}" 
+                       style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(33, 150, 243, 0.4);">
+                      Go to Dashboard →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                Need help getting started? Check out our documentation or reach out to our support team.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  const text = `
+Workspace Created!
+
+Hi ${firstName}!
+
+Congratulations! Your workspace "${workspaceName}" has been successfully created.
+
+Workspace Details:
+- Name: ${workspaceName}
+- Created: ${new Date().toLocaleString()}
+- Status: Active ✅
+
+You're all set! Now you can start building AI agents, adding knowledge bases, and engaging with your customers.
+
+${dashboardLink ? `Go to your dashboard: ${dashboardLink}` : ''}
+
+Need help getting started? Check out our documentation or reach out to our support team.
+
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
+  `;
+
+  return {
+    subject: `Your workspace "${workspaceName}" has been created! 🎉`,
+    html,
+    text
+  };
+}
+
+/**
+ * Generate email for agent deployment success notification
+ */
+export function generateAgentDeployedEmail(
+  userName: string,
+  agentName: string,
+  agentId: string,
+  workspaceId: string,
+  dashboardLink?: string
+): EmailTemplate {
+  const firstName = userName.split(' ')[0] || userName;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Deployed - Ragzy</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                🚀 Agent Deployed Successfully!
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="margin: 0 0 20px 0; color: #1f2937; font-size: 18px; line-height: 1.6;">
+                Hi <strong>${firstName}</strong>! 👋
+              </p>
+              
+              <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Great news! Your AI agent <strong>"${agentName}"</strong> has been successfully deployed and is now live! 🎉
+              </p>
+              
+              <!-- Agent Details Box -->
+              <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 25px 0; background-color: #ecfdf5; border-radius: 12px; overflow: hidden;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 12px 0; color: #065f46; font-size: 15px; font-weight: 600;">
+                      🤖 Agent Details
+                    </p>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Name:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${agentName}</span>
+                    </div>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Status:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">Deployed ✅</span>
+                    </div>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Deployed:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${new Date().toLocaleString()}</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Your agent is now ready to handle customer conversations, answer questions, and provide support 24/7!
+              </p>
+              
+              <!-- CTA Button -->
+              ${dashboardLink ? `
+              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${dashboardLink}" 
+                       style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.4);">
+                      View Agent →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                💡 <strong>Tip:</strong> Monitor your agent's performance in the analytics dashboard to optimize its responses.
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  const text = `
+Agent Deployed Successfully!
+
+Hi ${firstName}!
+
+Great news! Your AI agent "${agentName}" has been successfully deployed and is now live! 🎉
+
+Agent Details:
+- Name: ${agentName}
+- Status: Deployed ✅
+- Deployed: ${new Date().toLocaleString()}
+
+Your agent is now ready to handle customer conversations, answer questions, and provide support 24/7!
+
+${dashboardLink ? `View your agent: ${dashboardLink}` : ''}
+
+💡 Tip: Monitor your agent's performance in the analytics dashboard to optimize its responses.
+
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
+  `;
+
+  return {
+    subject: `Your agent "${agentName}" has been deployed! 🚀`,
+    html,
+    text
+  };
+}
+
+/**
+ * Generate email for knowledge base processing completion
+ */
+export function generateKnowledgeBaseProcessedEmail(
+  userName: string,
+  articleTitle: string,
+  articleType: string,
+  chunksCount?: number,
+  dashboardLink?: string
+): EmailTemplate {
+  const firstName = userName.split(' ')[0] || userName;
+  const typeEmoji = {
+    'text': '📝',
+    'pdf': '📄',
+    'website': '🌐',
+    'faq': '❓',
+    'notion': '📓',
+    'google_sheets': '📊',
+    'manual': '✍️'
+  }[articleType] || '📚';
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Base Processed - Ragzy</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                ${typeEmoji} Knowledge Base Processed!
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="margin: 0 0 20px 0; color: #1f2937; font-size: 18px; line-height: 1.6;">
+                Hi <strong>${firstName}</strong>! 👋
+              </p>
+              
+              <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Your knowledge base article has been successfully processed and is now ready for your AI agents to use!
+              </p>
+              
+              <!-- Article Details Box -->
+              <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 25px 0; background-color: #f3e8ff; border-radius: 12px; overflow: hidden;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 12px 0; color: #6b21a8; font-size: 15px; font-weight: 600;">
+                      📋 Article Details
+                    </p>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Title:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${articleTitle}</span>
+                    </div>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Type:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px; text-transform: capitalize;">${typeEmoji} ${articleType}</span>
+                    </div>
+                    ${chunksCount ? `
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Chunks Created:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${chunksCount}</span>
+                    </div>
+                    ` : ''}
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Processed:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${new Date().toLocaleString()}</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Your AI agents can now use this content to answer customer questions more accurately and intelligently!
+              </p>
+              
+              <!-- CTA Button -->
+              ${dashboardLink ? `
+              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${dashboardLink}" 
+                       style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(139, 92, 246, 0.4);">
+                      View Knowledge Base →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                Keep adding more content to make your AI agents even smarter! 🚀
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  const text = `
+Knowledge Base Processed!
+
+Hi ${firstName}!
+
+Your knowledge base article has been successfully processed and is now ready for your AI agents to use!
+
+Article Details:
+- Title: ${articleTitle}
+- Type: ${articleType}
+${chunksCount ? `- Chunks Created: ${chunksCount}` : ''}
+- Processed: ${new Date().toLocaleString()}
+
+Your AI agents can now use this content to answer customer questions more accurately and intelligently!
+
+${dashboardLink ? `View your knowledge base: ${dashboardLink}` : ''}
+
+Keep adding more content to make your AI agents even smarter! 🚀
+
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
+  `;
+
+  return {
+    subject: `Knowledge base processed: ${articleTitle}`,
+    html,
+    text
+  };
+}
+
+/**
+ * Generate email for lead collection notification
+ */
+export function generateLeadCollectedEmail(
+  userName: string,
+  leadName: string,
+  leadEmail: string,
+  leadData?: Record<string, unknown>,
+  dashboardLink?: string
+): EmailTemplate {
+  const firstName = userName.split(' ')[0] || userName;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Lead Collected - Ragzy</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 40px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: bold;">
+                🎯 New Lead Collected!
+              </h1>
+            </td>
+          </tr>
+          
+          <!-- Content -->
+          <tr>
+            <td style="padding: 40px 30px;">
+              <p style="margin: 0 0 20px 0; color: #1f2937; font-size: 18px; line-height: 1.6;">
+                Hi <strong>${firstName}</strong>! 👋
+              </p>
+              
+              <p style="margin: 0 0 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                Great news! You've collected a new lead through your AI agent!
+              </p>
+              
+              <!-- Lead Details Box -->
+              <table cellpadding="0" cellspacing="0" style="width: 100%; margin: 25px 0; background-color: #fef3c7; border-radius: 12px; overflow: hidden;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 12px 0; color: #92400e; font-size: 15px; font-weight: 600;">
+                      👤 Lead Details
+                    </p>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Name:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${leadName}</span>
+                    </div>
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Email:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${leadEmail}</span>
+                    </div>
+                    ${leadData && Object.keys(leadData).length > 0 ? `
+                    ${Object.entries(leadData).map(([key, value]) => `
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">${key}:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${String(value)}</span>
+                    </div>
+                    `).join('')}
+                    ` : ''}
+                    <div style="margin: 8px 0;">
+                      <span style="color: #6b7280; font-size: 14px;">Collected:</span>
+                      <span style="color: #1f2937; font-size: 14px; font-weight: 600; margin-left: 8px;">${new Date().toLocaleString()}</span>
+                    </div>
+                  </td>
+                </tr>
+              </table>
+              
+              <p style="margin: 20px 0; color: #4b5563; font-size: 16px; line-height: 1.6;">
+                This lead has been automatically saved to your contacts. Follow up with them to convert them into customers!
+              </p>
+              
+              <!-- CTA Button -->
+              ${dashboardLink ? `
+              <table cellpadding="0" cellspacing="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${dashboardLink}" 
+                       style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: #ffffff; text-decoration: none; border-radius: 12px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(245, 158, 11, 0.4);">
+                      View Contacts →
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+              
+              <p style="margin: 20px 0 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
+                💡 <strong>Tip:</strong> Quick follow-ups increase conversion rates. Reach out within 24 hours for best results!
+              </p>
+            </td>
+          </tr>
+          
+          <!-- Footer -->
+          <tr>
+            <td style="padding: 30px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; text-align: center;">
+              <p style="margin: 0 0 10px 0; color: #6b7280; font-size: 14px;">
+                © ${new Date().getFullYear()} Ragzy. All rights reserved.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  const text = `
+New Lead Collected!
+
+Hi ${firstName}!
+
+Great news! You've collected a new lead through your AI agent!
+
+Lead Details:
+- Name: ${leadName}
+- Email: ${leadEmail}
+${leadData && Object.keys(leadData).length > 0 ? Object.entries(leadData).map(([key, value]) => `- ${key}: ${value}`).join('\n') : ''}
+- Collected: ${new Date().toLocaleString()}
+
+This lead has been automatically saved to your contacts. Follow up with them to convert them into customers!
+
+${dashboardLink ? `View your contacts: ${dashboardLink}` : ''}
+
+💡 Tip: Quick follow-ups increase conversion rates. Reach out within 24 hours for best results!
+
+© ${new Date().getFullYear()} Ragzy. All rights reserved.
+  `;
+
+  return {
+    subject: `New lead collected: ${leadName}`,
     html,
     text
   };

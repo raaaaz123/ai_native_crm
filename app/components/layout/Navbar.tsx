@@ -5,12 +5,12 @@ import Link from 'next/link';
 import { useAuth } from '../../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { BrandLogo } from '../brand';
-import { Menu, X, ChevronDown } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
+import { events } from '@/app/lib/posthog';
 
 export function Navbar() {
   const { user, signOut } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [productDropdownOpen, setProductDropdownOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -23,65 +23,59 @@ export function Navbar() {
   
   return (
     <nav className={`border-b bg-background/95 backdrop-blur-md sticky top-0 z-50 transition-all duration-300 ${
-      scrolled ? 'border-border shadow-lg' : 'border-border/50 shadow-sm'
+      scrolled ? 'border-border shadow-md bg-background/98' : 'border-border/50'
     }`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 items-center justify-between">
-          <div className="flex items-center">
-            <Link href="/" className="flex items-center space-x-2">
-              <BrandLogo className="h-8 w-auto" />
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center gap-10">
+            <Link href="/" className="flex items-center group">
+              <BrandLogo size="lg" className="transition-transform duration-300 group-hover:scale-105" showText={true} />
             </Link>
-            
-            {/* Desktop Navigation */}
-            <div className="hidden md:ml-10 md:flex md:items-center md:space-x-8">
-              <div className="relative">
-                <button 
-                  suppressHydrationWarning
-                  className="flex items-center text-foreground/70 hover:text-foreground font-medium transition-all duration-200 hover:scale-105"
-                  onClick={() => setProductDropdownOpen(!productDropdownOpen)}
-                >
-                  Product
-                  <ChevronDown className={`ml-1 h-4 w-4 transition-transform duration-200 ${productDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {productDropdownOpen && (
-                  <div className="absolute left-0 mt-3 w-56 rounded-xl shadow-xl bg-card border border-border overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-                    <div className="p-2">
-                      <Link href="#features" className="block px-4 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-all duration-200 hover:scale-105">
-                        Features
-                      </Link>
-                      <Link href="/pricing" className="block px-4 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-all duration-200 hover:scale-105">
-                        Pricing
-                      </Link>
-                      <Link href="#docs" className="block px-4 py-3 text-sm text-foreground/70 hover:bg-muted hover:text-foreground rounded-lg transition-all duration-200 hover:scale-105">
-                        Documentation
-                      </Link>
-                    </div>
-                  </div>
-                )}
-              </div>
-              
-              <Link href="/pricing" className="text-foreground/70 hover:text-foreground font-medium transition-all duration-200 hover:scale-105">
+
+            {/* Desktop Navigation - Enhanced */}
+            <div className="hidden md:flex md:items-center md:gap-1">
+              <Link 
+                href="/pricing" 
+                className="px-4 py-2 text-sm text-foreground/80 hover:text-foreground font-medium rounded-lg hover:bg-muted/50 transition-all duration-200 relative group"
+                onClick={() => events.linkClicked('/pricing', 'Pricing')}
+              >
                 Pricing
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-200"></span>
               </Link>
-              
-              <Link href="#docs" className="text-foreground/70 hover:text-foreground font-medium transition-all duration-200 hover:scale-105">
+
+              <Link 
+                href="/documentation" 
+                className="px-4 py-2 text-sm text-foreground/80 hover:text-foreground font-medium rounded-lg hover:bg-muted/50 transition-all duration-200 relative group"
+                onClick={() => events.linkClicked('/documentation', 'Documentation')}
+              >
                 Documentation
+                <span className="absolute bottom-0 left-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-200"></span>
               </Link>
             </div>
           </div>
-          
-          {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex md:items-center md:space-x-2">
+
+          {/* Desktop Auth Buttons - Enhanced */}
+          <div className="hidden md:flex md:items-center md:gap-3">
             {user ? (
               <>
                 <Link href="/dashboard">
-                  <Button variant="ghost" className="text-foreground/70 hover:text-foreground font-semibold hover:bg-muted/50 transition-all duration-200 hover:scale-105 cursor-pointer">Dashboard</Button>
+                  <Button 
+                    variant="ghost" 
+                    size="default" 
+                    className="text-sm h-9 px-4 text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+                    onClick={() => events.buttonClicked('Dashboard', 'navbar')}
+                  >
+                    Dashboard
+                  </Button>
                 </Link>
-                <Button 
-                  variant="outline" 
-                  onClick={signOut}
-                  className="border-2 border-border text-foreground/70 hover:bg-muted hover:border-border/80 rounded-md font-semibold transition-all duration-200 hover:scale-105 cursor-pointer"
+                <Button
+                  variant="outline"
+                  size="default"
+                  onClick={() => {
+                    events.buttonClicked('Sign Out', 'navbar');
+                    signOut();
+                  }}
+                  className="text-sm h-9 px-4 border-border hover:border-border-strong hover:bg-muted/50 transition-all duration-200"
                 >
                   Sign Out
                 </Button>
@@ -89,10 +83,23 @@ export function Navbar() {
             ) : (
               <>
                 <Link href="/signin">
-                  <Button variant="ghost" className="text-foreground/70 hover:text-foreground font-bold hover:bg-muted/50 transition-all duration-200 hover:scale-105 cursor-pointer">Sign In</Button>
+                  <Button 
+                    variant="ghost" 
+                    size="default" 
+                    className="text-sm h-9 px-4 text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+                    onClick={() => events.buttonClicked('Sign In', 'navbar')}
+                  >
+                    Sign In
+                  </Button>
                 </Link>
                 <Link href="/signup">
-                  <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md hover:shadow-lg transition-all duration-300 rounded-md px-5 hover:scale-105 cursor-pointer">Try for Free</Button>
+                  <Button 
+                    size="default" 
+                    className="text-sm h-9 px-5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm hover:shadow-md transition-all duration-200"
+                    onClick={() => events.buttonClicked('Try for Free', 'navbar')}
+                  >
+                    Try for Free
+                  </Button>
                 </Link>
               </>
             )}
@@ -103,78 +110,74 @@ export function Navbar() {
             <button
               suppressHydrationWarning
               type="button"
-              className="inline-flex items-center justify-center p-2 rounded-lg text-foreground/60 hover:text-foreground hover:bg-muted transition-all duration-200 hover:scale-110 active:scale-95"
+              className="inline-flex items-center justify-center p-2 rounded-lg text-foreground/70 hover:text-foreground hover:bg-muted/50 transition-all duration-200"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             >
               {mobileMenuOpen ? (
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               ) : (
-                <Menu className="h-5 w-5" />
+                <Menu className="h-6 w-6" />
               )}
             </button>
           </div>
         </div>
       </div>
       
-      {/* Mobile menu */}
+      {/* Mobile menu - Enhanced */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-background border-t border-border shadow-lg">
-          <div className="px-4 pt-3 pb-4 space-y-1">
-            <div className="py-1">
-              <button 
-                suppressHydrationWarning
-                className="w-full text-left px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105 active:scale-95"
-                onClick={() => setProductDropdownOpen(!productDropdownOpen)}
-              >
-                <div className="flex justify-between items-center">
-                  Product
-                  <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${productDropdownOpen ? 'rotate-180' : ''}`} />
-                </div>
-              </button>
-              
-              {productDropdownOpen && (
-                <div className="pl-3 mt-1 space-y-1">
-                  <Link href="#features" className="block px-3 py-2 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
-                    Features
-                  </Link>
-                  <Link href="/pricing" className="block px-3 py-2 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
-                    Pricing
-                  </Link>
-                  <Link href="#docs" className="block px-3 py-2 text-sm font-medium text-foreground/60 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
-                    Documentation
-                  </Link>
-                </div>
-              )}
-            </div>
-            
-            <Link href="/pricing" className="block px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
+        <div className="md:hidden bg-background/98 backdrop-blur-md border-t border-border shadow-lg">
+          <div className="px-4 py-4 space-y-1">
+            <Link
+              href="/pricing"
+              className="block px-4 py-3 text-base font-medium text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Pricing
             </Link>
-            
-            <Link href="#docs" className="block px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105">
+
+            <Link
+              href="/documentation"
+              className="block px-4 py-3 text-base font-medium text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
+              onClick={() => setMobileMenuOpen(false)}
+            >
               Documentation
             </Link>
-            
-            <div className="pt-4 mt-3 border-t border-border space-y-1">
+
+            <div className="pt-4 mt-4 border-t border-border/60 space-y-2">
               {user ? (
                 <>
-                  <Link href="/dashboard" className="block px-3 py-2 text-sm font-medium text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105 cursor-pointer">
+                  <Link
+                    href="/dashboard"
+                    className="block px-4 py-3 text-base font-medium text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     Dashboard
                   </Link>
-                  <button 
+                  <button
                     suppressHydrationWarning
-                    onClick={signOut}
-                    className="block w-full text-left px-3 py-2 text-sm font-medium text-foreground/70 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
+                    onClick={() => {
+                      signOut();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left px-4 py-3 text-base font-medium text-foreground/80 hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-200"
                   >
                     Sign Out
                   </button>
                 </>
               ) : (
                 <>
-                  <Link href="/signin" className="block px-3 py-2 text-sm font-bold text-foreground/70 hover:text-foreground hover:bg-muted rounded-lg transition-all duration-200 hover:scale-105 cursor-pointer">
+                  <Link
+                    href="/signin"
+                    className="block px-4 py-3 text-base font-medium text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     Sign In
                   </Link>
-                  <Link href="/signup" className="block px-3 py-2 mt-2 text-sm font-bold text-primary-foreground bg-primary hover:bg-primary/90 rounded-md text-center shadow-md transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer">
+                  <Link
+                    href="/signup"
+                    className="block px-4 py-3 text-base font-semibold text-primary-foreground bg-primary hover:bg-primary/90 rounded-lg text-center shadow-sm transition-all duration-200"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     Try for Free
                   </Link>
                 </>

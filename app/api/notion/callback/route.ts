@@ -20,13 +20,21 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Parse state to get workspace and agent info
+    // Parse state to get workspace and agent info (ensure we decode percent-encoding)
     let workspaceId = '';
     let agentId = '';
     if (state) {
-      const parts = state.split(':');
-      workspaceId = parts[0] || '';
-      agentId = parts[1] || '';
+      try {
+        const decodedState = decodeURIComponent(state);
+        const parts = decodedState.split(':');
+        workspaceId = parts[0] || '';
+        agentId = parts[1] || '';
+      } catch {
+        // Fallback to raw state if decoding fails
+        const parts = state.split(':');
+        workspaceId = parts[0] || '';
+        agentId = parts[1] || '';
+      }
     }
 
     // Exchange code for access token
@@ -73,10 +81,45 @@ export async function GET(request: NextRequest) {
     // Base64 encode to safely pass through URL
     const encodedData = Buffer.from(JSON.stringify(connectionData)).toString('base64');
 
-    // Redirect to sources/notion page with connection data
-    const redirectUrl = `/dashboard/${workspaceId}/agents/${agentId}/sources/notion?notion_data=${encodedData}`;
+    // Resolve redirect target from token data (may be percent-encoded and/or absolute)
+    const rawRedirect = tokenData.redirect_uri as string | undefined;
+    let decodedRedirect = '';
+    if (rawRedirect && rawRedirect.length > 0) {
+      try {
+        decodedRedirect = decodeURIComponent(rawRedirect);
+      } catch {
+        decodedRedirect = rawRedirect;
+      }
+    }
 
-    return NextResponse.redirect(new URL(redirectUrl, request.url));
+    // Determine redirect URL based on context
+    let redirectUrl = decodedRedirect;
+
+    // If no redirect provided, determine based on agent_id
+    if (!redirectUrl) {
+      if (agentId === 'create-new-agent' || !agentId) {
+        // Redirect back to workspace dashboard when in create-new-agent flow
+        // The create-new-agent page will handle the callback on its own
+        redirectUrl = `/dashboard/${workspaceId}/create-new-agent/knowledgebase?type=notion`;
+      } else {
+        // Normal agent flow - redirect to agent's Notion sources page
+        redirectUrl = `/dashboard/${workspaceId}/agents/${agentId}/sources/notion`;
+      }
+    }
+
+    // Append notion_data safely
+    const separator = redirectUrl.includes('?') ? '&' : '?';
+    const finalRedirect = `${redirectUrl}${separator}notion_data=${encodedData}`;
+
+    // If absolute URL, redirect directly; otherwise resolve against current origin
+    const isAbsolute = /^https?:\/\//i.test(finalRedirect);
+    if (isAbsolute) {
+      return NextResponse.redirect(finalRedirect);
+    }
+
+    // Ensure relative paths start with '/'
+    const normalized = finalRedirect.startsWith('/') ? finalRedirect : `/${finalRedirect}`;
+    return NextResponse.redirect(new URL(normalized, request.url));
 
   } catch (error) {
     console.error('Error handling Notion OAuth callback:', error);

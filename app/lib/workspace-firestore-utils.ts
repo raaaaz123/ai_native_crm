@@ -174,6 +174,48 @@ export async function getWorkspace(workspaceId: string): Promise<{ success: bool
   }
 }
 
+// Get workspace by URL slug
+export async function getWorkspaceBySlug(workspaceSlug: string): Promise<{ success: boolean; data?: Workspace; error?: string }> {
+  try {
+    const urlQuery = query(
+      collection(db, WORKSPACES_COLLECTION),
+      where('url', '==', workspaceSlug)
+    );
+    const urlSnapshot = await getDocs(urlQuery);
+    
+    if (urlSnapshot.empty) {
+      return { success: false, error: 'Workspace not found' };
+    }
+
+    const workspaceDoc = urlSnapshot.docs[0];
+    const data = workspaceDoc.data();
+    const workspace: Workspace = {
+      id: workspaceDoc.id,
+      name: data.name,
+      url: data.url,
+      ownerId: data.ownerId,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+      settings: data.settings || {
+        primaryColor: '#3b82f6',
+        timezone: 'UTC',
+        language: 'en'
+      },
+      members: [], // Will be populated separately
+      subscription: data.subscription || {
+        plan: 'free',
+        status: 'active',
+        trialEndsAt: data.createdAt?.toDate() || new Date()
+      }
+    };
+
+    return { success: true, data: workspace };
+  } catch (error) {
+    console.error('Error getting workspace by slug:', error);
+    return { success: false, error: (error as Error).message };
+  }
+}
+
 // Get workspaces for a user
 export async function getUserWorkspaces(userId: string): Promise<{ success: boolean; data?: Workspace[]; error?: string }> {
   try {
@@ -295,7 +337,38 @@ export async function getWorkspaceMembers(workspaceId: string): Promise<{ succes
     return { success: true, data: members };
   } catch (error) {
     console.error('Error getting workspace members:', error);
-    return { success: false, error: (error as Error).message };
+    const message = error instanceof Error ? error.message : String(error);
+
+    // Graceful fallback if Firestore composite index is missing
+    const errorWithCode = typeof error === 'object' && error !== null && 'code' in error
+      ? (error as { code?: string })
+      : null;
+
+    if (message.includes('requires an index') || errorWithCode?.code === 'failed-precondition') {
+      try {
+        const fallbackQuery = query(
+          collection(db, WORKSPACE_MEMBERS_COLLECTION),
+          where('workspaceId', '==', workspaceId)
+        );
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const members: WorkspaceMember[] = fallbackSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          joinedAt: doc.data().joinedAt?.toDate() || new Date()
+        })) as WorkspaceMember[];
+        // Client-side sort by joinedAt ascending to mimic the intended ordering
+        members.sort((a, b) => {
+          const aTime = (a.joinedAt as Date).getTime();
+          const bTime = (b.joinedAt as Date).getTime();
+          return aTime - bTime;
+        });
+        return { success: true, data: members };
+      } catch (fallbackError) {
+        console.error('Fallback members query failed:', fallbackError);
+      }
+    }
+
+    return { success: false, error: message };
   }
 }
 

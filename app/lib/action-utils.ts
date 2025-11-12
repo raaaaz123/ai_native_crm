@@ -12,6 +12,7 @@ import {
   serverTimestamp 
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { getAgent } from './agent-utils';
 import {
   AgentAction,
   CreateActionData,
@@ -19,11 +20,12 @@ import {
   CollectLeadsSubmission,
   CollectLeadsConfig,
   CustomButtonConfig,
-  CalendlyConfig
+  CalendlyConfig,
+  ZendeskConfig
 } from './action-types';
 
 // Re-export types for convenience
-export type { AgentAction, CollectLeadsConfig, CustomButtonConfig, CalendlyConfig, CollectLeadsSubmission };
+export type { AgentAction, CollectLeadsConfig, CustomButtonConfig, CalendlyConfig, ZendeskConfig, CollectLeadsSubmission };
 
 export interface ApiResponse<T> {
   success: boolean;
@@ -371,15 +373,24 @@ export async function submitCollectLeadsForm(
   metadata?: { ipAddress?: string; userAgent?: string }
 ): Promise<ApiResponse<CollectLeadsSubmission>> {
   try {
-    const docData = {
+    // Build docData object, only including defined fields to avoid Firestore errors
+    const docData: Record<string, unknown> = {
       agentId,
       actionId,
-      conversationId,
       data: formData,
-      submittedAt: serverTimestamp(),
-      ipAddress: metadata?.ipAddress,
-      userAgent: metadata?.userAgent
+      submittedAt: serverTimestamp()
     };
+
+    // Only add optional fields if they have values
+    if (conversationId !== undefined) {
+      docData.conversationId = conversationId;
+    }
+    if (metadata?.ipAddress !== undefined) {
+      docData.ipAddress = metadata.ipAddress;
+    }
+    if (metadata?.userAgent !== undefined) {
+      docData.userAgent = metadata.userAgent;
+    }
 
     const docRef = await addDoc(collection(db, SUBMISSIONS_COLLECTION), docData);
     
@@ -393,6 +404,46 @@ export async function submitCollectLeadsForm(
       ipAddress: metadata?.ipAddress,
       userAgent: metadata?.userAgent
     };
+
+    // Send lead collected email notification (non-blocking)
+    try {
+      const { sendLeadCollectedEmail } = await import('./email-utils');
+      // Get agent to find workspace
+      const agentResult = await getAgent(agentId);
+      if (agentResult.success && agentResult.data) {
+        // Get workspace owner email
+        const workspaceDoc = await getDoc(doc(db, 'workspaces', agentResult.data.workspaceId));
+        if (workspaceDoc.exists()) {
+          const workspaceData = workspaceDoc.data();
+          const ownerId = workspaceData.ownerId;
+          if (ownerId) {
+            const ownerDoc = await getDoc(doc(db, 'users', ownerId));
+            if (ownerDoc.exists()) {
+              const ownerData = ownerDoc.data();
+              const userEmail = ownerData.email || '';
+              const userName = ownerData.displayName || ownerData.firstName || 'User';
+              // Extract lead info from formData
+              const leadName = formData.name || formData.fullName || 'Lead';
+              const leadEmail = formData.email || '';
+              if (userEmail && leadEmail) {
+                await sendLeadCollectedEmail(
+                  userEmail,
+                  userName,
+                  leadName,
+                  leadEmail,
+                  formData,
+                  agentId,
+                  agentResult.data.workspaceId
+                );
+              }
+            }
+          }
+        }
+      }
+    } catch (emailError) {
+      // Don't fail lead submission if email fails
+      console.error('❌ [Lead Collected] Failed to send email:', emailError);
+    }
 
     return {
       success: true,

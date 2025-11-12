@@ -164,6 +164,38 @@ export default function ChatIframe({
 
         const settings = channelData?.settings || {};
         
+        // List of valid new models
+        const validNewModels = [
+          'gpt-5-mini',
+          'gpt-5-nano',
+          'gpt-4.1-mini',
+          'gpt-4.1-nano',
+          'gemini-2.5-flash-lite',
+          'gemini-2.5-flash',
+          'gemini-2.5-pro'
+        ];
+
+        // Map old model names to new ones if needed
+        const modelMapping: Record<string, string> = {
+          'gpt-4o': 'gpt-5-mini',
+          'gpt-4o-mini': 'gpt-4.1-mini',
+          'gpt-4-turbo': 'gpt-5-mini',
+          'openai/gpt-4o': 'gpt-5-mini',
+          'openai/gpt-4o-mini': 'gpt-4.1-mini',
+          'x-ai/grok-4-fast:free': 'gpt-4.1-mini',
+          'gemini-2.0-flash-exp': 'gemini-2.5-flash',
+          'gemini-1.5-flash': 'gemini-2.5-flash',
+          'gemini-1.5-pro': 'gemini-2.5-pro',
+        };
+
+        // Get the model from settings, with mapping for old models
+        const savedModel = (settings && typeof settings === 'object' && 'aiModel' in settings && typeof settings.aiModel === 'string') 
+          ? settings.aiModel 
+          : (agent?.settings?.model || agent?.aiConfig?.model || 'gpt-5-mini');
+        const mappedModel = validNewModels.includes(savedModel) 
+          ? savedModel 
+          : (modelMapping[savedModel] || 'gpt-5-mini');
+        
         // Create widget configuration with real data
         const config = {
           widgetTitle: settings.widgetTitle || agent?.name || 'Chat with us',
@@ -175,9 +207,9 @@ export default function ChatIframe({
           profilePictureUrl: settings.profilePictureUrl,
           chatIconUrl: settings.chatIconUrl,
           suggestedMessages: settings.suggestedMessages || ['How can you help me?', 'Tell me more about your services', 'What are your hours?'],
-          footerMessage: settings.footerMessage || 'Powered by Rexa',
+          footerMessage: settings.footerMessage || 'Powered by Ragzy',
           aiInstructions: settings.aiInstructions || agent?.settings?.systemPrompt || 'You are a helpful AI assistant. Provide clear, concise, and helpful responses to user questions.',
-          aiModel: (settings && typeof settings === 'object' && 'aiModel' in settings && typeof settings.aiModel === 'string') ? settings.aiModel : 'gpt-4o-mini'
+          aiModel: mappedModel
         };
         
         setWidgetConfig(config);
@@ -193,7 +225,7 @@ export default function ChatIframe({
             createdAt: new Date(),
             updatedAt: new Date(),
             settings: {
-              model: 'gpt-4o-mini',
+              model: 'gpt-5-mini',
               temperature: 0.7,
               maxTokens: 500
             },

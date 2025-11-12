@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -51,11 +51,13 @@ import {
   Calendar,
   Hash,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  Smile
 } from "lucide-react";
 import { useAuth } from "@/app/lib/workspace-auth-context";
 import { getAgent, Agent } from "@/app/lib/agent-utils";
 import { toast } from "sonner";
+import EmojiPicker from "@/app/components/ui/emoji-picker";
 import {
   collection,
   query,
@@ -118,9 +120,11 @@ export default function AgentConversationsPage() {
   const [mobileConversationsOpen, setMobileConversationsOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Load agent data
   useEffect(() => {
@@ -166,6 +170,11 @@ export default function AgentConversationsPage() {
         });
         setConversations(conversationsList);
         setLoading(false);
+        
+        // Auto-select the most recent conversation if none is selected
+        if (conversationsList.length > 0 && !selectedConversation) {
+          setSelectedConversation(conversationsList[0]);
+        }
       },
       (error) => {
         console.error('Error loading conversations:', error);
@@ -232,15 +241,37 @@ export default function AgentConversationsPage() {
         e.preventDefault();
         document.getElementById('conversation-search')?.focus();
       }
-      // Escape to close mobile conversations
-      if (e.key === 'Escape' && mobileConversationsOpen) {
+      // Escape to close mobile conversations or emoji picker
+      if (e.key === 'Escape') {
+        if (mobileConversationsOpen) {
         setMobileConversationsOpen(false);
+        }
+        if (showEmojiPicker) {
+          setShowEmojiPicker(false);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [mobileConversationsOpen]);
+  }, [mobileConversationsOpen, showEmojiPicker]);
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    if (showEmojiPicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showEmojiPicker]);
 
   // Send message
   const handleSendMessage = async () => {
@@ -273,6 +304,27 @@ export default function AgentConversationsPage() {
     } finally {
       setSending(false);
     }
+  };
+
+  // Handle emoji selection
+  const handleEmojiSelect = (emoji: string) => {
+    const textarea = messageInputRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = newMessage;
+    const before = text.substring(0, start);
+    const after = text.substring(end);
+    
+    setNewMessage(before + emoji + after);
+    
+    // Set cursor position after emoji
+    setTimeout(() => {
+      textarea.focus();
+      const newPosition = start + emoji.length;
+      textarea.setSelectionRange(newPosition, newPosition);
+    }, 0);
   };
 
   // Update conversation status
@@ -429,8 +481,8 @@ export default function AgentConversationsPage() {
 
   // Conversations List Component
   const ConversationsList = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-4 border-b border-border bg-background sticky top-0 z-10">
+    <div className="flex flex-col h-full overflow-hidden">
+      <div className="p-4 border-b border-border bg-background sticky top-0 z-10 shrink-0">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold flex items-center gap-2">
             <MessageCircle className="w-5 h-5 text-primary" />
@@ -449,7 +501,7 @@ export default function AgentConversationsPage() {
             placeholder="Search conversations... (Ctrl+K)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-9"
+            className="pl-10 h-9 border-border focus-visible:border-ring"
           />
         </div>
 
@@ -506,41 +558,40 @@ export default function AgentConversationsPage() {
                 setSelectedConversation(conversation);
                 setMobileConversationsOpen(false);
               }}
-              className={`group relative p-4 border-b border-border cursor-pointer hover:bg-muted/50 transition-all duration-200 ${
-                selectedConversation?.id === conversation.id ? 'bg-muted border-l-2 border-l-primary' : ''
+              className={`group relative p-3 border-b border-border cursor-pointer hover:bg-muted/50 transition-all duration-200 ${
+                selectedConversation?.id === conversation.id ? 'bg-muted/70 border-l-2 border-l-primary' : ''
               }`}
             >
-              <div className="flex items-start gap-3">
-                <Avatar className="w-10 h-10 border-2 border-background">
-                  <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-primary/20 to-primary/5">
+              <div className="flex items-start gap-2.5">
+                <Avatar className="w-9 h-9 border-2 border-background shrink-0">
+                  <AvatarFallback className="text-xs font-medium bg-gradient-to-br from-primary/20 to-primary/5">
                     {getUserInitials(conversation.userName, conversation.userEmail)}
                   </AvatarFallback>
                 </Avatar>
 
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between mb-1.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-medium text-sm truncate">
-                        {conversation.userName || conversation.userEmail || 'Anonymous User'}
+                  <div className="flex items-center justify-between mb-1">
+                    <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                      <span className="font-semibold text-sm truncate">
+                        {conversation.userName || conversation.userEmail || 'Anonymous'}
                       </span>
-                      <Badge className={`text-[10px] px-1.5 py-0 h-4 ${getStatusColor(conversation.status)}`}>
+                      <Badge className={`text-[9px] px-1.5 py-0 h-3.5 ${getStatusColor(conversation.status)}`}>
                         {conversation.status}
                       </Badge>
                     </div>
+                    <span className="text-[10px] text-muted-foreground ml-2 shrink-0">
+                      {formatTime(conversation.lastMessageTime)}
+                    </span>
                   </div>
 
-                  <p className="text-xs text-muted-foreground mb-2 line-clamp-2 leading-relaxed">
+                  <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed mb-1">
                     {conversation.lastMessage}
                   </p>
 
-                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatTime(conversation.lastMessageTime)}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Hash className="w-3 h-3" />
-                      {conversation.messageCount}
+                  <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                    <span className="flex items-center gap-0.5">
+                      <Hash className="w-2.5 h-2.5" />
+                      {conversation.messageCount} messages
                     </span>
                   </div>
                 </div>
@@ -550,11 +601,11 @@ export default function AgentConversationsPage() {
               <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon-sm" className="h-6 w-6">
+                    <Button variant="ghost" size="icon-sm" className="h-6 w-6 bg-background/80 backdrop-blur-sm hover:bg-background shadow-sm">
                       <MoreVertical className="w-3.5 h-3.5" />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuContent align="end" className="w-48 bg-background/95 backdrop-blur-sm border-border/60">
                     <DropdownMenuLabel className="text-xs">Actions</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={(e) => {
@@ -720,25 +771,26 @@ export default function AgentConversationsPage() {
 
   return (
     <TooltipProvider>
-      <div className="flex h-[calc(100vh-4rem)] bg-background">
+      <div className="flex h-[calc(100vh-4rem)] bg-background overflow-hidden">
         {/* Desktop: Conversations Sidebar */}
-        <div className="hidden lg:block w-80 xl:w-96 border-r border-border">
+        <div className="hidden lg:block w-80 xl:w-96 border-r border-border overflow-hidden">
           <ConversationsList />
         </div>
 
         {/* Mobile: Conversations Sheet */}
         <Sheet open={mobileConversationsOpen} onOpenChange={setMobileConversationsOpen}>
           <SheetContent side="left" className="p-0 w-[85vw] sm:w-96">
+            <SheetTitle className="sr-only">Conversations List</SheetTitle>
             <ConversationsList />
           </SheetContent>
         </Sheet>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {selectedConversation ? (
             <>
               {/* Chat Header */}
-              <div className="p-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10">
+              <div className="p-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-10 shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
                     {/* Mobile: Back & Menu Button */}
@@ -797,11 +849,11 @@ export default function AgentConversationsPage() {
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon-sm">
+                        <Button variant="ghost" size="icon-sm" className="bg-background/80 backdrop-blur-sm hover:bg-background shadow-sm">
                           <MoreVertical className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent align="end" className="w-48 bg-background/95 backdrop-blur-sm border-border/60">
                         <DropdownMenuLabel className="text-xs">Conversation</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => updateConversationStatus(selectedConversation.id, 'active')}>
@@ -841,14 +893,14 @@ export default function AgentConversationsPage() {
               </div>
 
               {/* Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-1">
+              <div className="flex-1 overflow-y-auto p-4 space-y-1 bg-muted/30">
                 {messages.length === 0 ? (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted mb-4">
-                        <Sparkles className="w-8 h-8 text-muted-foreground" />
+                      <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-background shadow-sm mb-4">
+                        <Sparkles className="w-8 h-8 text-primary" />
                       </div>
-                      <h3 className="font-medium mb-1">No messages yet</h3>
+                      <h3 className="font-semibold mb-1">No messages yet</h3>
                       <p className="text-sm text-muted-foreground">
                         Start the conversation by sending a message
                       </p>
@@ -861,7 +913,7 @@ export default function AgentConversationsPage() {
                         {/* Date Separator */}
                         {isNewDay(message, messages[index - 1] || null) && (
                           <div className="flex items-center justify-center my-6">
-                            <div className="px-3 py-1 rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                            <div className="px-3 py-1 rounded-full bg-card text-xs font-medium text-muted-foreground border border-border">
                               {getDateSeparator(message.timestamp)}
                             </div>
                           </div>
@@ -869,16 +921,16 @@ export default function AgentConversationsPage() {
 
                         {/* Message */}
                         <div
-                          className={`flex mb-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                          className={`flex mb-3 ${message.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
                         >
-                          <div className={`flex items-end gap-2 max-w-[85%] sm:max-w-[75%] ${
-                            message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                          <div className={`flex items-end gap-2.5 max-w-[85%] sm:max-w-[75%] ${
+                            message.role === 'assistant' ? 'flex-row-reverse' : 'flex-row'
                           }`}>
-                            <Avatar className="w-8 h-8 border-2 border-background shrink-0">
-                              <AvatarFallback className={`text-xs ${
+                            <Avatar className="w-8 h-8 shrink-0">
+                              <AvatarFallback className={`text-xs font-medium ${
                                 message.role === 'user'
-                                  ? 'bg-gradient-to-br from-primary/30 to-primary/10'
-                                  : 'bg-gradient-to-br from-muted to-muted/50'
+                                  ? 'bg-primary/10 text-primary'
+                                  : 'bg-muted text-muted-foreground'
                               }`}>
                                 {message.role === 'user' ? (
                                   <User className="w-4 h-4" />
@@ -888,18 +940,18 @@ export default function AgentConversationsPage() {
                               </AvatarFallback>
                             </Avatar>
 
-                            <div className={`group rounded-2xl px-4 py-2.5 ${
-                              message.role === 'user'
-                                ? 'bg-primary text-primary-foreground rounded-br-sm'
-                                : 'bg-muted text-foreground rounded-bl-sm'
+                            <div className={`group rounded-lg px-4 py-3 ${
+                              message.role === 'assistant'
+                                ? 'bg-card text-foreground border border-border'
+                                : 'bg-primary text-primary-foreground'
                             }`}>
                               <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                                 {message.content}
                               </p>
                               <p className={`text-[10px] mt-1.5 ${
-                                message.role === 'user'
-                                  ? 'text-primary-foreground/60'
-                                  : 'text-muted-foreground/60'
+                                message.role === 'assistant'
+                                  ? 'text-muted-foreground'
+                                  : 'text-primary-foreground/80'
                               }`}>
                                 {formatTime(message.timestamp)}
                               </p>
@@ -914,7 +966,7 @@ export default function AgentConversationsPage() {
               </div>
 
               {/* Message Input */}
-              <div className="p-4 border-t border-border bg-background">
+              <div className="p-4 border-t border-border bg-background shrink-0 relative">
                 {/* Quick Replies */}
                 <div className="mb-3 flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                   {QUICK_REPLIES.map((reply, index) => (
@@ -922,7 +974,7 @@ export default function AgentConversationsPage() {
                       key={index}
                       variant="outline"
                       size="sm"
-                      className="shrink-0 text-xs h-7"
+                      className="shrink-0 text-xs h-7 border-border"
                       onClick={() => setNewMessage(reply)}
                     >
                       {reply.substring(0, 30)}...
@@ -930,7 +982,8 @@ export default function AgentConversationsPage() {
                   ))}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-end">
+                  <div className="flex-1 relative">
                   <Textarea
                     ref={messageInputRef}
                     placeholder="Type your reply... (Enter to send, Shift+Enter for new line)"
@@ -943,9 +996,20 @@ export default function AgentConversationsPage() {
                       }
                     }}
                     disabled={sending}
-                    className="min-h-[44px] max-h-32 resize-none"
+                      className="min-h-[44px] max-h-32 resize-none border-border focus-visible:border-ring pr-10"
                     rows={1}
                   />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="absolute right-2 bottom-2 h-8 w-8"
+                      onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                      disabled={sending}
+                    >
+                      <Smile className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                    </Button>
+                  </div>
                   <Button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim() || sending}
@@ -959,6 +1023,21 @@ export default function AgentConversationsPage() {
                     )}
                   </Button>
                 </div>
+
+                {/* Emoji Picker Popover */}
+                {showEmojiPicker && (
+                  <div 
+                    ref={emojiPickerRef}
+                    className="absolute bottom-20 right-4 z-50 animate-in slide-in-from-bottom-2"
+                  >
+                    <EmojiPicker
+                      onEmojiSelect={handleEmojiSelect}
+                      onClose={() => setShowEmojiPicker(false)}
+                      showQuickAccess={true}
+                      width="w-[300px] sm:w-[320px]"
+                    />
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -1004,6 +1083,7 @@ export default function AgentConversationsPage() {
         {/* Mobile: User Info Sheet */}
         <Sheet open={showUserInfo && !!selectedConversation} onOpenChange={setShowUserInfo}>
           <SheetContent side="right" className="p-0 w-[85vw] sm:w-96 md:hidden">
+            <SheetTitle className="sr-only">User Information</SheetTitle>
             <UserInfoPanel />
           </SheetContent>
         </Sheet>

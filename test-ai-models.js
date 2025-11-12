@@ -18,7 +18,7 @@ async function testModel(modelName, modelId) {
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': 'http://localhost:3000',
-        'X-Title': 'Rexa AI',
+        'X-Title': 'Ragzy AI',
       },
       body: JSON.stringify({
         model: modelId,

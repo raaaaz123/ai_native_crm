@@ -1,6 +1,6 @@
 # Product Overview
 
-Rexa Engage is an AI-native customer engagement platform that provides personalized chatbot functionality trained on website content. The platform enables businesses to instantly answer visitor questions through an intelligent chatbot widget.
+Ragzy AI Engage is an AI-native customer engagement platform that provides personalized chatbot functionality trained on website content. The platform enables businesses to instantly answer visitor questions through an intelligent chatbot widget.
 
 ## Core Features
 

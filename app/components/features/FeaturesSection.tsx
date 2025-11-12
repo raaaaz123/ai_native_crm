@@ -82,7 +82,7 @@ const features: Feature[] = [
 
 export default function FeaturesSection() {
   return (
-    <section className="py-20 sm:py-24 lg:py-28 bg-background" id="features">
+    <section className="py-6 sm:py-4 lg:py-6 bg-background" id="features">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
@@ -144,7 +144,7 @@ export default function FeaturesSection() {
             Want to see all features in action?
           </h3>
           <p className="text-muted-foreground mb-6">
-            Get a personalized demo and discover how Rexa Engage can transform your customer support.
+            Get a personalized demo and discover how Ragzy can transform your customer support.
           </p>
           <button
             onClick={() => window.location.href = '/dashboard'}

@@ -42,6 +42,7 @@ async function storeInQdrant(source: AgentKnowledgeSource, agentId: string, work
       },
       body: JSON.stringify({
         id: source.id,
+        businessId: workspaceId, // businessId is required by the API - use workspaceId
         workspaceId: workspaceId,
         agentId: agentId,
         title: source.title,
@@ -218,12 +219,15 @@ export async function getAgent(agentId: string): Promise<ApiResponse<Agent>> {
 export async function addAgentKnowledgeSource(
   agentId: string,
   sourceData: {
-    type: 'files' | 'text' | 'website' | 'faq' | 'notion';
+    type: 'files' | 'text' | 'website' | 'faq' | 'notion' | 'google_sheets';
     title: string;
     content: string;
     file?: File;
     websiteUrl?: string;
+    embeddingProvider?: string;
     embeddingModel?: string;
+    faqQuestion?: string;
+    faqAnswer?: string;
   }
 ): Promise<ApiResponse<AgentKnowledgeSource>> {
   try {
@@ -255,7 +259,7 @@ export async function addAgentKnowledgeSource(
     const sourceId = Date.now().toString();
     const newSource: AgentKnowledgeSource = {
       id: sourceId,
-      type: sourceData.type,
+      type: sourceData.type as 'files' | 'text' | 'website' | 'faq' | 'notion',
       title: sourceData.title,
       content: sourceData.content,
       createdAt: new Date(),
@@ -358,6 +362,9 @@ export async function updateAgent(
     if (updates.description !== undefined && updates.description !== null) updateData.description = updates.description;
     if (updates.status !== undefined && updates.status !== null) updateData.status = updates.status;
     if (updates.settings !== undefined && updates.settings !== null) updateData.settings = updates.settings;
+    if (updates.aiConfig !== undefined && updates.aiConfig !== null) {
+      updateData.aiConfig = updates.aiConfig;
+    }
 
     await updateDoc(agentRef, updateData);
 

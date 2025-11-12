@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./lib/workspace-auth-context";
 import { LayoutWrapper } from "./components/layout/LayoutWrapper";
+import { PostHogProvider } from "./components/providers/PostHogProvider";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -10,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Rexa Engage — AI‑Native Customer Engagement Platform",
+  title: "Ragzy — AI‑Native Customer Engagement Platform",
   description:
     "Instantly answer your visitors' questions with a personalized chatbot trained on your website content.",
   icons: {
@@ -26,11 +27,13 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body className={`${inter.variable} font-sans antialiased bg-background text-foreground`}>
-        <AuthProvider>
-          <LayoutWrapper>
-            {children}
-          </LayoutWrapper>
-        </AuthProvider>
+        <PostHogProvider>
+          <AuthProvider>
+            <LayoutWrapper>
+              {children}
+            </LayoutWrapper>
+          </AuthProvider>
+        </PostHogProvider>
       </body>
     </html>
   );

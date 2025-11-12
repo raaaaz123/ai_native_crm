@@ -840,7 +840,7 @@ export default function ChatWidget() {
                 {showBranding && (
                   <div className="px-4 sm:px-6 py-3 border-t border-gray-200/60 bg-gradient-to-r from-gray-50/50 to-white/50 backdrop-blur-sm">
                     <p className="text-xs text-center text-gray-500 font-medium">
-                      Powered by <span className="font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Rexa AI</span>
+                      Powered by <span className="font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Ragzy AI</span>
                     </p>
                   </div>
                 )}

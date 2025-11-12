@@ -1,314 +1,247 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Container } from '@/components/layout';
 import { LoadingDialog } from '../components/ui/loading-dialog';
-import { 
-  createChatWidget, 
-  getBusinessWidgets, 
+import {
   subscribeToConversations,
-  ChatWidget,
   ChatConversation
 } from '../lib/chat-utils';
-import { 
-  getBusinessReviewForms,
-  getReviewFormSubmissions
-} from '../lib/review-utils';
-import { 
-  ReviewForm,
-  ReviewSubmission
-} from '../lib/review-types';
-import { 
-  MessageCircle, 
+import {
+  getWorkspaceAgents,
+  Agent
+} from '../lib/agent-utils';
+import {
+  getBusinessKnowledgeBaseItems,
+  KnowledgeBaseItem
+} from '../lib/knowledge-base-utils';
+import {
+  MessageCircle,
   Plus,
-  Users,
-  Star,
+  Bot,
+  BookOpen,
   TrendingUp,
-  Clock,
-  BarChart3,
-  ArrowUpRight,
-  ArrowDownRight,
-  Shield
+  Activity,
+  Users,
+  ChevronRight,
+  Zap
 } from 'lucide-react';
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend
+} from 'recharts';
+
+interface DashboardMetrics {
+  totalAgents: number;
+  activeAgents: number;
+  inactiveAgents: number;
+  trainingAgents: number;
+  totalConversations: number;
+  activeConversations: number;
+  totalMessages: number;
+  knowledgeBaseItems: number;
+  avgResponseTime: string;
+}
+
+interface ConversationTrendData {
+  date: string;
+  conversations: number;
+  messages: number;
+}
+
+interface AgentPerformanceData {
+  name: string;
+  messages: number;
+  conversations: number;
+}
 
 export default function DashboardPage() {
   const { user, loading, workspaceContext } = useAuth();
   const router = useRouter();
-  const [widgets, setWidgets] = useState<ChatWidget[]>([]);
-  const [, setLoadingWidgets] = useState(true);
-  const [showCreateWidget, setShowCreateWidget] = useState(false);
-  
+
   // Track if initial data loading is complete
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  
-  // New state for analytics and data
-  const [reviewForms, setReviewForms] = useState<ReviewForm[]>([]);
-  const [recentSubmissions, setRecentSubmissions] = useState<ReviewSubmission[]>([]);
-  const [recentConversations, setRecentConversations] = useState<ChatConversation[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
-  
-  // Dashboard metrics
-  const [metrics, setMetrics] = useState({
-    totalConversations: 0,
-    totalReviews: 0,
-    averageRating: 0,
-    responseTime: '0 min',
-    satisfactionScore: 0
-  });
-  const [newWidget, setNewWidget] = useState({
-    name: '',
-    welcomeMessage: 'Hello! How can we help you today?',
-    primaryColor: '#3b82f6',
-    position: 'bottom-right' as 'bottom-right' | 'bottom-left',
-    buttonText: 'Chat with us',
-    placeholderText: 'Type your message...',
-    offlineMessage: 'We are currently offline. Please leave a message and we will get back to you.',
-    collectEmail: true,
-    collectPhone: false,
-    autoReply: 'Thanks for your message! We will get back to you soon.',
-    businessHours: {
-      enabled: false,
-      timezone: 'UTC',
-      monday: { start: '09:00', end: '17:00', enabled: true },
-      tuesday: { start: '09:00', end: '17:00', enabled: true },
-      wednesday: { start: '09:00', end: '17:00', enabled: true },
-      thursday: { start: '09:00', end: '17:00', enabled: true },
-      friday: { start: '09:00', end: '17:00', enabled: true },
-      saturday: { start: '09:00', end: '17:00', enabled: false },
-      sunday: { start: '09:00', end: '17:00', enabled: false }
-    },
-    aiConfig: {
-      enabled: true,
-      provider: 'openrouter',
-      model: 'openai/gpt-5-mini',
-      temperature: 0.7,
-      maxTokens: 500,
-      confidenceThreshold: 0.6,
-      maxRetrievalDocs: 5,
-      ragEnabled: true,
-      fallbackToHuman: true
-    }
-  });
-  const [creating, setCreating] = useState(false);
 
+  // Data state
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
+  const [loadingData, setLoadingData] = useState(true);
+
+  // Metrics state
+  const [metrics, setMetrics] = useState<DashboardMetrics>({
+    totalAgents: 0,
+    activeAgents: 0,
+    inactiveAgents: 0,
+    trainingAgents: 0,
+    totalConversations: 0,
+    activeConversations: 0,
+    totalMessages: 0,
+    knowledgeBaseItems: 0,
+    avgResponseTime: '0s'
+  });
+
+  // Chart data
+  const [conversationTrends, setConversationTrends] = useState<ConversationTrendData[]>([]);
+  const [agentPerformance, setAgentPerformance] = useState<AgentPerformanceData[]>([]);
+
+  // Redirect to workspace-scoped dashboard
   useEffect(() => {
     if (!loading && !user) {
       router.push('/signin');
+      return;
     }
-    
+
+    // Redirect to workspace-scoped dashboard if workspace is available
+    if (!loading && workspaceContext?.currentWorkspace?.url) {
+      router.replace(`/dashboard/${workspaceContext.currentWorkspace.url}`);
+      return;
+    }
+
     // Mark initial load as complete when auth loading is done
     if (!loading) {
       setInitialLoadComplete(true);
     }
-  }, [user, loading, router]);
+  }, [user, loading, router, workspaceContext?.currentWorkspace?.url]);
 
-  // Define functions before they are used
-  const loadWidgets = async () => {
+  // Load dashboard data
+  const loadDashboardData = useCallback(async () => {
     if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
-      console.log('Missing required data for widget loading:', { 
-        userId: !!user?.uid, 
-        workspaceId: !!workspaceContext?.currentWorkspace?.id 
-      });
-      setLoadingWidgets(false);
-      return;
-    }
-    
-    try {
-      console.log('Loading widgets for workspace:', workspaceContext?.currentWorkspace?.id);
-      const result = await getBusinessWidgets(workspaceContext?.currentWorkspace?.id);
-      console.log('Widget loading result:', result);
-      
-      if (result.success) {
-        console.log('Widgets loaded successfully:', result.data);
-        setWidgets(result.data);
-        
-        // Update metrics with widget count
-        setMetrics(prev => ({
-          ...prev,
-          totalWidgets: result.data.length
-        }));
-      } else {
-        console.error('Failed to load widgets:', result.error);
-        setWidgets([]);
-      }
-    } catch (error) {
-      console.error('Error loading widgets:', error);
-      setWidgets([]);
-    } finally {
-      setLoadingWidgets(false);
-    }
-  };
-
-  const loadDashboardData = async () => {
-    if (!user?.uid || !workspaceContext?.currentWorkspace?.id) {
-      console.log('Missing required data for dashboard loading:', { 
-        userId: !!user?.uid, 
-        workspaceId: !!workspaceContext?.currentWorkspace?.id 
-      });
+      console.log('Missing required data for dashboard loading');
       setLoadingData(false);
       return;
     }
-    
+
     setLoadingData(true);
     try {
-      // Load widgets
-      await loadWidgets();
-      
-      // Load review forms and calculate review metrics
-      console.log('Loading review forms for workspace:', workspaceContext?.currentWorkspace?.id);
-      const reviewResult = await getBusinessReviewForms(workspaceContext?.currentWorkspace?.id);
-      console.log('Review forms result:', reviewResult);
-      
-      if (reviewResult.success && reviewResult.data) {
-        setReviewForms(reviewResult.data);
-        
-        // Load recent submissions for all forms
-        const allSubmissions: ReviewSubmission[] = [];
-        for (const form of reviewResult.data) {
-          const submissionsResult = await getReviewFormSubmissions(form.id);
-          if (submissionsResult.success && submissionsResult.data) {
-            allSubmissions.push(...submissionsResult.data);
-          }
-        }
-        
-        // Sort by submission date and get recent ones
-        const recentSubs = allSubmissions
-          .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-          .slice(0, 5);
-        setRecentSubmissions(recentSubs);
-        
-        // Calculate review metrics
-        const totalReviews = allSubmissions.length;
-        const ratingSubmissions = allSubmissions.filter(sub => 
-          sub.responses.some((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating')
+      const workspaceId = workspaceContext.currentWorkspace.id;
+
+      // Load agents
+      const agentsResult = await getWorkspaceAgents(workspaceId);
+      if (agentsResult.success && agentsResult.data) {
+        // Calculate agent metrics
+        const totalAgents = agentsResult.data.length;
+        const activeAgents = agentsResult.data.filter(a => a.status === 'active').length;
+        const inactiveAgents = agentsResult.data.filter(a => a.status === 'inactive').length;
+        const trainingAgents = agentsResult.data.filter(a => a.status === 'training').length;
+
+        // Calculate total messages from all agents
+        const totalMessages = agentsResult.data.reduce((sum, agent) =>
+          sum + (agent.stats?.totalMessages || 0), 0
         );
-        const averageRating = ratingSubmissions.length > 0 
-          ? ratingSubmissions.reduce((sum, sub) => {
-              const ratingField = sub.responses.find((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating');
-              return sum + (ratingField ? parseFloat(String(ratingField.value)) : 0);
-            }, 0) / ratingSubmissions.length
-          : 0;
-        
-        // Calculate response time (mock calculation - you can implement real logic)
-        const responseTime = '2.5 min';
-        
-        console.log('Calculated metrics:', { totalReviews, averageRating, responseTime });
-        
+
+        // Prepare agent performance data
+        const performanceData = agentsResult.data
+          .filter(agent => agent.stats && (agent.stats.totalMessages > 0 || agent.stats.totalConversations > 0))
+          .map(agent => ({
+            name: agent.name.length > 15 ? agent.name.substring(0, 15) + '...' : agent.name,
+            messages: agent.stats?.totalMessages || 0,
+            conversations: agent.stats?.totalConversations || 0
+          }))
+          .sort((a, b) => b.messages - a.messages)
+          .slice(0, 5); // Top 5 agents
+
+        setAgentPerformance(performanceData);
+
         setMetrics(prev => ({
           ...prev,
-          totalReviews,
-          averageRating: Math.round(averageRating * 10) / 10,
-          responseTime,
-          satisfactionScore: averageRating
-        }));
-      } else {
-        console.log('No review forms found, using default metrics');
-        // If no review forms, still update metrics
-        setMetrics(prev => ({
-          ...prev,
-          responseTime: '2.5 min'
+          totalAgents,
+          activeAgents,
+          inactiveAgents,
+          trainingAgents,
+          totalMessages
         }));
       }
+
+      // Load knowledge base
+      const kbResult = await getBusinessKnowledgeBaseItems(workspaceId);
+      if (kbResult.success && kbResult.data) {
+        setMetrics(prev => ({
+          ...prev,
+          knowledgeBaseItems: kbResult.data.length
+        }));
+      }
+
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
       setLoadingData(false);
     }
-  };
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id]);
 
+  // Subscribe to real-time conversations
   useEffect(() => {
     if (user?.uid && workspaceContext?.currentWorkspace?.id) {
       loadDashboardData();
-      
-      // Subscribe to real-time conversations for the workspace
-      const unsubscribeConversations = subscribeToConversations(workspaceContext?.currentWorkspace?.id, (conversations) => {
-        setRecentConversations(conversations.slice(0, 5));
-        
-        // Update conversation metrics
-        const totalConversations = conversations.length;
-        const activeConversations = conversations.filter(c => c.status === 'active').length;
-        
-        setMetrics(prev => ({
-          ...prev,
-          totalConversations,
-          activeConversations
-        }));
-      });
-      
-      return () => {
-        unsubscribeConversations();
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid, workspaceContext?.currentWorkspace?.id]);
 
-  const handleCreateWidget = async () => {
-    if (!user?.uid || creating) return;
-    
-    setCreating(true);
-    try {
-      const result = await createChatWidget(user.uid, newWidget);
-      
-      if (result.success) {
-        setWidgets(prev => [result.data, ...prev]);
-        setShowCreateWidget(false);
-      } else {
-        console.error('Failed to create widget:', result.error);
-        alert('Failed to create widget: ' + result.error);
-      }
-      setNewWidget({
-        name: '',
-        welcomeMessage: 'Hello! How can we help you today?',
-        primaryColor: '#3B82F6',
-        position: 'bottom-right' as 'bottom-right' | 'bottom-left',
-        buttonText: 'Chat with us',
-        placeholderText: 'Type your message...',
-        offlineMessage: 'We are currently offline. Please leave a message and we will get back to you.',
-        collectEmail: true,
-        collectPhone: false,
-        autoReply: 'Thanks for your message! We will get back to you soon.',
-        businessHours: {
-          enabled: false,
-          timezone: 'UTC',
-          monday: { start: '09:00', end: '17:00', enabled: true },
-          tuesday: { start: '09:00', end: '17:00', enabled: true },
-          wednesday: { start: '09:00', end: '17:00', enabled: true },
-          thursday: { start: '09:00', end: '17:00', enabled: true },
-          friday: { start: '09:00', end: '17:00', enabled: true },
-          saturday: { start: '09:00', end: '17:00', enabled: false },
-          sunday: { start: '09:00', end: '17:00', enabled: false }
-        },
-        aiConfig: {
-          enabled: true,
-          provider: 'openrouter',
-          model: 'x-ai/grok-4-fast:free',
-          temperature: 0.7,
-          maxTokens: 500,
-          confidenceThreshold: 0.6,
-          maxRetrievalDocs: 5,
-          ragEnabled: true,
-          fallbackToHuman: true
+      const unsubscribe = subscribeToConversations(
+        workspaceContext.currentWorkspace.id,
+        (convos) => {
+          setConversations(convos);
+
+          // Update conversation metrics
+          const totalConversations = convos.length;
+          const activeConversations = convos.filter(c => c.status === 'active').length;
+
+          setMetrics(prev => ({
+            ...prev,
+            totalConversations,
+            activeConversations
+          }));
+
+          // Generate conversation trends (last 7 days)
+          const trends = generateConversationTrends(convos);
+          setConversationTrends(trends);
         }
-      });
-    } catch (error) {
-      console.error('Error creating widget:', error);
-    } finally {
-      setCreating(false);
+      );
+
+      return () => unsubscribe();
     }
+  }, [user?.uid, workspaceContext?.currentWorkspace?.id, loadDashboardData]);
+
+  // Generate conversation trends from conversations data
+  const generateConversationTrends = (convos: ChatConversation[]): ConversationTrendData[] => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (6 - i));
+      return date.toISOString().split('T')[0];
+    });
+
+    return last7Days.map(date => {
+      const dayConvos = convos.filter(c => {
+        const convoDate = new Date(c.createdAt).toISOString().split('T')[0];
+        return convoDate === date;
+      });
+
+      return {
+        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        conversations: dayConvos.length,
+        messages: 0 // Message count not available on ChatConversation type
+      };
+    });
   };
 
-  // Show loading state while auth is loading OR initial load is not complete
-  if (loading || !initialLoadComplete) {
+  // Show loading state
+  if (loading || !initialLoadComplete || !workspaceContext?.currentWorkspace) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50">
-        <LoadingDialog 
+        <LoadingDialog
           open={true}
-          message="Loading Dashboard" 
-          submessage="Preparing your workspace and loading data..." 
+          message="Loading Dashboard"
+          submessage="Preparing your workspace and loading data..."
           variant="gradient"
         />
       </div>
@@ -319,250 +252,356 @@ export default function DashboardPage() {
     return null;
   }
 
-  // Show workspace setup guidance for users without a workspace
-  if (!workspaceContext?.currentWorkspace) {
-    return (
-      <div className="pt-6">
-        <Container>
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">Welcome to Your Dashboard</h1>
-          <p className="text-neutral-600">Get started by creating your first workspace</p>
+  // Colors for charts using theme colors
+  const CHART_COLORS = {
+    primary: 'hsl(var(--chart-1))',
+    secondary: 'hsl(var(--chart-2))',
+    accent: 'hsl(var(--chart-3))',
+    muted: 'hsl(var(--chart-4))',
+    light: 'hsl(var(--chart-5))'
+  };
+
+  const STATUS_COLORS = {
+    active: '#10b981',
+    inactive: '#94a3b8',
+    training: '#f59e0b'
+  };
+
+  const agentStatusData = [
+    { name: 'Active', value: metrics.activeAgents, color: STATUS_COLORS.active },
+    { name: 'Inactive', value: metrics.inactiveAgents, color: STATUS_COLORS.inactive },
+    { name: 'Training', value: metrics.trainingAgents, color: STATUS_COLORS.training }
+  ].filter(item => item.value > 0);
+
+  return (
+    <div className="pt-4 sm:pt-6">
+      <Container>
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-semibold text-[--color-foreground] mb-1.5">
+                Dashboard
+              </h1>
+              <p className="text-sm text-[--color-muted-foreground]">
+                Welcome back! Here&apos;s what&apos;s happening with your AI agents.
+                {workspaceContext?.currentWorkspace && (
+                  <span className="ml-2 font-medium text-[--color-foreground]">
+                    {workspaceContext.currentWorkspace.name}
+                  </span>
+                )}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => router.push('/dashboard/agents')}
+                className="bg-[--color-primary] hover:bg-[--color-primary-700] text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                New Agent
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 mb-6">
-            <CardContent className="p-8">
-              <div className="flex items-start space-x-4">
-                <Shield className="w-12 h-12 text-blue-600 mt-1" />
+        {/* Key Metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+          {/* Total Agents */}
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-all cursor-pointer"
+                onClick={() => router.push('/dashboard/agents')}>
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-blue-900 mb-2">Create Your Workspace</h2>
-                  <p className="text-blue-700 mb-4">
-                    To access all dashboard features, you need to create a workspace. A workspace is where you&apos;ll manage your AI agents, conversations, and team.
+                  <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted-foreground] mb-2">
+                    AI Agents
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <Button 
-                      onClick={() => window.location.reload()}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Users className="w-4 h-4 mr-2" />
-                      Create Workspace
-                    </Button>
+                  <p className="text-3xl font-bold text-[--color-foreground] mb-1">
+                    {metrics.totalAgents}
+                  </p>
+                  <div className="flex items-center gap-2 text-xs text-[--color-muted-foreground]">
+                    <span className="flex items-center gap-1">
+                      <div className="w-2 h-2 rounded-full bg-[#10b981]"></div>
+                      {metrics.activeAgents} active
+                    </span>
                   </div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-600/10 flex items-center justify-center">
+                  <Bot className="w-6 h-6 text-blue-600" />
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Shield className="w-5 h-5 text-primary-500" />
-                  <span>Create Workspace</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600 mb-4">
-                  Start your own workspace and invite team members to collaborate on AI agents and customer support.
-                </p>
-                <ul className="text-sm text-neutral-600 space-y-1 mb-4">
-                  <li>• Create AI agents for your website</li>
-                  <li>• Manage customer conversations</li>
-                  <li>• Collect and analyze reviews</li>
-                  <li>• Invite team members</li>
-                </ul>
-              </CardContent>
-            </Card>
+          {/* Active Conversations */}
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-all cursor-pointer"
+                onClick={() => router.push('/dashboard/conversations')}>
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted-foreground] mb-2">
+                    Conversations
+                  </p>
+                  <p className="text-3xl font-bold text-[--color-foreground] mb-1">
+                    {metrics.totalConversations}
+                  </p>
+                  <div className="flex items-center gap-1 text-xs">
+                    <TrendingUp className="w-3 h-3 text-green-600" />
+                    <span className="text-green-600 font-medium">
+                      {metrics.activeConversations} active
+                    </span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-600/10 flex items-center justify-center">
+                  <MessageCircle className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-            <Card className="bg-white/80 backdrop-blur-sm border border-white/20">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Users className="w-5 h-5 text-primary-500" />
-                  <span>Join Workspace</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-neutral-600 mb-4">
-                  Join an existing workspace team using an invitation link from your team leader.
-                </p>
-                <ul className="text-sm text-neutral-600 space-y-1 mb-4">
-                  <li>• Access workspace AI agents</li>
-                  <li>• Respond to customer messages</li>
-                  <li>• View team analytics</li>
-                  <li>• Collaborate with teammates</li>
-                </ul>
-              </CardContent>
-            </Card>
-          </div>
+          {/* Total Messages */}
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-all">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted-foreground] mb-2">
+                    Total Messages
+                  </p>
+                  <p className="text-3xl font-bold text-[--color-foreground] mb-1">
+                    {metrics.totalMessages.toLocaleString()}
+                  </p>
+                  <div className="flex items-center gap-1 text-xs text-[--color-muted-foreground]">
+                    <Activity className="w-3 h-3" />
+                    <span>Across all agents</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-green-500/10 to-green-600/10 flex items-center justify-center">
+                  <Zap className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Knowledge Base */}
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-all cursor-pointer"
+                onClick={() => router.push('/dashboard/knowledge-base')}>
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted-foreground] mb-2">
+                    Knowledge Base
+                  </p>
+                  <p className="text-3xl font-bold text-[--color-foreground] mb-1">
+                    {metrics.knowledgeBaseItems}
+                  </p>
+                  <div className="flex items-center gap-1 text-xs text-[--color-muted-foreground]">
+                    <BookOpen className="w-3 h-3" />
+                    <span>Items stored</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/10 to-amber-600/10 flex items-center justify-center">
+                  <BookOpen className="w-6 h-6 text-amber-600" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        </Container>
-      </div>
-    );
-  }
 
-  return (
-    <div className="pt-4 sm:pt-6">
-      <Container>
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-[--color-foreground] mb-1.5">Dashboard</h1>
-            <p className="text-[--color-muted]">
-              Overview of your business performance and recent activities
-              {workspaceContext?.currentWorkspace && (
-                <span className="ml-2 text-sm text-[--color-muted-foreground]">
-                  • {workspaceContext.currentWorkspace.name}
-                </span>
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Conversation Trends */}
+          <Card className="lg:col-span-2 bg-[--color-card] border border-[--color-border] shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Conversation Trends</CardTitle>
+              <CardDescription>Last 7 days activity</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingData ? (
+                <div className="h-[300px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-primary]"></div>
+                </div>
+              ) : conversationTrends.length > 0 && conversationTrends.some(d => d.conversations > 0) ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={conversationTrends}>
+                    <defs>
+                      <linearGradient id="colorConversations" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0}/>
+                      </linearGradient>
+                      <linearGradient id="colorMessages" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={CHART_COLORS.secondary} stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor={CHART_COLORS.secondary} stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        padding: '8px 12px'
+                      }}
+                    />
+                    <Legend />
+                    <Area
+                      type="monotone"
+                      dataKey="conversations"
+                      stroke={CHART_COLORS.primary}
+                      fillOpacity={1}
+                      fill="url(#colorConversations)"
+                      strokeWidth={2}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="messages"
+                      stroke={CHART_COLORS.secondary}
+                      fillOpacity={1}
+                      fill="url(#colorMessages)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex flex-col items-center justify-center text-[--color-muted-foreground]">
+                  <TrendingUp className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-sm">No conversation data yet</p>
+                  <p className="text-xs mt-1">Data will appear as users interact with your agents</p>
+                </div>
               )}
-            </p>
-          </div>
-          <div className="flex space-x-3">
-            <Button 
-              onClick={() => setShowCreateWidget(true)}
-              className="bg-[--color-primary] hover:bg-[--color-primary-900] text-[--color-primary-foreground] flex items-center space-x-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Widget</span>
-            </Button>
-          </div>
+            </CardContent>
+          </Card>
+
+          {/* Agent Status Distribution */}
+          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Agent Status</CardTitle>
+              <CardDescription>Current distribution</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loadingData ? (
+                <div className="h-[300px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-primary]"></div>
+                </div>
+              ) : agentStatusData.length > 0 ? (
+                <div className="h-[300px] flex flex-col items-center justify-center">
+                  <ResponsiveContainer width="100%" height="70%">
+                    <PieChart>
+                      <Pie
+                        data={agentStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                      >
+                        {agentStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'hsl(var(--card))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px',
+                          padding: '8px 12px'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="flex flex-col gap-2 mt-4 w-full">
+                    {agentStatusData.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }}></div>
+                          <span className="text-[--color-foreground]">{item.name}</span>
+                        </div>
+                        <span className="font-medium text-[--color-foreground]">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="h-[300px] flex flex-col items-center justify-center text-[--color-muted-foreground]">
+                  <Bot className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-sm">No agents yet</p>
+                  <Button
+                    onClick={() => router.push('/dashboard/agents')}
+                    size="sm"
+                    className="mt-3"
+                  >
+                    Create your first agent
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </div>
 
-      {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Total Conversations</p>
-                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.totalConversations}</p>
-                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
-                  <ArrowUpRight className="w-3 h-3 mr-1" />
-                  {metrics.totalConversations > 0 ? '+12% from last month' : 'No conversations yet'}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
-                <MessageCircle className="w-5 h-5 text-[--color-muted]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Total Reviews</p>
-                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.totalReviews}</p>
-                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
-                  <ArrowUpRight className="w-3 h-3 mr-1" />
-                  {metrics.totalReviews > 0 ? '+8% from last month' : 'No reviews yet'}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
-                <Star className="w-5 h-5 text-[--color-muted]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Average Rating</p>
-                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.averageRating.toFixed(1)}</p>
-                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
-                  <TrendingUp className="w-3 h-3 mr-1" />
-                  {metrics.averageRating > 0 ? '+0.3 from last month' : 'No ratings yet'}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-[--color-muted]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-[--color-card] border border-[--color-border] shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide font-medium text-[--color-muted]">Response Time</p>
-                <p className="text-2xl font-semibold text-[--color-foreground]">{metrics.responseTime}</p>
-                <p className="text-xs text-[--color-muted-foreground] flex items-center mt-1">
-                  <ArrowDownRight className="w-3 h-3 mr-1" />
-                  {metrics.totalConversations > 0 ? '-15% faster' : 'No data yet'}
-                </p>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[--color-surface] border border-[--color-border] flex items-center justify-center">
-                <Clock className="w-5 h-5 text-[--color-muted]" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Activities */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Recent Reviews */}
+        {/* Agent Performance & Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Agent Performance */}
           <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <Star className="w-6 h-6 text-[--color-muted]" />
-                  <CardTitle>Recent Reviews</CardTitle>
+                <div>
+                  <CardTitle className="text-lg font-semibold">Top Performing Agents</CardTitle>
+                  <CardDescription>By messages handled</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={loadDashboardData}>
-                  Refresh
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard/agents')}
+                >
+                  View All
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {loadingData ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-border] mx-auto"></div>
-                  <p className="text-[--color-muted] mt-2">Loading reviews...</p>
+                <div className="h-[280px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-primary]"></div>
                 </div>
-              ) : recentSubmissions.length === 0 ? (
-                <div className="text-center py-8">
-                  <Star className="w-12 h-12 text-[--color-border] mx-auto mb-4" />
-                  <p className="text-[--color-muted] mb-2">No recent reviews</p>
-                  <p className="text-sm text-[--color-muted-foreground]">Reviews will appear here as customers submit feedback</p>
-                </div>
+              ) : agentPerformance.length > 0 ? (
+                <ResponsiveContainer width="100%" height={280}>
+                  <BarChart data={agentPerformance} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                      tickLine={{ stroke: 'hsl(var(--border))' }}
+                      width={120}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px',
+                        padding: '8px 12px'
+                      }}
+                    />
+                    <Bar dataKey="messages" fill={CHART_COLORS.primary} radius={[0, 4, 4, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               ) : (
-                <div className="space-y-4">
-                  {recentSubmissions.map((submission, index) => (
-                    <div key={submission.id || `submission-${index}`} className="flex items-center gap-4 p-4 bg-[--color-surface] border border-[--color-border] rounded-lg">
-                      <div className="w-10 h-10 rounded-full bg-white border border-[--color-border] flex items-center justify-center">
-                        <Star className="w-5 h-5 text-[--color-muted]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[--color-foreground]">
-                          New review submission
-                        </p>
-                        <p className="text-xs text-[--color-muted-foreground]">
-                          {new Date(submission.submittedAt).toLocaleString()}
-                        </p>
-                        {submission.userInfo && (
-                          <p className="text-xs text-[--color-muted] mt-1">
-                            From: {typeof submission.userInfo.location === 'string' ? submission.userInfo.location : 'Unknown location'}
-                          </p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-1">
-                          <Star className="w-4 h-4 text-[--color-warning]" />
-                          <span className="text-sm font-medium">
-                            {submission.responses.find((r: { fieldType: string; value: string | number | boolean | string[] }) => r.fieldType === 'rating')?.value || 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="h-[280px] flex flex-col items-center justify-center text-[--color-muted-foreground]">
+                  <Bot className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-sm">No agent activity yet</p>
+                  <p className="text-xs mt-1">Performance data will show once agents start handling conversations</p>
                 </div>
               )}
             </CardContent>
@@ -572,202 +611,136 @@ export default function DashboardPage() {
           <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <MessageCircle className="w-6 h-6 text-[--color-muted]" />
-                  <CardTitle>Recent Conversations</CardTitle>
+                <div>
+                  <CardTitle className="text-lg font-semibold">Recent Conversations</CardTitle>
+                  <CardDescription>Latest customer interactions</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" onClick={loadDashboardData}>
-                  Refresh
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push('/dashboard/conversations')}
+                >
+                  View All
                 </Button>
               </div>
             </CardHeader>
             <CardContent>
               {loadingData ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-border] mx-auto"></div>
-                  <p className="text-[--color-muted] mt-2">Loading conversations...</p>
+                <div className="h-[280px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[--color-primary]"></div>
                 </div>
-              ) : recentConversations.length === 0 ? (
-                <div className="text-center py-8">
-                  <MessageCircle className="w-12 h-12 text-[--color-border] mx-auto mb-4" />
-                  <p className="text-[--color-muted] mb-2">No recent conversations</p>
-                  <p className="text-sm text-[--color-muted-foreground]">Conversations will appear here as customers start chatting</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentConversations.map((conversation, index) => (
-                    <div 
-                      key={conversation.id || `conversation-${index}`} 
-                      className="flex items-center gap-4 p-4 bg-[--color-surface] border border-[--color-border] rounded-lg cursor-pointer hover:bg-white transition-colors"
+              ) : conversations.length > 0 ? (
+                <div className="space-y-3 max-h-[280px] overflow-y-auto">
+                  {conversations.slice(0, 5).map((conversation) => (
+                    <div
+                      key={conversation.id}
+                      className="flex items-center gap-3 p-3 bg-[--color-surface] hover:bg-[--color-muted] border border-[--color-border] rounded-lg cursor-pointer transition-colors"
                       onClick={() => router.push('/dashboard/conversations')}
                     >
-                      <div className="w-10 h-10 rounded-full bg-white border border-[--color-border] flex items-center justify-center">
-                        <MessageCircle className="w-5 h-5 text-[--color-muted]" />
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center flex-shrink-0">
+                        <Users className="w-5 h-5 text-blue-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-[--color-foreground]">
-                          {conversation.customerName}
+                        <p className="text-sm font-medium text-[--color-foreground] truncate">
+                          {conversation.customerName || 'Anonymous'}
                         </p>
-                        <p className="text-xs text-[--color-muted-foreground]">
-                          {conversation.customerEmail}
+                        <p className="text-xs text-[--color-muted-foreground] truncate">
+                          {conversation.lastMessage || 'No messages yet'}
                         </p>
-                        {conversation.lastMessage && (
-                          <p className="text-xs text-[--color-muted] mt-1 line-clamp-1">
-                            {conversation.lastMessage}
-                          </p>
-                        )}
                       </div>
-                      <div className="text-right">
-                        <div className="flex items-center space-x-1">
-                          <span className="text-xs text-[--color-muted-foreground]">
-                            {new Date(conversation.updatedAt).toLocaleDateString()}
-                          </span>
-                        </div>
-                        <div className="mt-1">
-                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                            conversation.status === 'active' ? 'bg-[--color-success]/10 text-[--color-success]' :
-                            conversation.status === 'pending' ? 'bg-[--color-warning]/10 text-[--color-warning]' :
-                            conversation.status === 'resolved' ? 'bg-[--color-info]/10 text-[--color-info]' :
-                            conversation.status === 'closed' ? 'bg-[--color-border] text-[--color-foreground]' :
-                            'bg-[--color-border] text-[--color-foreground]'
-                          }`}>
-                            {conversation.status}
-                          </span>
-                        </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          conversation.status === 'active' ? 'bg-green-100 text-green-700' :
+                          conversation.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                          conversation.status === 'resolved' ? 'bg-blue-100 text-blue-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {conversation.status}
+                        </span>
+                        <span className="text-xs text-[--color-muted-foreground]">
+                          {new Date(conversation.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
                       </div>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="h-[280px] flex flex-col items-center justify-center text-[--color-muted-foreground]">
+                  <MessageCircle className="w-12 h-12 mb-3 opacity-20" />
+                  <p className="text-sm">No conversations yet</p>
+                  <p className="text-xs mt-1">Conversations will appear as users interact with your agents</p>
                 </div>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Quick Stats */}
-        <div className="space-y-6">
-          {/* Review Forms Summary */}
-          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
-            <CardHeader>
-              <div className="flex items-center space-x-3">
-                <BarChart3 className="w-6 h-6 text-[--color-muted]" />
-                <CardTitle>Review Forms</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[--color-muted]">Active Forms</span>
-                  <span className="font-medium text-[--color-foreground]">{reviewForms.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[--color-muted]">Total Submissions</span>
-                  <span className="font-medium text-[--color-foreground]">{metrics.totalReviews}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[--color-muted]">Avg Rating</span>
-                  <span className="font-medium text-[--color-foreground]">{metrics.averageRating.toFixed(1)} ⭐</span>
-                </div>
-                <Button 
-                  className="w-full" 
-                  onClick={() => router.push('/dashboard/review-forms')}
-                >
-                  Manage Forms
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Chat Widgets Summary */}
-          <Card className="bg-[--color-card] border border-[--color-border] shadow-sm">
-            <CardHeader>
-              <div className="flex items-center space-x-3">
-                <MessageCircle className="w-6 h-6 text-[--color-muted]" />
-                <CardTitle>Chat Widgets</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[--color-muted]">Active Widgets</span>
-                  <span className="font-medium text-[--color-foreground]">{widgets.length}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[--color-muted]">Total Conversations</span>
-                  <span className="font-medium text-[--color-foreground]">{metrics.totalConversations}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-[--color-muted]">Response Time</span>
-                  <span className="font-medium text-[--color-foreground]">{metrics.responseTime}</span>
-                </div>
-                <Button 
-                  className="w-full" 
-                  onClick={() => setShowCreateWidget(true)}
-                >
-                  Create Widget
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* Create Widget Modal */}
-      {showCreateWidget && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-[--color-card] border border-[--color-border] shadow-xl rounded-lg p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[--color-foreground]">Create Chat Widget</h3>
+        {/* Quick Actions */}
+        <Card className="bg-gradient-to-br from-[--color-card] to-[--color-surface] border border-[--color-border] shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-lg font-semibold">Quick Actions</CardTitle>
+            <CardDescription>Get started with common tasks</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <button
-                onClick={() => setShowCreateWidget(false)}
-                className="text-[--color-muted] hover:text-[--color-foreground]"
+                onClick={() => router.push('/dashboard/agents')}
+                className="flex items-center gap-3 p-4 bg-[--color-card] hover:bg-white border border-[--color-border] rounded-lg transition-all hover:shadow-md group"
               >
-                ×
+                <div className="w-10 h-10 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                  <Bot className="w-5 h-5 text-blue-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-[--color-foreground]">Create Agent</p>
+                  <p className="text-xs text-[--color-muted-foreground]">New AI assistant</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[--color-muted-foreground] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard/knowledge-base')}
+                className="flex items-center gap-3 p-4 bg-[--color-card] hover:bg-white border border-[--color-border] rounded-lg transition-all hover:shadow-md group"
+              >
+                <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center group-hover:bg-amber-500/20 transition-colors">
+                  <BookOpen className="w-5 h-5 text-amber-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-[--color-foreground]">Add Knowledge</p>
+                  <p className="text-xs text-[--color-muted-foreground]">Upload content</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[--color-muted-foreground] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard/conversations')}
+                className="flex items-center gap-3 p-4 bg-[--color-card] hover:bg-white border border-[--color-border] rounded-lg transition-all hover:shadow-md group"
+              >
+                <div className="w-10 h-10 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                  <MessageCircle className="w-5 h-5 text-purple-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-[--color-foreground]">View Chats</p>
+                  <p className="text-xs text-[--color-muted-foreground]">All conversations</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[--color-muted-foreground] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+
+              <button
+                onClick={() => router.push('/dashboard/settings')}
+                className="flex items-center gap-3 p-4 bg-[--color-card] hover:bg-white border border-[--color-border] rounded-lg transition-all hover:shadow-md group"
+              >
+                <div className="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                  <Activity className="w-5 h-5 text-green-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-sm font-medium text-[--color-foreground]">Settings</p>
+                  <p className="text-xs text-[--color-muted-foreground]">Configure workspace</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-[--color-muted-foreground] opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-[--color-foreground] mb-1">Widget Name</label>
-                <input
-                  id="name"
-                  type="text"
-                  value={newWidget.name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewWidget({ ...newWidget, name: e.target.value })}
-                  placeholder="Customer Support Chat"
-                  className="w-full px-3 py-2 bg-[--color-surface] border border-[--color-border] rounded-md focus:outline-none focus:ring-2 focus:ring-[--color-primary] focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label htmlFor="welcomeMessage" className="block text-sm font-medium text-[--color-foreground] mb-1">Welcome Message</label>
-                <textarea
-                  id="welcomeMessage"
-                  value={newWidget.welcomeMessage}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewWidget({ ...newWidget, welcomeMessage: e.target.value })}
-                  placeholder="Hello! How can we help you today?"
-                  rows={3}
-                  className="w-full px-3 py-2 bg-[--color-surface] border border-[--color-border] rounded-md focus:outline-none focus:ring-2 focus:ring-[--color-primary] focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label htmlFor="primaryColor" className="block text-sm font-medium text-[--color-foreground] mb-1">Primary Color</label>
-                <input
-                  id="primaryColor"
-                  type="color"
-                  value={newWidget.primaryColor}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewWidget({ ...newWidget, primaryColor: e.target.value })}
-                  className="w-full h-10 bg-[--color-surface] border border-[--color-border] rounded-md"
-                />
-              </div>
-            </div>
-            <Button 
-              onClick={handleCreateWidget} 
-              disabled={!newWidget.name || creating}
-              className="w-full mt-4 bg-[--color-primary] hover:bg-[--color-primary-900] text-[--color-primary-foreground]"
-            >
-              {creating ? 'Creating...' : 'Create Widget'}
-            </Button>
-          </div>
-        </div>
-      )}
+          </CardContent>
+        </Card>
       </Container>
     </div>
   );

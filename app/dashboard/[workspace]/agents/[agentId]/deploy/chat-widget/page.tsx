@@ -29,6 +29,7 @@ interface InitialValues {
   displayName: string;
   initialMessage: string;
   suggestedMessages: string[];
+  closedWelcomeMessages: string[];
   messagePlaceholder: string;
   collectFeedback: boolean;
   keepSuggestedMessages: boolean;
@@ -51,6 +52,17 @@ export default function ChatWidgetConfigPage() {
   const agentId = params.agentId as string;
   const { workspaceContext } = useAuth();
 
+  // Custom toast styling
+  const toastOptions = {
+    style: {
+      background: '#ffffff',
+      color: '#0a0a0a',
+      border: '1px solid #e5e7eb',
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+    },
+    className: 'text-sm font-medium'
+  };
+
   const [activeTab, setActiveTab] = useState<TabType>("content");
   const [agent, setAgent] = useState<Agent | null>(null);
   const [channel, setChannel] = useState<AgentChannel | null>(null);
@@ -63,10 +75,12 @@ export default function ChatWidgetConfigPage() {
   const [initialMessage, setInitialMessage] = useState("");
   const [suggestedMessages, setSuggestedMessages] = useState<SuggestedMessage[]>([]);
   const [newSuggestedMessage, setNewSuggestedMessage] = useState("");
+  const [closedWelcomeMessages, setClosedWelcomeMessages] = useState<string[]>([]);
+  const [newClosedMessage, setNewClosedMessage] = useState("");
   const [messagePlaceholder, setMessagePlaceholder] = useState("Message...");
   const [collectFeedback, setCollectFeedback] = useState(false);
   const [keepSuggestedMessages, setKeepSuggestedMessages] = useState(false);
-  const [footerMessage, setFooterMessage] = useState("Powered by Rexa");
+  const [footerMessage, setFooterMessage] = useState("Powered by Ragzy");
 
   // Style settings
   const [appearance, setAppearance] = useState<'light' | 'dark'>('light');
@@ -93,16 +107,17 @@ export default function ChatWidgetConfigPage() {
 
   const [aiInstructions, setAiInstructions] = useState(defaultInstructions);
   const [selectedInstructionStyle, setSelectedInstructionStyle] = useState('custom');
-  const [selectedAiModel, setSelectedAiModel] = useState('gpt-4o-mini');
+  const [selectedAiModel, setSelectedAiModel] = useState('gpt-5-mini');
 
-  // Available AI models
+  // Available AI models (updated to match backend supported models)
   const availableModels = [
-    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast and cost-effective' },
-    { id: 'gpt-4o', name: 'GPT-4o', description: 'Most capable model' },
-    { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'High performance' },
-    { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', description: 'Google\'s latest experimental model' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Fast Google model' },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Google\'s advanced model' }
+    { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Fast and cost-effective' },
+    { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Ultra-fast responses' },
+    { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Balanced performance' },
+    { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', description: 'Quick and efficient' },
+    { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash Lite', description: 'Lightweight and fast' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Google\'s latest fast model' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Google\'s most advanced model' }
   ];
 
   // Instruction presets
@@ -196,22 +211,16 @@ export default function ChatWidgetConfigPage() {
     hljs.registerLanguage('xml', xml);
   }, []);
 
-  // Helper component for syntax highlighted code
-  const SyntaxHighlightedCode = ({ code, language = 'javascript' }: { code: string; language?: string }) => {
-    const codeRef = useRef<HTMLElement>(null);
-    
-    useEffect(() => {
-      if (codeRef.current) {
-        codeRef.current.innerHTML = code;
-        hljs.highlightElement(codeRef.current);
-      }
-    }, [code]);
-
+  // Helper component for displaying code
+  const CodeDisplay = ({ code }: { code: string }) => {
     return (
-      <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto">
-        <code ref={codeRef} className={`language-${language}`}>
-          {code}
-        </code>
+      <pre className="text-xs font-mono whitespace-pre overflow-x-auto text-gray-900 leading-relaxed" style={{
+        color: '#1f2937',
+        backgroundColor: 'transparent',
+        maxHeight: '400px',
+        overflowY: 'auto'
+      }}>
+        {code}
       </pre>
     );
   };
@@ -226,11 +235,13 @@ export default function ChatWidgetConfigPage() {
   }, [previewMessages]);
 
   useEffect(() => {
-    if (initialValues) {
+    // Only check for changes after initial data is loaded and initialValues is set
+    if (initialValues && !loading) {
       const currentValues = {
         displayName,
         initialMessage,
         suggestedMessages: JSON.stringify(suggestedMessages.map(m => m.text)),
+        closedWelcomeMessages: JSON.stringify(closedWelcomeMessages),
         messagePlaceholder,
         collectFeedback,
         keepSuggestedMessages,
@@ -247,12 +258,13 @@ export default function ChatWidgetConfigPage() {
       };
       const initialValuesForCompare = {
         ...initialValues,
-        suggestedMessages: JSON.stringify(initialValues.suggestedMessages)
+        suggestedMessages: JSON.stringify(initialValues.suggestedMessages),
+        closedWelcomeMessages: JSON.stringify(initialValues.closedWelcomeMessages)
       };
       const hasChanges = JSON.stringify(currentValues) !== JSON.stringify(initialValuesForCompare);
       setHasUnsavedChanges(hasChanges);
     }
-  }, [displayName, initialMessage, suggestedMessages, messagePlaceholder, collectFeedback, keepSuggestedMessages, footerMessage, appearance, profilePictureUrl, chatIconUrl, primaryColor, chatBubbleColor, chatBubbleAlignment, aiInstructions, selectedInstructionStyle, selectedAiModel, initialValues]);
+  }, [displayName, initialMessage, suggestedMessages, closedWelcomeMessages, messagePlaceholder, collectFeedback, keepSuggestedMessages, footerMessage, appearance, profilePictureUrl, chatIconUrl, primaryColor, chatBubbleColor, chatBubbleAlignment, aiInstructions, selectedInstructionStyle, selectedAiModel, initialValues, loading]);
 
   const loadData = async () => {
     if (!agentId) {
@@ -285,6 +297,9 @@ export default function ChatWidgetConfigPage() {
               id: `msg-${idx}`,
               text: msg
             })));
+          }
+          if (settings.closedWelcomeMessages) {
+            setClosedWelcomeMessages(settings.closedWelcomeMessages);
           }
           if (settings.collectFeedback !== undefined) setCollectFeedback(settings.collectFeedback);
           if (settings.keepSuggestedMessages !== undefined) setKeepSuggestedMessages(settings.keepSuggestedMessages);
@@ -319,10 +334,11 @@ export default function ChatWidgetConfigPage() {
             displayName: settings.widgetTitle || agentResponse.data?.name || "",
             initialMessage: settings.welcomeMessage || "",
             suggestedMessages: settings.suggestedMessages || [],
+            closedWelcomeMessages: settings.closedWelcomeMessages || [],
             messagePlaceholder: settings.placeholder || "Message...",
             collectFeedback: settings.collectFeedback || false,
             keepSuggestedMessages: settings.keepSuggestedMessages || false,
-            footerMessage: settings.footerMessage || "Powered by Rexa",
+            footerMessage: settings.footerMessage || "Powered by Ragzy",
             appearance: settings.appearance || 'light',
             profilePictureUrl: settings.profilePictureUrl || "",
             chatIconUrl: settings.chatIconUrl || "",
@@ -331,13 +347,13 @@ export default function ChatWidgetConfigPage() {
             chatBubbleAlignment: settings.chatBubbleAlignment || 'right',
             aiInstructions: settings.aiInstructions || defaultInstructions,
             selectedInstructionStyle: 'custom',
-            selectedAiModel: settings.aiModel || 'gpt-4o-mini'
+            selectedAiModel: settings.aiModel || 'gpt-5-mini'
           });
         }
       }
     } catch (error) {
       console.error('Error loading data:', error);
-      toast.error('Failed to load widget settings');
+      toast.error('Failed to load widget settings', toastOptions);
     } finally {
       setLoading(false);
     }
@@ -355,6 +371,18 @@ export default function ChatWidgetConfigPage() {
 
   const handleRemoveSuggestedMessage = (id: string) => {
     setSuggestedMessages(suggestedMessages.filter(msg => msg.id !== id));
+  };
+
+  // Closed welcome messages handlers
+  const handleAddClosedMessage = () => {
+    if (newClosedMessage.trim() && closedWelcomeMessages.length < 10) {
+      setClosedWelcomeMessages([...closedWelcomeMessages, newClosedMessage.trim()]);
+      setNewClosedMessage("");
+    }
+  };
+
+  const handleRemoveClosedMessage = (index: number) => {
+    setClosedWelcomeMessages(closedWelcomeMessages.filter((_, i) => i !== index));
   };
 
   const handleFileUpload = async (file: File, type: 'profile' | 'icon') => {
@@ -388,13 +416,13 @@ export default function ChatWidgetConfigPage() {
         } else {
           setChatIconUrl(result.file_url);
         }
-        toast.success('Image uploaded successfully!');
+        toast.success('Image uploaded successfully!', toastOptions);
       } else {
         throw new Error(result.error || 'Upload failed');
       }
     } catch (error) {
       console.error('Error uploading file:', error);
-      toast.error('Failed to upload image');
+      toast.error('Failed to upload image', toastOptions);
     } finally {
       if (type === 'profile') {
         setUploadingProfile(false);
@@ -410,12 +438,12 @@ export default function ChatWidgetConfigPage() {
       // Validate file type
       const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
       if (!validTypes.includes(file.type)) {
-        toast.error('Please upload a JPG, PNG, or SVG file');
+        toast.error('Please upload a JPG, PNG, or SVG file', toastOptions);
         return;
       }
       // Validate file size (1MB)
       if (file.size > 1024 * 1024) {
-        toast.error('File size must be less than 1MB');
+        toast.error('File size must be less than 1MB', toastOptions);
         return;
       }
       handleFileUpload(file, 'profile');
@@ -427,11 +455,11 @@ export default function ChatWidgetConfigPage() {
     if (file) {
       const validTypes = ['image/jpeg', 'image/png', 'image/svg+xml'];
       if (!validTypes.includes(file.type)) {
-        toast.error('Please upload a JPG, PNG, or SVG file');
+        toast.error('Please upload a JPG, PNG, or SVG file', toastOptions);
         return;
       }
       if (file.size > 1024 * 1024) {
-        toast.error('File size must be less than 1MB');
+        toast.error('File size must be less than 1MB', toastOptions);
         return;
       }
       handleFileUpload(file, 'icon');
@@ -440,7 +468,7 @@ export default function ChatWidgetConfigPage() {
 
   const handleSave = async () => {
     if (!channel) {
-      toast.error('Channel not found');
+      toast.error('Channel not found', toastOptions);
       return;
     }
 
@@ -452,6 +480,7 @@ export default function ChatWidgetConfigPage() {
         welcomeMessage: initialMessage,
         placeholder: messagePlaceholder,
         suggestedMessages: suggestedMessages.map(msg => msg.text),
+        closedWelcomeMessages,
         collectFeedback,
         keepSuggestedMessages,
         footerMessage,
@@ -467,13 +496,14 @@ export default function ChatWidgetConfigPage() {
 
       const response = await updateAgentChannel(channel.id, { settings: updatedSettings });
       if (response.success) {
-        toast.success('Settings saved successfully!');
+        toast.success('Settings saved successfully!', toastOptions);
         setHasUnsavedChanges(false);
         // Update initial values
         setInitialValues({
           displayName,
           initialMessage,
           suggestedMessages: suggestedMessages.map(m => m.text),
+          closedWelcomeMessages,
           messagePlaceholder,
           collectFeedback,
           keepSuggestedMessages,
@@ -490,11 +520,11 @@ export default function ChatWidgetConfigPage() {
         });
         await loadData();
       } else {
-        toast.error(response.error || 'Failed to save settings');
+        toast.error(response.error || 'Failed to save settings', toastOptions);
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
+      toast.error('Failed to save settings', toastOptions);
     } finally {
       setSaving(false);
     }
@@ -508,6 +538,7 @@ export default function ChatWidgetConfigPage() {
         id: `msg-${idx}`,
         text: msg
       })));
+      setClosedWelcomeMessages(initialValues.closedWelcomeMessages);
       setMessagePlaceholder(initialValues.messagePlaceholder);
       setCollectFeedback(initialValues.collectFeedback);
       setKeepSuggestedMessages(initialValues.keepSuggestedMessages);
@@ -522,7 +553,7 @@ export default function ChatWidgetConfigPage() {
       setSelectedInstructionStyle(initialValues.selectedInstructionStyle);
       setSelectedAiModel(initialValues.selectedAiModel);
       setHasUnsavedChanges(false);
-      toast.info('Changes discarded');
+      toast.info('Changes discarded', toastOptions);
     }
   };
 
@@ -555,13 +586,30 @@ export default function ChatWidgetConfigPage() {
       const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
       const streamUrl = `${backendUrl}/api/ai/chat/stream`;
 
+      // Model mapping for backward compatibility
+      const modelMapping: Record<string, string> = {
+        'gpt-4o-mini': 'gpt-5-mini',
+        'gpt-4o': 'gpt-5-mini',
+        'gpt-4-turbo': 'gpt-4.1-mini',
+        'gemini-2.0-flash-exp': 'gemini-2.5-flash',
+        'gemini-1.5-flash': 'gemini-2.5-flash-lite',
+        'gemini-1.5-pro': 'gemini-2.5-pro',
+      };
+
       // Use the selected AI model from the widget configuration
       let modelToUse = selectedAiModel;
-      const supportedModels = ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gemini-2.0-flash-exp', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      
+      // Map old model names to new ones
+      if (modelMapping[modelToUse]) {
+        console.log(`Mapping model ${modelToUse} to ${modelMapping[modelToUse]}`);
+        modelToUse = modelMapping[modelToUse];
+      }
 
-      if (!supportedModels.includes(modelToUse)) {
-        console.log(`Model ${modelToUse} not supported, using gpt-4o-mini instead`);
-        modelToUse = 'gpt-4o-mini';
+      const validNewModels = ['gpt-5-mini', 'gpt-5-nano', 'gpt-4.1-mini', 'gpt-4.1-nano', 'gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.5-pro'];
+      
+      if (!validNewModels.includes(modelToUse)) {
+        console.log(`Model ${modelToUse} not in valid models list, using gpt-5-mini instead`);
+        modelToUse = 'gpt-5-mini';
       }
 
       const response = await fetch(streamUrl, {
@@ -644,7 +692,7 @@ export default function ChatWidgetConfigPage() {
           ? { ...msg, content: "I'm sorry, I encountered an error. Please try again." }
           : msg
       ));
-      toast.error('Failed to get AI response');
+      toast.error('Failed to get AI response', toastOptions);
     } finally {
       setIsPreviewLoading(false);
     }
@@ -655,9 +703,9 @@ export default function ChatWidgetConfigPage() {
       await navigator.clipboard.writeText(code);
       setCopiedCode(codeId);
       setTimeout(() => setCopiedCode(''), 2000);
-      toast.success('Code copied to clipboard!');
+      toast.success('Code copied to clipboard!', toastOptions);
     } catch (err) {
-      toast.error('Failed to copy code');
+      toast.error('Failed to copy code', toastOptions);
     }
   };
 
@@ -679,95 +727,42 @@ import { ChatWidget } from '@/app/components/chat-widget';
   };
 
   const generateIframeCode = () => {
-    const baseUrl = window.location.origin;
-    const channelId = channel?.id || 'CHANNEL_ID';
+    // Get production URL if available, otherwise use localhost for development
+    const productionUrl = 'https://ai-native-crm.vercel.app'; // Update this with your actual production URL
+    const isDevelopment = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    const baseUrl = isDevelopment ? window.location.origin : productionUrl;
+    const channelId = channel?.id || '';
 
-    return `<iframe
+    if (!channelId) {
+      return '<!-- Save your widget settings first to generate the embed code -->';
+    }
+
+    return `<!-- Rexa Chat Widget - Iframe Embed -->
+<iframe
   src="${baseUrl}/chat/${workspaceSlug}/${agentId}/${channelId}"
   width="100%"
   height="600"
-  style="border: none; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);"
-  title="Chat Widget"
+  style="border: none; border-radius: 8px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); min-height: 400px;"
+  title="Rexa Chat Widget"
+  allow="clipboard-write"
+  loading="lazy"
 ></iframe>`;
   };
 
   const generateUniversalScript = () => {
-    const baseUrl = window.location.origin;
-    const channelId = channel?.id || 'CHANNEL_ID';
+    const productionUrl = 'https://ai-native-crm.vercel.app';
+    const isDevelopment = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+    const baseUrl = isDevelopment ? window.location.origin : productionUrl;
+    const channelId = channel?.id || '';
+
+    if (!channelId) {
+      return '<!-- Save your widget settings first to generate the embed code -->';
+    }
+
+    const buttonColor = chatBubbleColor || primaryColor || '#3B82F6';
 
     return `<script>
-(function(){
-  if(!window.rexaChat || window.rexaChat("getState") !== "initialized") {
-    window.rexaChat = (...arguments) => {
-      if(!window.rexaChat.q) { window.rexaChat.q = []; }
-      window.rexaChat.q.push(arguments);
-    };
-    window.rexaChat = new Proxy(window.rexaChat, {
-      get(target, prop) {
-        if(prop === "q") { return target.q; }
-        return (...args) => target(prop, ...args);
-      }
-    });
-  }
-  
-  const onLoad = function() {
-    const iframe = document.createElement('iframe');
-    iframe.src = '${baseUrl}/chat/${workspaceSlug}/${agentId}/${channelId}';
-    iframe.style.cssText = \`
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 400px;
-      height: 600px;
-      border: none;
-      border-radius: 12px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-      z-index: 9999;
-      display: none;
-      transition: all 0.3s ease;
-    \`;
-    iframe.id = 'rexa-chat-iframe';
-    
-    const button = document.createElement('button');
-    button.innerHTML = '💬';
-    button.style.cssText = \`
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      border: none;
-      background: #3B82F6;
-      color: white;
-      font-size: 24px;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      z-index: 10000;
-      transition: all 0.3s ease;
-    \`;
-    button.id = 'rexa-chat-button';
-    
-    let isOpen = false;
-    button.onclick = function() {
-      isOpen = !isOpen;
-      iframe.style.display = isOpen ? 'block' : 'none';
-      button.innerHTML = isOpen ? '✕' : '💬';
-      button.style.transform = isOpen ? 'scale(0.9)' : 'scale(1)';
-    };
-    
-    document.body.appendChild(iframe);
-    document.body.appendChild(button);
-    
-    window.rexaChat("initialized");
-  };
-  
-  if(document.readyState === "complete") {
-    onLoad();
-  } else {
-    window.addEventListener("load", onLoad);
-  }
-})();
+(function(){if(!window.rexaChat||window.rexaChat("getState")!=="initialized"){window.rexaChat=(...arguments)=>{if(!window.rexaChat.q){window.rexaChat.q=[]}window.rexaChat.q.push(arguments)};window.rexaChat=new Proxy(window.rexaChat,{get(target,prop){if(prop==="q"){return target.q}return(...args)=>target(prop,...args)}})}const onLoad=function(){const c={agentId:"${agentId}",workspaceSlug:"${workspaceSlug}",channelId:"${channelId}",baseUrl:"${baseUrl}",buttonColor:"${buttonColor}",pos:"bottom-right"};const i=document.createElement("iframe");i.src=c.baseUrl+"/chat/"+c.workspaceSlug+"/"+c.agentId+"/"+c.channelId;i.id="rexa-chat-iframe";i.title="Rexa Chat";i.style.cssText="position:fixed;bottom:20px;right:20px;width:400px;max-width:calc(100vw - 40px);height:600px;max-height:calc(100vh - 100px);border:none;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,0.12);z-index:999999;display:none;opacity:0;transition:all 0.3s";const b=document.createElement("button");b.id="rexa-chat-button";b.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';b.style.cssText="position:fixed;bottom:20px;right:20px;width:60px;height:60px;border-radius:50%;border:none;background:"+c.buttonColor+";color:white;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:1000000;display:flex;align-items:center;justify-content:center;transition:all 0.3s";let o=false;b.onclick=()=>{o=!o;if(o){i.style.display="block";setTimeout(()=>i.style.opacity="1",10);b.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>'}else{i.style.opacity="0";setTimeout(()=>i.style.display="none",300);b.innerHTML='<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'}b.style.transform=o?"scale(0.9)":"scale(1)"};b.onmouseenter=()=>{if(!o)b.style.transform="scale(1.05)"};b.onmouseleave=()=>{if(!o)b.style.transform="scale(1)"};document.body.appendChild(i);document.body.appendChild(b);window.rexaChat.open=()=>b.click();window.rexaChat.close=()=>{if(o)b.click()};window.rexaChat.toggle=()=>b.click();window.rexaChat.isOpen=()=>o;window.rexaChat("initialized")};if(document.readyState==="complete"){onLoad()}else{window.addEventListener("load",onLoad)}})();
 </script>`;
   };
 
@@ -784,10 +779,15 @@ import { ChatWidget } from '@/app/components/chat-widget';
   const widgetTextColor = appearance === 'dark' ? '#f5f5f5' : '#0a0a0a';
   const widgetBorderColor = appearance === 'dark' ? '#404040' : '#e5e5e5';
   const widgetMessagesBg = appearance === 'dark' ? '#0a0a0a' : '#f9fafb';
-  const widgetBotMsgBg = appearance === 'dark' ? '#262626' : '#f3f4f6';
   const widgetInputBg = appearance === 'dark' ? '#171717' : '#f3f4f6';
   const widgetMutedText = appearance === 'dark' ? '#a3a3a3' : '#737373';
   const widgetFooterText = appearance === 'dark' ? '#737373' : '#a3a3a3';
+
+  // Theme-based message bubble colors (matching ChatWidget.tsx)
+  const assistantBubbleBg = appearance === 'dark' ? '#262626' : '#f3f4f6';
+  const assistantBubbleText = appearance === 'dark' ? '#f5f5f5' : '#0a0a0a';
+  const userBubbleBg = appearance === 'dark' ? '#3b4252' : '#dbeafe';
+  const userBubbleText = appearance === 'dark' ? '#e5e9f0' : '#1e40af';
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
@@ -807,7 +807,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
 
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-xl font-semibold text-foreground">Chat widget</h1>
-              <Switch checked={channel?.isActive || false} suppressHydrationWarning />
+              <Switch checked={channel?.isActive || false} disabled suppressHydrationWarning />
             </div>
 
             {/* Tabs */}
@@ -848,6 +848,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       onChange={(e) => setDisplayName(e.target.value)}
                       placeholder="Enter display name"
                       className="mt-2"
+                      suppressHydrationWarning
                     />
                   </div>
 
@@ -897,6 +898,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       <Switch
                         checked={keepSuggestedMessages}
                         onCheckedChange={setKeepSuggestedMessages}
+                        suppressHydrationWarning
                       />
                     </div>
 
@@ -931,6 +933,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
                         placeholder="Add suggested message..."
                         className="flex-1"
                         disabled={suggestedMessages.length >= 40}
+                        suppressHydrationWarning
                       />
                       <Button
                           onClick={handleAddSuggestedMessage}
@@ -947,6 +950,66 @@ import { ChatWidget } from '@/app/components/chat-widget';
                     </p>
                   </div>
 
+                  {/* Closed Welcome Messages (shown when widget is closed) */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                        Closed welcome messages
+                        <span className="inline-block w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] text-muted-foreground">i</span>
+                      </Label>
+                    </div>
+
+                    {/* Closed Welcome Messages List */}
+                    <div className="space-y-2 mb-3">
+                      {closedWelcomeMessages.map((msg, index) => (
+                        <div
+                          key={`closed-${index}`}
+                          className="flex items-center gap-2 p-2 bg-muted/50 rounded-md group"
+                        >
+                          <span className="flex-1 text-sm text-foreground whitespace-pre-wrap">{msg}</span>
+                          <button
+                            onClick={() => handleRemoveClosedMessage(index)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <X className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                          </button>
+                        </div>
+                      ))}
+                      {closedWelcomeMessages.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Add messages that will show above the chat bubble when closed.</p>
+                      )}
+                    </div>
+
+                    {/* Add Closed Welcome Message */}
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={newClosedMessage}
+                        onChange={(e) => setNewClosedMessage(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            handleAddClosedMessage();
+                          }
+                        }}
+                        placeholder="Add closed welcome message..."
+                        className="flex-1"
+                        disabled={closedWelcomeMessages.length >= 10}
+                        suppressHydrationWarning
+                      />
+                      <Button
+                        onClick={handleAddClosedMessage}
+                        disabled={!newClosedMessage.trim() || closedWelcomeMessages.length >= 10}
+                        size="icon"
+                        variant="outline"
+                        suppressHydrationWarning
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {closedWelcomeMessages.length}/10
+                    </p>
+                  </div>
+
                   {/* Message Placeholder */}
                   <div>
                     <Label htmlFor="messagePlaceholder" className="text-sm font-medium text-foreground">
@@ -958,6 +1021,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       onChange={(e) => setMessagePlaceholder(e.target.value)}
                       placeholder="Message..."
                       className="mt-2"
+                      suppressHydrationWarning
                     />
                   </div>
 
@@ -970,8 +1034,9 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       id="footerMessage"
                       value={footerMessage}
                       onChange={(e) => setFooterMessage(e.target.value)}
-                      placeholder="Powered by Rexa"
+                      placeholder="Powered by Ragzy"
                       className="mt-2"
+                      suppressHydrationWarning
                     />
                   </div>
 
@@ -987,6 +1052,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       <Switch
                         checked={collectFeedback}
                         onCheckedChange={setCollectFeedback}
+                        suppressHydrationWarning
                       />
                     </div>
                   </div>
@@ -1383,65 +1449,113 @@ import { ChatWidget } from '@/app/components/chat-widget';
                   <div className="mt-6">
                     {embedType === 'chat-widget' ? (
                       <>
-                        <Label className="text-sm font-medium text-foreground mb-2 block">
-                          Chat Widget Setup
-                        </Label>
-                        <p className="text-xs text-muted-foreground mb-4">
-                          Copy and paste this code into your website to add the chat widget:
-                        </p>
+                        <div className="mb-4">
+                          <Label className="text-sm font-medium text-foreground mb-2 block">
+                            Chat Widget Setup
+                          </Label>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Copy and paste this code snippet before the closing <code className="px-1 py-0.5 bg-gray-100 rounded text-xs">&lt;/body&gt;</code> tag of your website.
+                          </p>
+                        </div>
 
-                        {/* Universal Script Code Block with Light Background */}
+                        {/* Universal Script Code Block */}
                          <div className="mb-4">
-                           <div className="relative">
-                             <div className="bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto">
-                               <SyntaxHighlightedCode code={generateUniversalScript()} language="xml" />
+                           <div className="relative group">
+                             <div className="bg-gray-900 border-2 border-gray-700 rounded-lg overflow-hidden">
+                               <div className="p-5 pb-3 overflow-x-auto overflow-y-auto max-h-96 custom-scrollbar" style={{
+                                 scrollbarWidth: 'thin',
+                                 scrollbarColor: '#4b5563 #1f2937'
+                               }}>
+                                 <pre className="text-xs font-mono text-gray-100 leading-relaxed" style={{
+                                   color: '#f3f4f6',
+                                   whiteSpace: 'pre',
+                                   overflowWrap: 'normal',
+                                   wordBreak: 'normal'
+                                 }}>
+                                   {generateUniversalScript()}
+                                 </pre>
+                               </div>
                              </div>
                              <button
                                onClick={() => handleCopyCode(generateUniversalScript(), 'universal')}
-                               className="absolute top-3 right-3 p-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-md transition-colors shadow-sm"
+                               className="absolute top-4 right-4 px-3 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg transition-all shadow-lg border border-gray-300 font-medium text-xs flex items-center gap-2 opacity-0 group-hover:opacity-100"
                                suppressHydrationWarning
                              >
                                {copiedCode === 'universal' ? (
-                                 <Check className="w-4 h-4 text-green-600" />
+                                 <>
+                                   <Check className="w-4 h-4 text-green-600" />
+                                   <span className="text-green-600 font-semibold">Copied!</span>
+                                 </>
                                ) : (
-                                 <Copy className="w-4 h-4 text-gray-600" />
+                                 <>
+                                   <Copy className="w-4 h-4 text-gray-700" />
+                                   <span className="text-gray-700 font-semibold">Copy Code</span>
+                                 </>
                                )}
                              </button>
                            </div>
-                           <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                             <p className="text-xs text-blue-800">
-                               <strong>Universal compatibility:</strong> Works with WordPress, Shopify, HTML sites, and any platform that supports JavaScript.
+                           <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+                             <p className="text-sm text-green-900 font-semibold mb-2">
+                               ✅ Works Everywhere
+                             </p>
+                             <p className="text-sm text-green-800">
+                               Compatible with WordPress, Shopify, Wix, Webflow, and any platform that supports JavaScript. Just paste before <code className="px-1.5 py-0.5 bg-green-100 rounded text-xs font-mono">&lt;/body&gt;</code>
                              </p>
                            </div>
                          </div>
                       </>) : (
                       <>
-                        <Label className="text-sm font-medium text-foreground mb-2 block">
-                          Direct Iframe Embed
-                        </Label>
+                        <div className="mb-4">
+                          <Label className="text-sm font-medium text-foreground mb-2 block">
+                            Direct Iframe Embed
+                          </Label>
+                          <p className="text-sm text-muted-foreground mb-4">
+                            Embed the chat interface directly using an iframe. Add this code anywhere on your page.
+                          </p>
+                        </div>
 
-                        {/* Code Block with Light Background */}
-                         <div className="relative">
-                           <div className="bg-gray-50 border border-gray-200 rounded-md p-4 overflow-x-auto">
-                             <SyntaxHighlightedCode code={generateIframeCode()} language="xml" />
+                        {/* Code Block */}
+                         <div className="relative group mb-4">
+                           <div className="bg-gray-900 border-2 border-gray-700 rounded-lg overflow-hidden">
+                             <div className="p-5 pb-3 overflow-x-auto overflow-y-auto max-h-96 custom-scrollbar" style={{
+                               scrollbarWidth: 'thin',
+                               scrollbarColor: '#4b5563 #1f2937'
+                             }}>
+                               <pre className="text-xs font-mono text-gray-100 leading-relaxed" style={{
+                                 color: '#f3f4f6',
+                                 whiteSpace: 'pre',
+                                 overflowWrap: 'normal',
+                                 wordBreak: 'normal'
+                               }}>
+                                 {generateIframeCode()}
+                               </pre>
+                             </div>
                            </div>
                            <button
                              onClick={() => handleCopyCode(generateIframeCode(), 'iframe')}
-                             className="absolute top-3 right-3 p-2 bg-white hover:bg-gray-100 border border-gray-200 rounded-md transition-colors shadow-sm"
+                             className="absolute top-4 right-4 px-3 py-2 bg-white hover:bg-gray-100 text-gray-900 rounded-lg transition-all shadow-lg border border-gray-300 font-medium text-xs flex items-center gap-2 opacity-0 group-hover:opacity-100"
                              suppressHydrationWarning
                            >
                              {copiedCode === 'iframe' ? (
-                               <Check className="w-4 h-4 text-green-600" />
+                               <>
+                                 <Check className="w-4 h-4 text-green-600" />
+                                 <span className="text-green-600 font-semibold">Copied!</span>
+                               </>
                              ) : (
-                               <Copy className="w-4 h-4 text-gray-600" />
+                               <>
+                                 <Copy className="w-4 h-4 text-gray-700" />
+                                 <span className="text-gray-700 font-semibold">Copy Code</span>
+                               </>
                              )}
                            </button>
                          </div>
-                        
-                        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                          <p className="text-xs text-blue-800">
-                            <strong>Simple iframe embed:</strong> Copy and paste this code into any website. 
-                            Works with WordPress, Shopify, HTML sites, and any platform that supports iframes.
+
+                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-900 font-semibold mb-2">
+                            📱 Inline Embed
+                          </p>
+                          <p className="text-sm text-blue-800">
+                            Embeds chat interface directly on your page. For a floating button, use Chat Widget instead.
                           </p>
                         </div>
                       </>)}
@@ -1556,8 +1670,8 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       <div
                         className="rounded-2xl px-4 py-2 max-w-[260px]"
                         style={{
-                          backgroundColor: widgetBotMsgBg,
-                          color: widgetTextColor
+                          backgroundColor: assistantBubbleBg,
+                          color: assistantBubbleText
                         }}
                       >
                         <p className="text-sm whitespace-pre-wrap">
@@ -1575,11 +1689,11 @@ import { ChatWidget } from '@/app/components/chat-widget';
                       <div
                         className="rounded-2xl px-4 py-2 max-w-[260px]"
                         style={{
-                          backgroundColor: chatBubbleColor,
-                          color: 'white'
+                          backgroundColor: userBubbleBg,
+                          color: userBubbleText
                         }}
                       >
-                        <p className="text-sm">{msg.content}</p>
+                        <p className="text-sm font-medium">{msg.content}</p>
                       </div>
                     </div>
                   ) : (
@@ -1607,8 +1721,8 @@ import { ChatWidget } from '@/app/components/chat-widget';
                         <div
                           className="rounded-2xl px-4 py-2 max-w-[260px]"
                           style={{
-                            backgroundColor: widgetBotMsgBg,
-                            color: widgetTextColor
+                            backgroundColor: assistantBubbleBg,
+                            color: assistantBubbleText
                           }}
                         >
                           <p className="text-sm whitespace-pre-wrap">
@@ -1620,19 +1734,19 @@ import { ChatWidget } from '@/app/components/chat-widget';
                   )
                 ))}
 
-                {/* Suggested Messages - Only show if no messages yet */}
-                {suggestedMessages.length > 0 && previewMessages.length === 0 && (
-                  <div className="flex flex-wrap gap-2 pt-2">
+                {/* Suggested Messages - Show based on keepSuggestedMessages setting */}
+                {suggestedMessages.length > 0 && (keepSuggestedMessages || previewMessages.length === 0) && (
+                  <div className="flex flex-wrap gap-2 pt-2 justify-end">
                     {suggestedMessages.slice(0, 3).map((msg) => (
                       <button
                         key={msg.id}
                         onClick={() => {
                           setPreviewInput(msg.text);
                         }}
-                        className="px-3 py-2 border rounded-full text-xs transition-colors hover:opacity-80"
+                        className="px-3 py-2 border-2 rounded-full text-xs font-medium transition-all hover:opacity-80"
                         style={{
-                          backgroundColor: appearance === 'dark' ? widgetBotMsgBg : 'white',
-                          borderColor: widgetBorderColor,
+                          backgroundColor: appearance === 'dark' ? '#374151' : '#f9fafb',
+                          borderColor: appearance === 'dark' ? '#4b5563' : '#e5e7eb',
                           color: widgetTextColor
                         }}
                       >
@@ -1668,6 +1782,7 @@ import { ChatWidget } from '@/app/components/chat-widget';
                     className="flex-1 bg-transparent border-none outline-none text-sm"
                     style={{ color: widgetTextColor }}
                     disabled={isPreviewLoading}
+                    suppressHydrationWarning
                   />
                   <button
                     onClick={handlePreviewSendMessage}
@@ -1695,7 +1810,8 @@ import { ChatWidget } from '@/app/components/chat-widget';
             {/* Floating Chat Button - Below Widget */}
             <button
               className="w-14 h-14 rounded-full shadow-2xl flex items-center justify-center transition-transform hover:scale-110"
-              style={{ backgroundColor: primaryColor }}
+              style={{ backgroundColor: chatBubbleColor }}
+              suppressHydrationWarning
             >
               {chatIconUrl ? (
                 <img

@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
     const result = await sendSendPulseEmail(
       { email, name: userName || email },
       template,
-      { email: 'support@rexahire.com', name: 'Rexa AI Knowledge Base' }
+      { email: 'support@ragzy.ai', name: 'Ragzy Knowledge Base' }
     );
 
     if (result.success) {

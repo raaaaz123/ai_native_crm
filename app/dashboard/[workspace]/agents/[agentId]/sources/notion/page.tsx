@@ -15,11 +15,15 @@ import {
 import {
   createAgentKnowledgeItem,
   getAgentKnowledgeItems,
+  deleteAgentKnowledgeItem,
   type AgentKnowledgeItem
 } from '@/app/lib/agent-knowledge-utils';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
-import { FileText, Plus, Info, Search, Check, Loader2, ExternalLink, CheckCircle2, Database } from 'lucide-react';
+import { FileText, Plus, Info, Search, Check, Loader2, ExternalLink, CheckCircle2, Database, Trash2, RefreshCw } from 'lucide-react';
+import { disconnectNotion } from '@/app/lib/notion-utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { toast } from 'sonner';
 
 interface ImportedPage {
   id: string;
@@ -54,6 +58,14 @@ export default function NotionSourcePage() {
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
+
+  // Deletion
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
+  // Success dialog
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  // Disconnect confirmation
+  const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
   // Check for OAuth success/error in URL params
   const notionData = searchParams.get('notion_data');
@@ -102,8 +114,8 @@ export default function NotionSourcePage() {
       // Clean URL and reload connection
       router.replace(`/dashboard/${workspaceId}/agents/${agentId}/sources/notion`);
 
-      // Show success and reload
-      alert('Successfully connected to Notion! Loading your pages...');
+      // Show success dialog and reload
+      setShowSuccessDialog(true);
       checkConnection();
 
     } catch (error) {
@@ -119,6 +131,16 @@ export default function NotionSourcePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [connection]);
+
+  // Auto-close success dialog when pages are loaded
+  useEffect(() => {
+    if (showSuccessDialog && connection && !loadingPages && notionPages.length > 0) {
+      const timer = setTimeout(() => {
+        setShowSuccessDialog(false);
+      }, 2000); // Close after 2 seconds
+      return () => clearTimeout(timer);
+    }
+  }, [showSuccessDialog, connection, loadingPages, notionPages.length]);
 
   useEffect(() => {
     // Filter pages based on search query
@@ -198,6 +220,26 @@ export default function NotionSourcePage() {
     setConnecting(true);
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
     window.location.href = `${backendUrl}/api/notion/oauth/authorize?workspace_id=${workspaceId}&agent_id=${agentId}`;
+  };
+
+  const executeDisconnectNotion = async () => {
+    try {
+      const ok = await disconnectNotion(workspaceId);
+      if (!ok) {
+        await deleteDoc(doc(db, 'notionConnections', `${workspaceId}_notion`));
+      }
+      setConnection(null);
+      setNotionPages([]);
+      setFilteredPages([]);
+      setSelectedPages(new Set());
+      toast.success('Disconnected Notion. You can now connect a new account.');
+      router.replace(`/dashboard/${workspaceId}/agents/${agentId}/sources/notion`);
+    } catch (error) {
+      console.error('Error disconnecting Notion:', error);
+      toast.error('Failed to disconnect Notion. Please try again.');
+    } finally {
+      setShowDisconnectDialog(false);
+    }
   };
 
   const togglePageSelection = (pageId: string) => {
@@ -284,8 +326,59 @@ export default function NotionSourcePage() {
     }
   };
 
+  const handleDeletePage = async (itemId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}" from your knowledge base? This will remove all vector embeddings.`)) {
+      return;
+    }
+
+    setDeletingItemId(itemId);
+    try {
+      const result = await deleteAgentKnowledgeItem(itemId);
+
+      if (result.success) {
+        // Remove from importedPages map
+        const notionPageId = Array.from(importedPages.entries()).find(([_, v]) => v.id === itemId)?.[0];
+        if (notionPageId) {
+          const newImportedPages = new Map(importedPages);
+          newImportedPages.delete(notionPageId);
+          setImportedPages(newImportedPages);
+        }
+        alert(`✅ Successfully deleted "${title}" from knowledge base`);
+      } else {
+        alert(`❌ Failed to delete: ${result.error}`);
+      }
+    } catch (error) {
+      console.error('Error deleting page:', error);
+      alert('An error occurred while deleting the page');
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
   if (loading) {
     return (
+      <>
+        {/* Success Dialog */}
+        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-success" />
+                </div>
+              </div>
+              <DialogTitle className="text-center text-xl font-semibold">
+                Successfully Connected!
+              </DialogTitle>
+              <DialogDescription className="text-center pt-2">
+                Your Notion workspace has been connected successfully. We&apos;re now loading your pages...
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          </DialogContent>
+        </Dialog>
       <div className="min-h-screen bg-background">
         <div className="flex max-w-7xl mx-auto">
           <div className="flex-1 p-8">
@@ -298,6 +391,7 @@ export default function NotionSourcePage() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -307,370 +401,382 @@ export default function NotionSourcePage() {
     const alreadyImportedPages = filteredPages.filter(p => importedPages.has(p.id));
 
     return (
+      <>
+        {/* Success Dialog */}
+        <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <div className="flex items-center justify-center mb-4">
+                <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-8 h-8 text-success" />
+                </div>
+              </div>
+              <DialogTitle className="text-center text-xl font-semibold">
+                Successfully Connected!
+              </DialogTitle>
+              <DialogDescription className="text-center pt-2">
+                Your Notion workspace has been connected successfully. We&apos;re now loading your pages...
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="w-6 h-6 text-primary animate-spin" />
+            </div>
+          </DialogContent>
+        </Dialog>
       <div className="min-h-screen bg-background">
-        <div className="flex max-w-7xl mx-auto">
-          <div className="flex-1 p-8 pr-4">
-            <div className="mb-8">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h1 className="text-2xl font-semibold text-foreground">Notion Sources</h1>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Connected to <strong>{connection.notionWorkspaceName}</strong>
-                  </p>
-                </div>
-                <Badge variant="default" className="bg-green-500">Connected</Badge>
-              </div>
-            </div>
-
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Search pages..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            {selectedPages.size > 0 && (
-              <div className="mb-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center gap-2">
-                  <Check className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-medium">
-                    {selectedPages.size} page{selectedPages.size !== 1 ? 's' : ''} selected
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setSelectedPages(new Set())}
-                    disabled={importing}
-                  >
-                    Clear Selection
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleTrainRAG}
-                    disabled={importing}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                  >
-                    {importing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Training RAG ({importedCount}/{selectedPages.size})
-                      </>
-                    ) : (
-                      <>
-                        <Database className="w-4 h-4 mr-2" />
-                        Train RAG with Selected
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Stats Bar */}
-            <div className="mb-6 grid grid-cols-3 gap-4">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-foreground">{notionPages.length}</div>
-                  <div className="text-xs text-muted-foreground">Total Pages</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-green-600">{importedPages.size}</div>
-                  <div className="text-xs text-muted-foreground">In Knowledge Base</div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-4">
-                  <div className="text-2xl font-bold text-blue-600">{notImportedPages.length}</div>
-                  <div className="text-xs text-muted-foreground">Available to Import</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Pages List */}
-            {loadingPages ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="text-center">
-                  <Loader2 className="animate-spin h-8 w-8 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">Loading your Notion pages...</p>
-                </div>
-              </div>
-            ) : filteredPages.length === 0 ? (
-              <Card>
-                <CardContent className="p-12 text-center">
-                  <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">
-                    {searchQuery ? 'No pages found' : 'No pages available'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {searchQuery
-                      ? 'Try a different search term'
-                      : 'Make sure you have shared pages with your Notion integration'
-                    }
-                  </p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {/* Available to Import Section */}
-                {notImportedPages.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                      Available to Import ({notImportedPages.length})
-                    </h3>
-                    <div className="space-y-3">
-                      {notImportedPages.map((page) => {
-                        const isSelected = selectedPages.has(page.id);
-                        return (
-                          <Card
-                            key={page.id}
-                            className={`cursor-pointer transition-all hover:shadow-md ${
-                              isSelected ? 'border-blue-500 bg-blue-50' : ''
-                            }`}
-                            onClick={() => togglePageSelection(page.id)}
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <div className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center ${
-                                    isSelected
-                                      ? 'border-blue-500 bg-blue-500'
-                                      : 'border-gray-300'
-                                  }`}>
-                                    {isSelected && <Check className="w-3 h-3 text-white" />}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="font-medium text-foreground">{page.title}</h3>
-                                      <a
-                                        href={page.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) => e.stopPropagation()}
-                                        className="text-muted-foreground hover:text-foreground"
-                                      >
-                                        <ExternalLink className="w-4 h-4" />
-                                      </a>
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                      <span>Last edited: {new Date(page.last_edited_time).toLocaleDateString()}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Already in Knowledge Base Section */}
-                {alreadyImportedPages.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-medium text-muted-foreground mb-3">
-                      Already in Knowledge Base ({alreadyImportedPages.length})
-                    </h3>
-                    <div className="space-y-3">
-                      {alreadyImportedPages.map((page) => {
-                        const imported = importedPages.get(page.id);
-                        return (
-                          <Card
-                            key={page.id}
-                            className="border-green-200 bg-green-50/50"
-                          >
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-3 flex-1">
-                                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="font-medium text-foreground">{page.title}</h3>
-                                      <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">
-                                        In RAG
-                                      </Badge>
-                                      <a
-                                        href={page.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-muted-foreground hover:text-foreground"
-                                      >
-                                        <ExternalLink className="w-4 h-4" />
-                                      </a>
-                                    </div>
-                                    <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                      <span>{imported?.chunksCreated || 0} chunks created</span>
-                                      <span>•</span>
-                                      <span>Added: {imported?.createdAt ? new Date(imported.createdAt).toLocaleDateString() : 'N/A'}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="w-80 p-8 pl-4 border-l border-border">
-            <div className="space-y-6">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-lg font-semibold text-foreground mb-4">Quick Stats</h2>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Total Pages</span>
-                    <span className="font-medium">{notionPages.length}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">In Knowledge Base</span>
-                    <span className="font-medium text-green-600">{importedPages.size}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Selected</span>
-                    <span className="font-medium text-blue-600">{selectedPages.size}</span>
-                  </div>
-                </div>
+                <h1 className="text-2xl font-semibold text-foreground">Notion Sources</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Connected to <strong>{connection.notionWorkspaceName}</strong>
+                </p>
               </div>
-
-              <div className="pt-6 border-t">
-                <h3 className="font-medium text-foreground mb-2">How to use:</h3>
-                <ol className="space-y-2 text-sm text-muted-foreground">
-                  <li>1. Browse available Notion pages</li>
-                  <li>2. Click to select pages to import</li>
-                  <li>3. Click &quot;Train RAG with Selected&quot;</li>
-                  <li>4. Pages will be processed and added to your agent&apos;s knowledge base</li>
-                </ol>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadNotionPages}
+                  disabled={loadingPages}
+                  className="rounded-lg border-border"
+                >
+                  {loadingPages ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh Pages
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setShowDisconnectDialog(true)}
+                  className="rounded-lg"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Disconnect
+                </Button>
+                <Badge variant="default" className="bg-success text-success-foreground">Connected</Badge>
               </div>
-
-              <div className="pt-6 border-t">
-                <h3 className="font-medium text-foreground mb-2">What happens:</h3>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li>✓ Content is fetched from Notion</li>
-                  <li>✓ Text is chunked (800 chars)</li>
-                  <li>✓ Embeddings generated (Voyage AI)</li>
-                  <li>✓ Stored in vector database (RAG)</li>
-                  <li>✓ Saved to Firestore for tracking</li>
-                </ul>
-              </div>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={loadNotionPages}
-                disabled={loadingPages}
-                className="w-full"
-              >
-                {loadingPages ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Refreshing...
-                  </>
-                ) : (
-                  'Refresh Pages'
-                )}
-              </Button>
             </div>
           </div>
+
+          {/* Disconnect Confirmation Dialog */}
+          <Dialog open={showDisconnectDialog} onOpenChange={setShowDisconnectDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Disconnect Notion</DialogTitle>
+                <DialogDescription>
+                  This will disconnect the current Notion account from this workspace.
+                  Imported knowledge stays intact. You can connect a different account afterward.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowDisconnectDialog(false)}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" onClick={executeDisconnectNotion}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Disconnect
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Search */}
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search pages..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 rounded-lg border-border"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          {selectedPages.size > 0 && (
+            <div className="mb-4 flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">
+                  {selectedPages.size} page{selectedPages.size !== 1 ? 's' : ''} selected
+                </span>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedPages(new Set())}
+                  disabled={importing}
+                  className="rounded-lg border-border"
+                >
+                  Clear Selection
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleTrainRAG}
+                  disabled={importing}
+                  className="bg-primary hover:bg-primary/90 rounded-lg"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Training RAG ({importedCount}/{selectedPages.size})
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4 mr-2" />
+                      Train RAG with Selected
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Pages List */}
+          {loadingPages ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="animate-spin h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading your Notion pages...</p>
+              </div>
+            </div>
+          ) : filteredPages.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <FileText className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  {searchQuery ? 'No pages found' : 'No pages available'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery
+                    ? 'Try a different search term'
+                    : 'Make sure you have shared pages with your Notion integration'
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Available to Import Section */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  Available to Import ({notImportedPages.length})
+                </h3>
+                {notImportedPages.length > 0 ? (
+                  <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
+                    {notImportedPages.map((page) => {
+                      const isSelected = selectedPages.has(page.id);
+                      return (
+                        <Card
+                          key={page.id}
+                          className={`cursor-pointer transition-all hover:shadow-md border ${
+                            isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                          }`}
+                          onClick={() => togglePageSelection(page.id)}
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected
+                                  ? 'border-primary bg-primary'
+                                  : 'border-border'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium text-foreground text-sm truncate">{page.title}</h3>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  Last edited: {new Date(page.last_edited_time).toLocaleDateString()}
+                                </div>
+                              </div>
+                              <a
+                                href={page.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                      <p className="text-sm text-muted-foreground">No pages available to import</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Already in Knowledge Base Section */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                  In Knowledge Base ({alreadyImportedPages.length})
+                </h3>
+                {alreadyImportedPages.length > 0 ? (
+                  <div className="space-y-2 max-h-[calc(100vh-300px)] overflow-y-auto pr-2">
+                    {alreadyImportedPages.map((page) => {
+                      const imported = importedPages.get(page.id);
+                      const isDeleting = deletingItemId === imported?.id;
+                      return (
+                        <Card
+                          key={page.id}
+                          className="border border-success/20 bg-success/5"
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="w-4 h-4 text-success flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium text-foreground text-sm truncate">{page.title}</h3>
+                                  <Badge variant="outline" className="text-xs bg-success/10 text-success border-success/20">
+                                    In RAG
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {imported?.chunksCreated || 0} chunks • Added {imported?.createdAt ? new Date(imported.createdAt).toLocaleDateString() : 'N/A'}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <a
+                                  href={page.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => imported && handleDeletePage(imported.id, page.title)}
+                                  disabled={isDeleting}
+                                  className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive rounded-lg"
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 text-center">
+                      <CheckCircle2 className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                      <p className="text-sm text-muted-foreground">No pages in knowledge base yet</p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+      </>
     );
   }
 
   // Not connected - show connect option
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex max-w-7xl mx-auto">
-        <div className="flex-1 p-8 pr-4">
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-2xl font-semibold text-foreground">Notion</h1>
-              <Button variant="ghost" size="sm" className="text-muted-foreground">
-                <Info className="w-4 h-4 mr-2" />
-                Learn more
-              </Button>
+    <>
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-16 h-16 bg-success/10 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-success" />
+              </div>
             </div>
-            <p className="text-muted-foreground text-sm mb-8">
-              Add Notion sources to train your AI Agent with precise information.
-            </p>
+            <DialogTitle className="text-center text-xl font-semibold">
+              Successfully Connected!
+            </DialogTitle>
+            <DialogDescription className="text-center pt-2">
+              Your Notion workspace has been connected successfully. We&apos;re now loading your pages...
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center justify-center py-4">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
           </div>
+        </DialogContent>
+      </Dialog>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-semibold text-foreground">Notion Sources</h1>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Connect your Notion workspace to import pages into your AI agent&apos;s knowledge base.
+          </p>
+        </div>
 
-          <Card className="border border-border hover:border-primary/20 transition-colors duration-200">
-            <CardContent className="p-8">
-              <div className="flex flex-col items-center justify-center text-center space-y-4">
-                <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
-                  <FileText className="w-8 h-8 text-muted-foreground" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-lg font-medium text-foreground">Connect Notion Pages</h3>
-                  <p className="text-sm text-muted-foreground max-w-md">
-                    Import your Notion pages to enhance your AI agent&apos;s knowledge base with structured content.
-                  </p>
-                </div>
-
-                <Button
-                  onClick={handleConnectNotion}
-                  disabled={connecting}
-                  className="bg-foreground hover:bg-foreground/90 text-background px-8 py-2"
-                >
-                  {connecting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Connecting...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Connect with Notion
-                    </>
-                  )}
-                </Button>
-
-                <p className="text-xs text-muted-foreground">
-                  You&apos;ll be redirected to Notion to authorize access
+        <Card className="border border-border hover:border-primary/20 transition-colors duration-200">
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                <FileText className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium text-foreground">Connect Notion Pages</h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Import your Notion pages to enhance your AI agent&apos;s knowledge base with structured content.
                 </p>
               </div>
-            </CardContent>
-          </Card>
-        </div>
 
-        <div className="w-80 p-8 pl-4 border-l border-border">
-          <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-foreground">Get Started</h2>
-            <div className="space-y-4 text-sm">
-              <p className="text-muted-foreground">
-                Connect your Notion workspace to import pages and databases into your agent&apos;s knowledge base.
+              <Button
+                onClick={handleConnectNotion}
+                disabled={connecting}
+                className="bg-primary hover:bg-primary/90 px-8 py-2 rounded-lg"
+              >
+                {connecting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Connect with Notion
+                  </>
+                )}
+              </Button>
+
+              <p className="text-xs text-muted-foreground">
+                You&apos;ll be redirected to Notion to authorize access
               </p>
-              <div className="space-y-2">
-                <h3 className="font-medium text-foreground">Benefits:</h3>
-                <ul className="space-y-1 text-muted-foreground">
-                  <li>✓ Instant content import</li>
-                  <li>✓ No manual copying</li>
-                  <li>✓ Select specific pages</li>
-                  <li>✓ AI-powered RAG search</li>
-                </ul>
-              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
+    </>
   );
 }

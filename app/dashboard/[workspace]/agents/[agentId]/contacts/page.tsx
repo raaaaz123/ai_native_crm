@@ -138,10 +138,10 @@ export default function AgentContactsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'blocked': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'bg-success/10 text-success border-success/20';
+      case 'inactive': return 'bg-muted text-muted-foreground border-border';
+      case 'blocked': return 'bg-destructive/10 text-destructive border-destructive/20';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -159,7 +159,7 @@ export default function AgentContactsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground font-medium">Loading contacts...</p>
@@ -169,44 +169,44 @@ export default function AgentContactsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Contacts</h1>
-          <p className="text-gray-600">Manage contacts and conversations for your AI agent</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Contacts</h1>
+          <p className="text-muted-foreground">Manage contacts and conversations for your AI agent</p>
         </div>
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder="Search contacts..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 rounded-lg border-border"
               />
             </div>
           </div>
           <div className="flex gap-2">
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-40 rounded-lg border-border">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Filter by status" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-lg">
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
                 <SelectItem value="blocked">Blocked</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}>
+            <Button variant="outline" onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} className="rounded-lg border-border">
               {viewMode === 'grid' ? 'List View' : 'Grid View'}
             </Button>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <Button className="bg-primary hover:bg-primary/90 rounded-lg">
               <Plus className="w-4 h-4 mr-2" />
               Add Contact
             </Button>
@@ -217,26 +217,26 @@ export default function AgentContactsPage() {
         {viewMode === 'grid' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredContacts.map((contact) => (
-              <Card key={contact.id} className="hover:shadow-lg transition-shadow">
+              <Card key={contact.id} className="border border-border hover:shadow-lg transition-shadow">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <Avatar className="w-12 h-12">
                         <AvatarImage src={contact.avatar} />
-                        <AvatarFallback className="bg-blue-100 text-blue-600">
+                        <AvatarFallback className="bg-primary/10 text-primary">
                           {getInitials(contact.name)}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <CardTitle className="text-lg">{contact.name}</CardTitle>
-                        <p className="text-sm text-gray-500">{contact.company || 'No company'}</p>
+                        <CardTitle className="text-lg text-foreground">{contact.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground">{contact.company || 'No company'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={getStatusColor(contact.status)}>
+                      <Badge className={`border ${getStatusColor(contact.status)}`}>
                         {contact.status}
                       </Badge>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg">
                         <MoreVertical className="w-4 h-4" />
                       </Button>
                     </div>
@@ -244,21 +244,21 @@ export default function AgentContactsPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <div className="space-y-3 mb-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="w-4 h-4" />
                       <span className="truncate">{contact.email}</span>
                     </div>
                     {contact.phone && (
-                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Phone className="w-4 h-4" />
                         <span>{contact.phone}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <MessageSquare className="w-4 h-4" />
                       <span>{contact.conversationCount} conversations</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Clock className="w-4 h-4" />
                       <span>Last contact: {contact.lastContact.toLocaleDateString()}</span>
                     </div>
@@ -267,7 +267,7 @@ export default function AgentContactsPage() {
                   {contact.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mb-4">
                       {contact.tags.map((tag, index) => (
-                        <Badge key={index} variant="secondary" className="text-xs">
+                        <Badge key={index} variant="secondary" className="text-xs border border-border">
                           {tag}
                         </Badge>
                       ))}
@@ -275,11 +275,11 @@ export default function AgentContactsPage() {
                   )}
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button variant="outline" size="sm" className="flex-1 rounded-lg border-border">
                       <Eye className="w-4 h-4 mr-2" />
                       View
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" className="rounded-lg border-border">
                       <MessageSquare className="w-4 h-4" />
                     </Button>
                   </div>
@@ -288,59 +288,59 @@ export default function AgentContactsPage() {
             ))}
           </div>
         ) : (
-          <div className="bg-white rounded-lg shadow">
+          <div className="bg-card rounded-lg shadow border border-border">
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-gray-50 border-b">
+                <thead className="bg-muted border-b border-border">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversations</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Company</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Conversations</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Last Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-card divide-y divide-border">
                   {filteredContacts.map((contact) => (
-                    <tr key={contact.id} className="hover:bg-gray-50">
+                    <tr key={contact.id} className="hover:bg-muted/50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <Avatar className="w-10 h-10 mr-3">
                             <AvatarImage src={contact.avatar} />
-                            <AvatarFallback className="bg-blue-100 text-blue-600">
+                            <AvatarFallback className="bg-primary/10 text-primary">
                               {getInitials(contact.name)}
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{contact.name}</div>
-                            <div className="text-sm text-gray-500">{contact.email}</div>
+                            <div className="text-sm font-medium text-foreground">{contact.name}</div>
+                            <div className="text-sm text-muted-foreground">{contact.email}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         {contact.company || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <Badge className={getStatusColor(contact.status)}>
+                        <Badge className={`border ${getStatusColor(contact.status)}`}>
                           {contact.status}
                         </Badge>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         {contact.conversationCount}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                         {contact.lastContact.toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                         <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="rounded-lg">
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="rounded-lg">
                             <MessageSquare className="w-4 h-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="rounded-lg">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </div>
@@ -355,12 +355,12 @@ export default function AgentContactsPage() {
 
         {filteredContacts.length === 0 && (
           <div className="text-center py-12">
-            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
-              <User className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
+              <User className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">No contacts found</h3>
-            <p className="text-gray-600 mb-6">Start building your contact list</p>
-            <Button className="bg-blue-600 hover:bg-blue-700">
+            <h3 className="text-lg font-semibold text-foreground mb-2">No contacts found</h3>
+            <p className="text-muted-foreground mb-6">Start building your contact list</p>
+            <Button className="bg-primary hover:bg-primary/90 rounded-lg">
               <Plus className="w-4 h-4 mr-2" />
               Add Contact
             </Button>

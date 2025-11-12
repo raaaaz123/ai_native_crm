@@ -321,7 +321,7 @@ After using the tool, check whether the user attempted to book an appointment. I
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground font-medium">Loading Calendly configuration...</p>
@@ -331,44 +331,44 @@ After using the tool, check whether the user attempted to book an appointment. I
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <Button
             variant="ghost"
             onClick={handleBack}
-            className="mb-4 p-0 h-auto text-gray-600 hover:text-gray-900"
+            className="mb-4 p-0 h-auto text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Actions
           </Button>
 
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-              <Calendar className="w-6 h-6 text-green-600" />
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Calendar className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Calendly get available slots</h1>
-              <p className="text-gray-600">Configure Calendly booking action for your AI agent</p>
+              <h1 className="text-3xl font-bold text-foreground">Calendly get available slots</h1>
+              <p className="text-muted-foreground">Configure Calendly booking action for your AI agent</p>
             </div>
           </div>
 
           {/* Connection Status */}
           {!calendlyConnected && (
-            <Card className="border-orange-200 bg-orange-50">
+            <Card className="border-warning/20 bg-warning/10">
               <CardContent className="p-4">
                 <div className="flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h4 className="font-medium text-orange-900 mb-1">Calendly Not Connected</h4>
-                    <p className="text-sm text-orange-700 mb-3">
+                    <h4 className="font-medium text-foreground mb-1">Calendly Not Connected</h4>
+                    <p className="text-sm text-muted-foreground mb-3">
                       You need to connect your Calendly account before configuring this action.
                     </p>
                     <Button
                       onClick={handleConnectCalendly}
                       size="sm"
-                      className="bg-orange-600 hover:bg-orange-700"
+                      className="bg-primary hover:bg-primary/90"
                     >
                       <ExternalLink className="w-4 h-4 mr-2" />
                       Connect Calendly
@@ -396,8 +396,8 @@ After using the tool, check whether the user attempted to book an appointment. I
                       onClick={() => setActiveSection(id as 'general' | 'calendly' | 'channels')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                         activeSection === id
-                          ? 'bg-green-100 text-green-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100'
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -422,10 +422,10 @@ After using the tool, check whether the user attempted to book an appointment. I
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Action Name
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       A descriptive name for this action. This will help the AI Agent know when to use it.
                     </p>
                     <Input
@@ -435,15 +435,15 @@ After using the tool, check whether the user attempted to book an appointment. I
                         general: { ...prev.general, actionName: e.target.value }
                       }))}
                       placeholder="Calendly_Booking_Action"
-                      className="font-mono"
+                      className="font-mono border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Description (Optional)
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       A brief description of what this action does.
                     </p>
                     <Input
@@ -453,14 +453,15 @@ After using the tool, check whether the user attempted to book an appointment. I
                         general: { ...prev.general, description: e.target.value }
                       }))}
                       placeholder="Allows users to book appointments via Calendly"
+                      className="border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       When to use
                     </Label>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                       Explain when the AI Agent should use this action. Include a description of what this action does,
                       the data it provides, and any updates it makes. Include example queries that should trigger this action.
                     </p>
@@ -470,7 +471,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                         ...prev,
                         general: { ...prev.general, whenToUse: e.target.value }
                       }))}
-                      className="min-h-[200px]"
+                      className="min-h-[200px] border-border"
                       placeholder="Use when the user mentions booking an appointment..."
                     />
                   </div>
@@ -479,7 +480,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                     <Button
                       onClick={handleReset}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <RotateCcw className="w-4 h-4" />
                       Reset
@@ -488,7 +489,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                       onClick={() => handleSave(false)}
                       disabled={saving || !calendlyConnected}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save'}
@@ -510,14 +511,14 @@ After using the tool, check whether the user attempted to book an appointment. I
                 <CardContent className="space-y-6">
                   {!calendlyConnected ? (
                     <div className="text-center py-12">
-                      <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      <Calendar className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+                      <h3 className="text-lg font-semibold text-foreground mb-2">
                         Connect Calendly First
                       </h3>
-                      <p className="text-gray-600 mb-6">
+                      <p className="text-muted-foreground mb-6">
                         You need to connect your Calendly account to select events.
                       </p>
-                      <Button onClick={handleConnectCalendly} className="bg-green-600 hover:bg-green-700">
+                      <Button onClick={handleConnectCalendly} className="bg-primary hover:bg-primary/90">
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Connect Calendly Account
                       </Button>
@@ -525,16 +526,16 @@ After using the tool, check whether the user attempted to book an appointment. I
                   ) : (
                     <>
                       <div>
-                        <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                        <Label className="text-sm font-medium text-foreground mb-2 block">
                           Select Event
                         </Label>
-                        <p className="text-sm text-gray-600 mb-3">
+                        <p className="text-sm text-muted-foreground mb-3">
                           Choose which Calendly event type users can book.
                         </p>
                         {loadingEvents ? (
                           <div className="flex items-center justify-center py-8">
-                            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                            <span className="ml-2 text-sm text-gray-600">Loading events...</span>
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            <span className="ml-2 text-sm text-muted-foreground">Loading events...</span>
                           </div>
                         ) : calendlyEventTypes.length > 0 ? (
                           <Select
@@ -553,7 +554,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                               }
                             }}
                           >
-                            <SelectTrigger>
+                            <SelectTrigger className="border-border">
                               <SelectValue placeholder="Select a Calendly event" />
                             </SelectTrigger>
                             <SelectContent>
@@ -565,19 +566,19 @@ After using the tool, check whether the user attempted to book an appointment. I
                             </SelectContent>
                           </Select>
                         ) : (
-                          <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
-                            <p className="text-sm text-gray-600">No active events found in your Calendly account.</p>
+                          <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+                            <p className="text-sm text-muted-foreground">No active events found in your Calendly account.</p>
                           </div>
                         )}
                       </div>
 
                       {config.calendly.eventTypeUri && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="bg-success/10 border border-success/20 rounded-lg p-4">
                           <div className="flex items-start gap-3">
-                            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                            <CheckCircle className="w-5 h-5 text-success flex-shrink-0 mt-0.5" />
                             <div>
-                              <h4 className="font-medium text-green-900 mb-1">Event Selected</h4>
-                              <p className="text-sm text-green-700">
+                              <h4 className="font-medium text-foreground mb-1">Event Selected</h4>
+                              <p className="text-sm text-muted-foreground">
                                 <strong>{config.calendly.eventTypeName}</strong> - {config.calendly.duration} minutes
                               </p>
                             </div>
@@ -585,12 +586,12 @@ After using the tool, check whether the user attempted to book an appointment. I
                         </div>
                       )}
 
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
                         <div className="flex items-start gap-3">
-                          <AlertTriangle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                          <AlertTriangle className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
                           <div>
-                            <h4 className="font-medium text-blue-800 mb-1">How it works</h4>
-                            <p className="text-sm text-blue-700">
+                            <h4 className="font-medium text-foreground mb-1">How it works</h4>
+                            <p className="text-sm text-muted-foreground">
                               When users request to book an appointment, the AI will search for available time slots
                               in the selected Calendly event and provide booking options to the user.
                             </p>
@@ -605,7 +606,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                       onClick={() => handleSave(false)}
                       disabled={saving || !calendlyConnected || !config.calendly.eventTypeUri}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save'}
@@ -626,12 +627,12 @@ After using the tool, check whether the user attempted to book an appointment. I
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
-                        <Calendar className="w-5 h-5 text-gray-600" />
+                        <Calendar className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <h4 className="font-medium text-gray-900">Chat widget</h4>
-                          <p className="text-sm text-gray-600">Enable Calendly booking in the chat widget</p>
+                          <h4 className="font-medium text-foreground">Chat widget</h4>
+                          <p className="text-sm text-muted-foreground">Enable Calendly booking in the chat widget</p>
                         </div>
                       </div>
                       <Switch
@@ -640,15 +641,16 @@ After using the tool, check whether the user attempted to book an appointment. I
                           ...prev,
                           channels: { ...prev.channels, chatWidget: checked }
                         }))}
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-gray-600" />
+                        <Globe className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <h4 className="font-medium text-gray-900">Help page</h4>
-                          <p className="text-sm text-gray-600">Enable Calendly booking on help pages</p>
+                          <h4 className="font-medium text-foreground">Help page</h4>
+                          <p className="text-sm text-muted-foreground">Enable Calendly booking on help pages</p>
                         </div>
                       </div>
                       <Switch
@@ -657,6 +659,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                           ...prev,
                           channels: { ...prev.channels, helpPage: checked }
                         }))}
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
                   </div>
@@ -666,7 +669,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                       onClick={() => handleSave(false)}
                       disabled={saving || !calendlyConnected}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save'}
@@ -674,7 +677,7 @@ After using the tool, check whether the user attempted to book an appointment. I
                     <Button
                       onClick={() => handleSave(true)}
                       disabled={saving || !calendlyConnected || !config.calendly.eventTypeUri}
-                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save & enable'}

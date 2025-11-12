@@ -8,29 +8,28 @@ import { Footer } from './Footer';
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   
-  // Show navbar/footer on landing page and auth pages, but not on dashboard pages
-  const isLandingPage = pathname === '/';
-  const isAuthPage = pathname.startsWith('/signin') || pathname.startsWith('/signup');
-  const isDashboardPage = pathname.startsWith('/dashboard');
-  
-  // Don't show navbar/footer on dashboard pages
-  if (isDashboardPage) {
+  // Don't show navbar/footer on dashboard pages and widget pages
+  const isDashboardPage = pathname?.startsWith('/dashboard');
+  const isWidgetPage = pathname?.startsWith('/widget') || pathname?.startsWith('/chat');
+  const isReviewPage = pathname?.startsWith('/review') && !pathname?.startsWith('/dashboard');
+  const isConversationPage = pathname?.startsWith('/conversations') && !pathname?.startsWith('/dashboard');
+  const isInvitePage = pathname?.startsWith('/invite');
+  const isHelpPage = pathname?.startsWith('/help');
+  const isAuthPage = pathname?.startsWith('/signin') || pathname?.startsWith('/signup');
+
+  // Don't show navbar/footer on these pages
+  if (isDashboardPage || isWidgetPage || isReviewPage || isConversationPage || isInvitePage || isHelpPage || isAuthPage) {
     return <>{children}</>;
   }
   
-  // Show navbar/footer on landing page and auth pages
-  if (isLandingPage || isAuthPage) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-  
-  // For other pages (like widget pages), don't show navbar/footer
-  return <>{children}</>;
+  // Show navbar/footer on all other pages (landing, auth, contact, pricing, 404, etc.)
+  return (
+    <div className="min-h-screen flex flex-col">
+      <Navbar />
+      <main className="flex-1">
+        {children}
+      </main>
+      <Footer />
+    </div>
+  );
 }

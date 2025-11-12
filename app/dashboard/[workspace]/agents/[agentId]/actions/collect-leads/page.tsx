@@ -266,7 +266,7 @@ export default function CollectLeadsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
           <p className="text-muted-foreground font-medium">Loading collect leads configuration...</p>
@@ -276,26 +276,26 @@ export default function CollectLeadsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
           <Button
             variant="ghost"
             onClick={handleBack}
-            className="mb-4 p-0 h-auto text-gray-600 hover:text-gray-900"
+            className="mb-4 p-0 h-auto text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Actions
           </Button>
           
           <div className="flex items-center gap-4 mb-4">
-            <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Users className="w-6 h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Collect leads</h1>
-              <p className="text-gray-600">Configure lead collection settings for your AI agent</p>
+              <h1 className="text-3xl font-bold text-foreground">Collect leads</h1>
+              <p className="text-muted-foreground">Configure lead collection settings for your AI agent</p>
             </div>
           </div>
         </div>
@@ -317,8 +317,8 @@ export default function CollectLeadsPage() {
                       onClick={() => setActiveSection(id as 'general' | 'fields' | 'messages' | 'channels')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                         activeSection === id
-                          ? 'bg-blue-100 text-blue-700 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100'
+                          ? 'bg-primary/10 text-primary font-medium'
+                          : 'text-muted-foreground hover:bg-muted'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
@@ -343,10 +343,10 @@ export default function CollectLeadsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       When to use
                     </Label>
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-muted-foreground mb-4">
                       Explain when the AI Agent should use this action. Include a description of what this action does, 
                       the data it provides, and any updates it makes. Include example queries that should trigger this action.
                     </p>
@@ -356,7 +356,7 @@ export default function CollectLeadsPage() {
                         ...prev,
                         general: { ...prev.general, description: e.target.value }
                       }))}
-                      className="min-h-[120px]"
+                      className="min-h-[120px] border-border"
                       placeholder="Describe when and how this action should be used..."
                     />
                   </div>
@@ -365,7 +365,7 @@ export default function CollectLeadsPage() {
                     <Button
                       onClick={handleReset}
                       variant="outline"
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 border-border"
                     >
                       <RotateCcw className="w-4 h-4" />
                       Reset
@@ -373,7 +373,7 @@ export default function CollectLeadsPage() {
                     <Button
                       onClick={() => handleSaveSection('general')}
                       disabled={saving}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save and continue'}
@@ -394,15 +394,15 @@ export default function CollectLeadsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {config.fields.map((field, index) => (
-                    <div key={field.id} className="border rounded-lg p-4 space-y-4">
+                    <div key={field.id} className="border border-border rounded-lg p-4 space-y-4 bg-card">
                       <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-gray-900">Field {index + 1}</h4>
+                        <h4 className="font-medium text-foreground">Field {index + 1}</h4>
                         {config.fields.length > 1 && (
                           <Button
                             onClick={() => removeField(field.id)}
                             variant="outline"
                             size="sm"
-                            className="text-red-600 hover:text-red-700"
+                            className="text-destructive hover:text-destructive border-border"
                           >
                             Remove
                           </Button>
@@ -411,27 +411,30 @@ export default function CollectLeadsPage() {
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <Label className="text-sm font-medium text-gray-700">Field Name</Label>
+                          <Label className="text-sm font-medium text-foreground">Field Name</Label>
                           <Input
                             value={field.name}
                             onChange={(e) => updateField(field.id, { name: e.target.value })}
                             placeholder="e.g., name, email"
+                            className="border-border"
                           />
                         </div>
                         <div>
-                          <Label className="text-sm font-medium text-gray-700">Label</Label>
+                          <Label className="text-sm font-medium text-foreground">Label</Label>
                           <Input
                             value={field.label}
                             onChange={(e) => updateField(field.id, { label: e.target.value })}
                             placeholder="e.g., Name, Email"
+                            className="border-border"
                           />
                         </div>
                         <div className="md:col-span-2">
-                          <Label className="text-sm font-medium text-gray-700">Placeholder</Label>
+                          <Label className="text-sm font-medium text-foreground">Placeholder</Label>
                           <Input
                             value={field.placeholder}
                             onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
                             placeholder="e.g., Please enter your name"
+                            className="border-border"
                           />
                         </div>
                       </div>
@@ -440,8 +443,9 @@ export default function CollectLeadsPage() {
                         <Switch
                           checked={field.required}
                           onCheckedChange={(checked) => updateField(field.id, { required: checked })}
+                          className="data-[state=checked]:bg-primary"
                         />
-                        <Label className="text-sm text-gray-700">Required field</Label>
+                        <Label className="text-sm text-foreground">Required field</Label>
                       </div>
                     </div>
                   ))}
@@ -449,7 +453,7 @@ export default function CollectLeadsPage() {
                   <Button
                     onClick={addField}
                     variant="outline"
-                    className="w-full border-dashed"
+                    className="w-full border-dashed border-border"
                   >
                     Add Field
                   </Button>
@@ -458,7 +462,7 @@ export default function CollectLeadsPage() {
                     <Button
                       onClick={() => handleSaveSection('fields')}
                       disabled={saving}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save and continue'}
@@ -479,10 +483,10 @@ export default function CollectLeadsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Success Message
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       This message will be displayed when the user successfully submits the form.
                     </p>
                     <Textarea
@@ -492,15 +496,15 @@ export default function CollectLeadsPage() {
                         messages: { ...prev.messages, successMessage: e.target.value }
                       }))}
                       placeholder="Example: Thank you for your submission! We will get back to you soon."
-                      className="min-h-[80px]"
+                      className="min-h-[80px] border-border"
                     />
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                    <Label className="text-sm font-medium text-foreground mb-2 block">
                       Dismiss Message
                     </Label>
-                    <p className="text-sm text-gray-600 mb-3">
+                    <p className="text-sm text-muted-foreground mb-3">
                       This message will be displayed when the user dismisses the form.
                     </p>
                     <Textarea
@@ -510,7 +514,7 @@ export default function CollectLeadsPage() {
                         messages: { ...prev.messages, dismissMessage: e.target.value }
                       }))}
                       placeholder="Example: You dismissed the form."
-                      className="min-h-[80px]"
+                      className="min-h-[80px] border-border"
                     />
                   </div>
 
@@ -518,7 +522,7 @@ export default function CollectLeadsPage() {
                     <Button
                       onClick={() => handleSaveSection('messages')}
                       disabled={saving}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save and continue'}
@@ -539,12 +543,12 @@ export default function CollectLeadsPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
-                        <MessageSquare className="w-5 h-5 text-gray-600" />
+                        <MessageSquare className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <h4 className="font-medium text-gray-900">Chat widget</h4>
-                          <p className="text-sm text-gray-600">Enable lead collection in the chat widget</p>
+                          <h4 className="font-medium text-foreground">Chat widget</h4>
+                          <p className="text-sm text-muted-foreground">Enable lead collection in the chat widget</p>
                         </div>
                       </div>
                       <Switch
@@ -553,15 +557,16 @@ export default function CollectLeadsPage() {
                           ...prev,
                           channels: { ...prev.channels, chatWidget: checked }
                         }))}
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
 
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center justify-between p-4 border border-border rounded-lg bg-card">
                       <div className="flex items-center gap-3">
-                        <Globe className="w-5 h-5 text-gray-600" />
+                        <Globe className="w-5 h-5 text-muted-foreground" />
                         <div>
-                          <h4 className="font-medium text-gray-900">Help page</h4>
-                          <p className="text-sm text-gray-600">Enable lead collection on help pages</p>
+                          <h4 className="font-medium text-foreground">Help page</h4>
+                          <p className="text-sm text-muted-foreground">Enable lead collection on help pages</p>
                         </div>
                       </div>
                       <Switch
@@ -570,16 +575,17 @@ export default function CollectLeadsPage() {
                           ...prev,
                           channels: { ...prev.channels, helpPage: checked }
                         }))}
+                        className="data-[state=checked]:bg-primary"
                       />
                     </div>
                   </div>
 
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="bg-warning/10 border border-warning/20 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                      <AlertTriangle className="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
                       <div>
-                        <h4 className="font-medium text-yellow-800 mb-1">Channel Compatibility</h4>
-                        <p className="text-sm text-yellow-700">
+                        <h4 className="font-medium text-warning mb-1">Channel Compatibility</h4>
+                        <p className="text-sm text-muted-foreground">
                           Some channels are incompatible with this action. Make sure to test the lead collection 
                           form in your selected channels before going live.
                         </p>
@@ -591,7 +597,7 @@ export default function CollectLeadsPage() {
                     <Button
                       onClick={() => handleSaveSection('channels')}
                       disabled={saving}
-                      className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                      className="flex items-center gap-2 bg-primary hover:bg-primary/90"
                     >
                       <Save className="w-4 h-4" />
                       {saving ? 'Saving...' : 'Save and continue'}

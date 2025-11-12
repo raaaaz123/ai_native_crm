@@ -8,6 +8,7 @@ import { useAuth } from '../lib/workspace-auth-context';
 import { WorkspaceSelector } from '../components/workspace/WorkspaceSelector';
 import { AgentWorkspaceSelector } from '../components/workspace/AgentWorkspaceSelector';
 import { CreateWorkspaceModal } from '../components/workspace/CreateWorkspaceModal';
+import { BrandLogo } from '../components/brand/BrandLogo';
 import { Button } from '@/components/ui/button';
 import {
   Bell,
@@ -34,8 +35,15 @@ export default function DashboardLayout({
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [currentAgentName, setCurrentAgentName] = useState<string | null>(null);
   const [currentAgentId, setCurrentAgentId] = useState<string | null>(null);
-  const { userData, signOut } = useAuth();
+  const { user, userData, signOut } = useAuth();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Redirect to verification page if email not verified
+  useEffect(() => {
+    if (user && !user.emailVerified && userData?.pendingVerification) {
+      window.location.href = `/verify-email?email=${encodeURIComponent(user.email || '')}`;
+    }
+  }, [user, userData]);
 
   // Check if we're on an agent page and extract agent info
   useEffect(() => {
@@ -85,8 +93,11 @@ export default function DashboardLayout({
       <SidebarInset className="pt-16">
         {/* Fixed Header */}
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12 fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
-          <div className="flex items-center gap-2 px-4">
-            <SidebarTrigger className="-ml-1" suppressHydrationWarning />
+          <div className="flex items-center gap-3 px-4">
+            {/* Logo - Links to main route */}
+            <Link href="/" className="flex items-center group">
+              <BrandLogo size="sm" className="transition-transform duration-300 group-hover:scale-105" showText={false} />
+            </Link>
 
             {/* Conditional Selector - Show AgentWorkspaceSelector on agent pages */}
             {currentAgentId && currentAgentName ? (
@@ -188,7 +199,7 @@ export default function DashboardLayout({
         </header>
 
         {/* Main Content */}
-        <div className="flex flex-1 flex-col gap-4 p-4 overflow-y-auto">
+        <div className="flex flex-1 flex-col gap-4 px-4 pt-2 pb-4 overflow-y-auto">
           {children}
         </div>
       </SidebarInset>

@@ -131,6 +131,7 @@ export default function AgentActionsPage() {
     const actionTypeRoute = action.type === 'calendly-slots' ? 'calendly-slots' :
                            action.type === 'custom-button' ? 'custom-button' :
                            action.type === 'collect-leads' ? 'collect-leads' :
+                           action.type === 'zendesk-create-ticket' ? 'zendesk-create-ticket' :
                            action.type;
     
     router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/actions/${actionTypeRoute}?edit=${action.id}`);
@@ -211,6 +212,7 @@ export default function AgentActionsPage() {
       case 'collect-leads': return <Users className="w-5 h-5" />;
       case 'custom-button': return <MousePointerClick className="w-5 h-5" />;
       case 'calendly-slots': return <Calendar className="w-5 h-5" />;
+      case 'zendesk-create-ticket': return <FileText className="w-5 h-5" />;
       case 'custom-action': return <Zap className="w-5 h-5" />;
       default: return <Zap className="w-5 h-5" />;
     }
@@ -218,10 +220,10 @@ export default function AgentActionsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      case 'draft': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'active': return 'bg-success/10 text-success border border-success/20';
+      case 'inactive': return 'bg-muted text-muted-foreground border border-border';
+      case 'draft': return 'bg-warning/10 text-warning border border-warning/20';
+      default: return 'bg-muted text-muted-foreground border border-border';
     }
   };
 
@@ -232,6 +234,8 @@ export default function AgentActionsPage() {
       router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/actions/custom-button`);
     } else if (actionType === 'calendly-slots') {
       router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/actions/calendly-slots`);
+    } else if (actionType === 'zendesk-create-ticket') {
+      router.push(`/dashboard/${workspaceSlug}/agents/${agentId}/actions/zendesk-create-ticket`);
     }
     setShowCreateDialog(false);
   };
@@ -245,54 +249,55 @@ export default function AgentActionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading actions...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mx-auto mb-4"></div>
+          <p className="text-muted-foreground font-medium">Loading actions...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100/50">
+    <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-3">Agent Actions</h1>
-          <p className="text-gray-600 text-lg">Create and manage automated workflows for your AI agent</p>
+          <h1 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">Agent Actions</h1>
+          <p className="text-muted-foreground text-lg">Create and manage automated workflows for your AI agent</p>
         </div>
 
         {/* Controls */}
         <div className="flex flex-col sm:flex-row gap-4 mb-8">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
               <Input
                 placeholder="Search actions by name or description..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-12 rounded-xl border-gray-200 bg-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                className="pl-12 h-12 rounded-lg border-border bg-card shadow-sm focus:border-primary focus:ring-primary"
               />
             </div>
           </div>
           <div className="flex gap-3">
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-48 h-12 rounded-xl border-gray-200 bg-white shadow-sm">
+              <SelectTrigger className="w-48 h-12 rounded-lg border-border bg-card shadow-sm">
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
-              <SelectContent className="rounded-xl">
+              <SelectContent className="rounded-lg">
                 <SelectItem value="all">All Types</SelectItem>
                 <SelectItem value="collect-leads">Collect Leads</SelectItem>
                 <SelectItem value="custom-button">Custom Button</SelectItem>
                 <SelectItem value="calendly-slots">Calendly Slots</SelectItem>
+                <SelectItem value="zendesk-create-ticket">Zendesk Create Ticket</SelectItem>
                 <SelectItem value="custom-action">Custom Action</SelectItem>
               </SelectContent>
             </Select>
             <Button
               onClick={() => setShowCreateDialog(true)}
-              className="bg-blue-600 hover:bg-blue-700 h-12 px-6 rounded-xl shadow-md hover:shadow-lg transition-all"
+              className="bg-primary hover:bg-primary/90 h-12 px-6 rounded-lg shadow-md hover:shadow-lg transition-all"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create Action
@@ -303,23 +308,23 @@ export default function AgentActionsPage() {
         {/* Actions Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredActions.map((action) => (
-            <Card key={action.id} className="border-0 shadow-md hover:shadow-xl transition-all duration-300 rounded-2xl overflow-hidden bg-white h-[420px] flex flex-col">
+            <Card key={action.id} className="border border-border shadow-md hover:shadow-xl transition-all duration-300 rounded-lg overflow-hidden bg-card h-[420px] flex flex-col">
               <CardHeader className="pb-3 flex-shrink-0">
-                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-md">
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center text-primary-foreground shadow-md">
                       {getActionIcon(action.type)}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg font-bold text-gray-900 truncate">{action.name}</CardTitle>
-                      <p className="text-sm text-gray-500 capitalize mt-0.5">{action.type.replace(/-/g, ' ')}</p>
+                      <CardTitle className="text-lg font-bold text-foreground truncate">{action.name}</CardTitle>
+                      <p className="text-sm text-muted-foreground capitalize mt-0.5">{action.type.replace(/-/g, ' ')}</p>
                     </div>
                   </div>
                   <div className="relative flex-shrink-0" ref={(el) => { menuRefs.current[action.id] = el; }}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-9 w-9 p-0 rounded-lg hover:bg-gray-100"
+                      className="h-9 w-9 p-0 rounded-lg hover:bg-muted"
                       onClick={() => setOpenMenuId(openMenuId === action.id ? null : action.id)}
                     >
                       <MoreVertical className="w-4 h-4" />
@@ -327,24 +332,24 @@ export default function AgentActionsPage() {
 
                     {/* Dropdown Menu */}
                     {openMenuId === action.id && (
-                      <div className="absolute right-0 top-10 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-1.5 z-50">
+                      <div className="absolute right-0 top-10 w-48 bg-card rounded-lg shadow-xl border border-border py-1.5 z-50">
                         <button
                           onClick={() => handleEditAction(action)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted w-full text-left transition-colors"
                         >
                           <Edit className="w-4 h-4" />
                           Edit Action
                         </button>
                         <button
                           onClick={() => handleDuplicateAction(action)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted w-full text-left transition-colors"
                         >
                           <Copy className="w-4 h-4" />
                           Duplicate
                         </button>
                         <button
                           onClick={() => handleToggleStatus(action)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 w-full text-left transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-muted w-full text-left transition-colors"
                         >
                           {action.status === 'active' ? (
                             <>
@@ -358,10 +363,10 @@ export default function AgentActionsPage() {
                             </>
                           )}
                         </button>
-                        <div className="border-t border-gray-100 my-1.5"></div>
+                        <div className="border-t border-border my-1.5"></div>
                         <button
                           onClick={() => handleDeleteAction(action)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 w-full text-left transition-colors"
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-destructive hover:bg-destructive/10 w-full text-left transition-colors"
                         >
                           <Trash2 className="w-4 h-4" />
                           Delete
@@ -376,21 +381,21 @@ export default function AgentActionsPage() {
               </CardHeader>
               <CardContent className="pt-0 flex-1 flex flex-col">
                 {/* Fixed height description with line clamping */}
-                <p className="text-sm text-gray-600 mb-4 line-clamp-2 h-10 leading-5">{action.description}</p>
+                <p className="text-sm text-muted-foreground mb-4 line-clamp-2 h-10 leading-5">{action.description}</p>
 
                 {/* Metadata section */}
-                <div className="space-y-2.5 mb-5 py-4 px-4 bg-gray-50 rounded-xl flex-shrink-0">
+                <div className="space-y-2.5 mb-5 py-4 px-4 bg-muted rounded-lg flex-shrink-0 border border-border">
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Status</span>
-                    <span className="font-semibold capitalize text-gray-900">{action.status}</span>
+                    <span className="text-muted-foreground font-medium">Status</span>
+                    <span className="font-semibold capitalize text-foreground">{action.status}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Created</span>
-                    <span className="font-semibold text-gray-900">{new Date(action.createdAt).toLocaleDateString()}</span>
+                    <span className="text-muted-foreground font-medium">Created</span>
+                    <span className="font-semibold text-foreground">{new Date(action.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500 font-medium">Last Updated</span>
-                    <span className="font-semibold text-gray-900">{new Date(action.updatedAt).toLocaleDateString()}</span>
+                    <span className="text-muted-foreground font-medium">Last Updated</span>
+                    <span className="font-semibold text-foreground">{new Date(action.updatedAt).toLocaleDateString()}</span>
                   </div>
                 </div>
 
@@ -399,7 +404,7 @@ export default function AgentActionsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="flex-1 h-10 rounded-xl border-gray-200 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-all"
+                    className="flex-1 h-10 rounded-lg border-border hover:border-primary hover:bg-primary/10 hover:text-primary transition-all"
                     onClick={() => handleEditAction(action)}
                   >
                     <Edit className="w-4 h-4 mr-2" />
@@ -408,10 +413,10 @@ export default function AgentActionsPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    className={`h-10 px-4 rounded-xl transition-all ${
+                    className={`h-10 px-4 rounded-lg transition-all border-border ${
                       action.status === 'active'
-                        ? 'border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300'
-                        : 'border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300'
+                        ? 'text-warning hover:bg-warning/10 hover:border-warning'
+                        : 'text-success hover:bg-success/10 hover:border-success'
                     }`}
                     onClick={() => handleToggleStatus(action)}
                   >
@@ -425,14 +430,14 @@ export default function AgentActionsPage() {
 
         {filteredActions.length === 0 && (
           <div className="text-center py-20">
-            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 flex items-center justify-center mx-auto mb-6 shadow-lg">
-              <Zap className="w-10 h-10 text-blue-600" />
+            <div className="w-20 h-20 rounded-lg bg-primary/10 flex items-center justify-center mx-auto mb-6 shadow-lg">
+              <Zap className="w-10 h-10 text-primary" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-3">No actions found</h3>
-            <p className="text-gray-600 mb-8 text-lg">Create your first action to automate workflows and enhance your AI agent</p>
+            <h3 className="text-2xl font-bold text-foreground mb-3">No actions found</h3>
+            <p className="text-muted-foreground mb-8 text-lg">Create your first action to automate workflows and enhance your AI agent</p>
             <Button
               onClick={() => setShowCreateDialog(true)}
-              className="bg-blue-600 hover:bg-blue-700 h-12 px-8 rounded-xl shadow-md hover:shadow-lg transition-all"
+              className="bg-primary hover:bg-primary/90 h-12 px-8 rounded-lg shadow-md hover:shadow-lg transition-all"
             >
               <Plus className="w-5 h-5 mr-2" />
               Create Your First Action
@@ -441,133 +446,103 @@ export default function AgentActionsPage() {
         )}
       </div>
 
-      {/* Create Action Dialog */}
+      {/* Create Action Dialog - Minimal Design */}
       <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl">
-          <DialogHeader className="space-y-3 pb-6 border-b border-gray-100">
-            <DialogTitle className="text-3xl font-bold text-gray-900">Create Action</DialogTitle>
-            <DialogDescription className="text-base text-gray-600 leading-relaxed">
-              Choose an action type to automate workflows and enhance your AI agent&apos;s capabilities.
-              Each action can be configured to trigger specific behaviors based on user interactions.
+        <DialogContent className="max-w-5xl w-full max-h-[90vh] overflow-y-auto bg-background">
+          <DialogHeader className="pb-4 border-b border-border">
+            <DialogTitle className="text-xl font-semibold text-foreground">Create Action</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              Choose an action type to automate workflows and enhance your AI agent&apos;s capabilities
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-8">
-            {/* Collect Leads Action */}
-            <Card
-              className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 border-gray-100 hover:border-blue-300 hover:scale-[1.02] rounded-2xl overflow-hidden group"
+          <div className="py-6 space-y-3">
+            {/* Collect Leads */}
+            <div
+              className="flex items-center gap-4 p-4 border border-border rounded-lg cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors group"
               onClick={() => handleActionSelect('collect-leads')}
             >
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <Users className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Collect Leads</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                    Automatically collect contact information from website visitors. Perfect for building your email list and capturing sales leads.
-                  </p>
-                  <div className="mt-auto pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                      <span>Ready to use</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Custom Button Action */}
-            <Card
-              className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 border-gray-100 hover:border-purple-300 hover:scale-[1.02] rounded-2xl overflow-hidden group"
-              onClick={() => handleActionSelect('custom-button')}
-            >
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <MousePointerClick className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Custom Button</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                    Display contextual action buttons during conversations. Guide users to specific actions based on their needs and conversation context.
-                  </p>
-                  <div className="mt-auto pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                      <span>Ready to use</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Calendly Get Available Slots Action */}
-            <Card
-              className="cursor-pointer hover:shadow-xl transition-all duration-300 border-2 border-gray-100 hover:border-green-300 hover:scale-[1.02] rounded-2xl overflow-hidden group"
-              onClick={() => handleActionSelect('calendly-slots')}
-            >
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                      <Calendar className="w-7 h-7 text-white" />
-                    </div>
-                    <ArrowRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">Calendly Slots</h3>
-                  <p className="text-gray-600 text-sm leading-relaxed mb-4">
-                    Show available meeting times from your Calendly calendar. Let customers book appointments directly through the chat interface.
-                  </p>
-                  <div className="mt-auto pt-4 border-t border-gray-100">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                      <span>Ready to use</span>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Coming Soon Card */}
-            <Card className="border-2 border-dashed border-gray-200 rounded-2xl overflow-hidden bg-gray-50/50">
-              <CardContent className="p-6">
-                <div className="flex flex-col h-full items-center justify-center text-center py-8">
-                  <div className="w-14 h-14 rounded-xl bg-gray-200 flex items-center justify-center mb-4">
-                    <Zap className="w-7 h-7 text-gray-400" />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-900 mb-2">More Actions</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed max-w-xs">
-                    Additional action types are being developed. Stay tuned for more automation capabilities!
-                  </p>
-                  <div className="mt-4">
-                    <Badge variant="outline" className="bg-white">Coming Soon</Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Help Section */}
-          <div className="mt-8 p-5 bg-blue-50 border border-blue-100 rounded-xl">
-            <div className="flex gap-3">
-              <div className="flex-shrink-0">
-                <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center">
-                  <HelpCircle className="w-5 h-5 text-white" />
-                </div>
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Users className="w-5 h-5 text-primary" />
               </div>
-              <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 mb-1">Need help choosing?</h4>
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  Actions allow your agent to perform specific tasks during conversations. Start with &quot;Collect Leads&quot; if you want to gather customer information,
-                  or try &quot;Custom Button&quot; to guide users through specific workflows.
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-foreground">Collect Leads</h3>
+                  <Badge variant="outline" className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-400">
+                    Ready
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-1">
+                  Automatically collect contact information from website visitors
                 </p>
               </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+            </div>
+
+            {/* Custom Button */}
+            <div
+              className="flex items-center gap-4 p-4 border border-border rounded-lg cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors group"
+              onClick={() => handleActionSelect('custom-button')}
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <MousePointerClick className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-foreground">Custom Button</h3>
+                  <Badge variant="outline" className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-400">
+                    Ready
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-1">
+                  Display contextual action buttons during conversations
+                </p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+            </div>
+
+            {/* Calendly Slots */}
+            <div
+              className="flex items-center gap-4 p-4 border border-border rounded-lg cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors group"
+              onClick={() => handleActionSelect('calendly-slots')}
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Calendar className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-foreground">Calendly Slots</h3>
+                  <Badge variant="outline" className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-400">
+                    Ready
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-1">
+                  Show available meeting times from your Calendly calendar
+                </p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
+            </div>
+
+            {/* Zendesk Create Ticket */}
+            <div
+              className="flex items-center gap-4 p-4 border border-border rounded-lg cursor-pointer hover:border-primary hover:bg-muted/50 transition-colors group"
+              onClick={() => handleActionSelect('zendesk-create-ticket')}
+            >
+              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-semibold text-foreground">Zendesk Create Ticket</h3>
+                  <Badge variant="outline" className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-400">
+                    Ready
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground line-clamp-1">
+                  Create and manage support tickets in Zendesk
+                </p>
+              </div>
+              <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all flex-shrink-0" />
             </div>
           </div>
         </DialogContent>
@@ -575,14 +550,14 @@ export default function AgentActionsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <DialogContent className="sm:max-w-lg rounded-2xl">
+        <DialogContent className="sm:max-w-lg rounded-lg border-border">
           <DialogHeader className="space-y-3">
-            <div className="w-14 h-14 rounded-xl bg-red-100 flex items-center justify-center mx-auto">
-              <AlertCircle className="w-7 h-7 text-red-600" />
+            <div className="w-14 h-14 rounded-lg bg-destructive/10 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-7 h-7 text-destructive" />
             </div>
-            <DialogTitle className="text-2xl font-bold text-center">Delete Action</DialogTitle>
-            <DialogDescription className="text-center text-base">
-              Are you sure you want to delete <span className="font-semibold text-gray-900">&quot;{actionToDelete?.name}&quot;</span>?
+            <DialogTitle className="text-2xl font-bold text-center text-foreground">Delete Action</DialogTitle>
+            <DialogDescription className="text-center text-base text-muted-foreground">
+              Are you sure you want to delete <span className="font-semibold text-foreground">&quot;{actionToDelete?.name}&quot;</span>?
               <br />
               This action cannot be undone.
             </DialogDescription>
@@ -591,14 +566,14 @@ export default function AgentActionsPage() {
             <Button
               variant="outline"
               onClick={() => setShowDeleteDialog(false)}
-              className="flex-1 h-11 rounded-xl border-gray-200 hover:bg-gray-50"
+              className="flex-1 h-11 rounded-lg border-border hover:bg-muted"
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={confirmDeleteAction}
-              className="flex-1 h-11 rounded-xl bg-red-600 hover:bg-red-700"
+              className="flex-1 h-11 rounded-lg"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Action

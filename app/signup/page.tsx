@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { useAuth } from '../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { BrandLogo } from '../components/brand';
-import { Sparkles, Zap, Shield, TrendingUp, MessageSquare, Users, Bot, Clock, Globe, AlertCircle, Mail } from 'lucide-react';
+import { Users, Bot, Clock, Globe, AlertCircle, Mail } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,134 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+
+// Feature Showcase Component
+const FeatureShowcase = () => (
+  <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 items-center justify-center p-8 relative overflow-hidden">
+    {/* Animated Background Elements */}
+    <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+    </div>
+
+    <div className="relative z-10 max-w-lg">
+      <div className="mb-8">
+        <h2 className="text-3xl font-bold text-foreground mb-3">
+          Start Building with AI
+        </h2>
+        <p className="text-base text-muted-foreground">
+          Join thousands of businesses automating customer engagement
+        </p>
+      </div>
+
+      {/* Feature Cards */}
+      <div className="space-y-4">
+        <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+              <Bot className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm mb-0.5">AI-Powered Agents</h3>
+              <p className="text-xs text-muted-foreground">
+                Create intelligent agents that learn from your data
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-200">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center group-hover:bg-success/20 transition-colors flex-shrink-0">
+              <Clock className="w-5 h-5 text-success" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm mb-0.5">Launch in Minutes</h3>
+              <p className="text-xs text-muted-foreground">
+                No coding required - deploy in just a few clicks
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-400">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-warning/10 rounded-lg flex items-center justify-center group-hover:bg-warning/20 transition-colors flex-shrink-0">
+              <Globe className="w-5 h-5 text-warning" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm mb-0.5">Omnichannel Ready</h3>
+              <p className="text-xs text-muted-foreground">
+                Deploy across web, WhatsApp, and more
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-600">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-info/10 rounded-lg flex items-center justify-center group-hover:bg-info/20 transition-colors flex-shrink-0">
+              <Users className="w-5 h-5 text-info" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground text-sm mb-0.5">Team Collaboration</h3>
+              <p className="text-xs text-muted-foreground">
+                Invite your team and manage together
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="mt-8 grid grid-cols-3 gap-4">
+        <div className="text-center">
+          <div className="text-2xl font-bold text-primary mb-0.5">10K+</div>
+          <div className="text-xs text-muted-foreground">Active Users</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-primary mb-0.5">Free</div>
+          <div className="text-xs text-muted-foreground">To Start</div>
+        </div>
+        <div className="text-center">
+          <div className="text-2xl font-bold text-primary mb-0.5">24/7</div>
+          <div className="text-xs text-muted-foreground">Support</div>
+        </div>
+      </div>
+    </div>
+
+    <style jsx>{`
+      @keyframes fade-in {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-in {
+        animation: fade-in 0.5s ease-out forwards;
+      }
+      .delay-200 {
+        animation-delay: 0.2s;
+        opacity: 0;
+      }
+      .delay-400 {
+        animation-delay: 0.4s;
+        opacity: 0;
+      }
+      .delay-600 {
+        animation-delay: 0.6s;
+        opacity: 0;
+      }
+      .delay-1000 {
+        animation-delay: 1s;
+      }
+    `}</style>
+  </div>
+);
 
 function SignUpPageContent() {
   const [step, setStep] = useState<'initial' | 'complete' | 'company'>('initial');
@@ -141,11 +269,11 @@ function SignUpPageContent() {
       router.push('/dashboard');
     } catch (error: unknown) {
       console.error('❌ [Signup Page] Error during Google signup:', error);
-      const firebaseError = error as { code?: string; message?: string };
+      const firebaseError = error as { code?: string; message?: string; customData?: { email?: string } };
       
       // Check if email is already in use (though unlikely with Google OAuth)
       if (firebaseError.code === 'auth/email-already-in-use') {
-        const userEmail = (error as any).customData?.email || '';
+        const userEmail = firebaseError.customData?.email || '';
         setExistingEmail(userEmail);
         setShowEmailExistsDialog(true);
         setError(''); // Clear inline error since we're showing dialog
@@ -499,134 +627,6 @@ function SignUpPageContent() {
     );
   }
 
-  // Feature Showcase Component
-  const FeatureShowcase = () => (
-    <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 items-center justify-center p-8 relative overflow-hidden">
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
-      </div>
-
-      <div className="relative z-10 max-w-lg">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-foreground mb-3">
-            Start Building with AI
-          </h2>
-          <p className="text-base text-muted-foreground">
-            Join thousands of businesses automating customer engagement
-          </p>
-        </div>
-
-        {/* Feature Cards */}
-        <div className="space-y-4">
-          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
-                <Bot className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground text-sm mb-0.5">AI-Powered Agents</h3>
-                <p className="text-xs text-muted-foreground">
-                  Create intelligent agents that learn from your data
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-200">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center group-hover:bg-success/20 transition-colors flex-shrink-0">
-                <Clock className="w-5 h-5 text-success" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground text-sm mb-0.5">Launch in Minutes</h3>
-                <p className="text-xs text-muted-foreground">
-                  No coding required - deploy in just a few clicks
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-400">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-warning/10 rounded-lg flex items-center justify-center group-hover:bg-warning/20 transition-colors flex-shrink-0">
-                <Globe className="w-5 h-5 text-warning" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground text-sm mb-0.5">Omnichannel Ready</h3>
-                <p className="text-xs text-muted-foreground">
-                  Deploy across web, WhatsApp, and more
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-600">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 bg-info/10 rounded-lg flex items-center justify-center group-hover:bg-info/20 transition-colors flex-shrink-0">
-                <Users className="w-5 h-5 text-info" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground text-sm mb-0.5">Team Collaboration</h3>
-                <p className="text-xs text-muted-foreground">
-                  Invite your team and manage together
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="mt-8 grid grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary mb-0.5">10K+</div>
-            <div className="text-xs text-muted-foreground">Active Users</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary mb-0.5">Free</div>
-            <div className="text-xs text-muted-foreground">To Start</div>
-          </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary mb-0.5">24/7</div>
-            <div className="text-xs text-muted-foreground">Support</div>
-          </div>
-        </div>
-      </div>
-
-      <style jsx>{`
-        @keyframes fade-in {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        .animate-fade-in {
-          animation: fade-in 0.5s ease-out forwards;
-        }
-        .delay-200 {
-          animation-delay: 0.2s;
-          opacity: 0;
-        }
-        .delay-400 {
-          animation-delay: 0.4s;
-          opacity: 0;
-        }
-        .delay-600 {
-          animation-delay: 0.6s;
-          opacity: 0;
-        }
-        .delay-1000 {
-          animation-delay: 1s;
-        }
-      `}</style>
-    </div>
-  );
-
   return (
     <div className="h-screen bg-background flex overflow-hidden">
       {/* Left Side - Form */}
@@ -643,7 +643,7 @@ function SignUpPageContent() {
               Create your account
             </h1>
             <p className="text-muted-foreground">
-              No password needed. We'll send you a secure link to get started.
+              No password needed. We&apos;ll send you a secure link to get started.
             </p>
           </div>
 
@@ -768,16 +768,16 @@ function SignUpPageContent() {
                 <div className="flex-1">
                   <p className="text-success font-medium text-sm mb-1">Check your email!</p>
                   <p className="text-muted-foreground text-sm mb-2">
-                    We've sent a sign-in link to <span className="font-medium text-foreground">{formData.email}</span>. 
+                    We&apos;ve sent a sign-in link to <span className="font-medium text-foreground">{formData.email}</span>. 
                     Click the link in the email to create your account and sign in.
                   </p>
                   <div className="mt-3 pt-3 border-t border-success/20">
-                    <p className="text-xs text-muted-foreground font-medium mb-1">Didn't receive the email?</p>
+                    <p className="text-xs text-muted-foreground font-medium mb-1">Didn&apos;t receive the email?</p>
                     <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
                       <li>Check your spam/junk folder</li>
                       <li>Wait a few minutes (emails can take 1-5 minutes)</li>
                       <li>Make sure <span className="font-medium">{formData.email}</span> is correct</li>
-                      <li>Try clicking "Create account" again</li>
+                      <li>Try clicking &quot;Create account&quot; again</li>
                     </ul>
                   </div>
                 </div>

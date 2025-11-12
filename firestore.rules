@@ -292,8 +292,13 @@ service cloud.firestore {
     
     // Conversations collection - workspace members can access conversations for their workspace's agents
     match /conversations/{conversationId} {
-      // Allow public read/write for active agents (needed for public chat widgets)
+      // Allow public read/write/create for active agents (needed for public chat widgets)
       allow read, write, create: if resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
+        get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.status == 'active';
+      
+      // Allow public delete for active agents (needed for help page conversation deletion)
+      allow delete: if resource.data.agentId != null &&
         exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
         get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.status == 'active';
       
@@ -326,17 +331,28 @@ service cloud.firestore {
     
     // Messages collection - workspace members can access messages for conversations in their workspace
     match /messages/{messageId} {
-      // Allow public read/write for messages with agentId that belongs to active agents (needed for public chat widgets)
+      // Allow public read/write/create for messages with agentId that belongs to active agents (needed for public chat widgets)
       allow read, write, create: if resource.data.agentId != null &&
         exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
         get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.status == 'active';
       
-      // Allow public read/write for messages being created with agentId that belongs to active agents
+      // Allow public delete for messages with agentId that belongs to active agents (needed for help page message deletion)
+      allow delete: if resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
+        get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.status == 'active';
+      
+      // Allow public read/write/create for messages being created with agentId that belongs to active agents
       allow create: if request.resource.data.agentId != null &&
         exists(/databases/$(database)/documents/agents/$(request.resource.data.agentId)) &&
         get(/databases/$(database)/documents/agents/$(request.resource.data.agentId)).data.status == 'active';
       
-      // Allow read if user is authenticated and message belongs to a conversation in their workspace
+      // Allow read if user is authenticated and message belongs to an agent in their workspace
+      allow read: if request.auth != null && 
+        resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.workspaceId));
+      
+      // Allow read if user is authenticated and message belongs to a conversation in their workspace (fallback)
       allow read: if request.auth != null && 
         resource.data.conversationId != null &&
         exists(/databases/$(database)/documents/conversations/$(resource.data.conversationId)) &&
@@ -346,24 +362,20 @@ service cloud.firestore {
       
       // Allow write/delete if user is a member of the workspace
       allow write, delete: if request.auth != null && 
-        resource.data.conversationId != null &&
-        exists(/databases/$(database)/documents/conversations/$(resource.data.conversationId)) &&
-        get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.agentId != null &&
-        exists(/databases/$(database)/documents/agents/$(get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.agentId)) &&
-        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(get(/databases/$(database)/documents/conversations/$(resource.data.conversationId)).data.agentId)).data.workspaceId));
+        resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.workspaceId));
       
       // Allow create if user is a member of the workspace
       allow create: if request.auth != null && 
-        request.resource.data.conversationId != null &&
-        exists(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)) &&
-        get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.agentId != null &&
-        exists(/databases/$(database)/documents/agents/$(get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.agentId)) &&
-        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data.agentId)).data.workspaceId));
+        request.resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(request.resource.data.agentId)) &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(request.resource.data.agentId)).data.workspaceId));
     }
     
-    // Allow collection-level queries for messages - allow public queries for active agents
+    // Allow collection-level queries for messages - allow public queries for active agents and workspace members
     match /messages/{document=**} {
-      allow read: if true; // Allow public read for collection queries (needed for chat widgets)
+      allow read: if true; // Allow public read for collection queries (needed for chat widgets and analytics)
     }
 
     // Notion Connections - workspace members can manage their workspace's Notion connections
@@ -386,25 +398,120 @@ service cloud.firestore {
     // Google Sheets Connections - workspace members can manage their workspace's Google Sheets connections
     // Connection ID format: {workspaceId}_google_sheets
     match /googleSheetsConnections/{connectionId} {
-      // Extract workspaceId from connectionId (format: workspaceId_google_sheets)
-      // Allow read if user is a member of the workspace
-      allow read: if request.auth != null && 
-        connectionId.matches('.*_google_sheets$') &&
-        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + connectionId.replace('_google_sheets', '')));
+      // Allow read if user is a member of the workspace (check via document's workspaceId field)
+      allow read: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
 
       // Allow write/delete if user is a member of the workspace
-      allow write, delete: if request.auth != null && 
-        connectionId.matches('.*_google_sheets$') &&
-        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + connectionId.replace('_google_sheets', '')));
+      allow write, delete: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
 
       // Allow create if user is a member of the workspace (check via resource data)
-      allow create: if request.auth != null && 
+      allow create: if request.auth != null &&
         request.resource.data.workspaceId != null &&
         exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + request.resource.data.workspaceId));
     }
 
     // Allow collection-level queries for googleSheetsConnections
     match /googleSheetsConnections/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Zendesk Connections - workspace members can manage their workspace's Zendesk connections
+    // Connection ID format: {workspaceId}_{agentId}_zendesk
+    match /zendeskConnections/{connectionId} {
+      // Allow read if user is a member of the workspace (check via document's workspaceId field)
+      allow read: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow write/delete if user is a member of the workspace
+      allow write, delete: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow create if user is a member of the workspace (check via resource data)
+      allow create: if request.auth != null &&
+        request.resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + request.resource.data.workspaceId));
+    }
+
+    // Allow collection-level queries for zendeskConnections
+    match /zendeskConnections/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Zapier Integrations - workspace members can manage their workspace's Zapier integrations
+    // Integration ID format: {workspaceId}_{agentId}_zapier
+    match /zapierIntegrations/{integrationId} {
+      // Allow read if user is a member of the workspace (check via document's workspaceId field)
+      allow read: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow write/delete if user is a member of the workspace
+      allow write, delete: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow create if user is a member of the workspace (check via resource data)
+      allow create: if request.auth != null &&
+        request.resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + request.resource.data.workspaceId));
+    }
+
+    // Allow collection-level queries for zapierIntegrations
+    match /zapierIntegrations/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // WhatsApp Connections - workspace members can manage their workspace's WhatsApp connections
+    // Connection ID format: {workspaceId}_{agentId}_whatsapp
+    match /whatsappConnections/{connectionId} {
+      // Allow read if user is a member of the workspace (check via document's workspaceId field)
+      allow read: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow write/delete if user is a member of the workspace
+      allow write, delete: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow create if user is a member of the workspace (check via resource data)
+      allow create: if request.auth != null &&
+        request.resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + request.resource.data.workspaceId));
+    }
+
+    // Allow collection-level queries for whatsappConnections
+    match /whatsappConnections/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Help Page Settings - workspace members can manage their workspace's help page settings
+    // Document ID format: {workspaceId}_{agentId}
+    match /helpPageSettings/{settingsId} {
+      // Allow read if user is a member of the workspace (check via document's workspaceId field)
+      allow read: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow write/delete if user is a member of the workspace
+      allow write, delete: if request.auth != null &&
+        resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + resource.data.workspaceId));
+
+      // Allow create if user is a member of the workspace (check via resource data)
+      allow create: if request.auth != null &&
+        request.resource.data.workspaceId != null &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + request.resource.data.workspaceId));
+    }
+
+    // Allow collection-level queries for helpPageSettings
+    match /helpPageSettings/{document=**} {
       allow read: if request.auth != null;
     }
 
@@ -431,6 +538,35 @@ service cloud.firestore {
     
     // Allow collection-level queries for agentActions
     match /agentActions/{document=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Collect Leads Submissions collection - workspace members can access submissions for their workspace's agents
+    match /collectLeadsSubmissions/{submissionId} {
+      // Allow read if user is a member of the workspace that owns the agent
+      allow read: if request.auth != null && 
+        resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.workspaceId));
+      
+      // Allow write/delete if user is a member of the workspace
+      allow write, delete: if request.auth != null && 
+        resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(resource.data.agentId)) &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(resource.data.agentId)).data.workspaceId));
+      
+      // Allow create if user is a member of the workspace OR for public submissions (for anonymous form submissions)
+      allow create: if (request.auth != null && 
+        request.resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(request.resource.data.agentId)) &&
+        exists(/databases/$(database)/documents/workspace_members/$(request.auth.uid + '_' + get(/databases/$(database)/documents/agents/$(request.resource.data.agentId)).data.workspaceId))) ||
+        (request.resource.data.agentId != null &&
+        exists(/databases/$(database)/documents/agents/$(request.resource.data.agentId)) &&
+        get(/databases/$(database)/documents/agents/$(request.resource.data.agentId)).data.status == 'active');
+    }
+    
+    // Allow collection-level queries for collectLeadsSubmissions
+    match /collectLeadsSubmissions/{document=**} {
       allow read: if request.auth != null;
     }
 

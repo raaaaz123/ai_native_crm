@@ -33,6 +33,18 @@ export default function SecuritySettingsPage() {
   const [agent, setAgent] = useState<Agent | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [originalFormData, setOriginalFormData] = useState({
+    requireAuth: true,
+    rateLimiting: true,
+    rateLimit: 20,
+    rateLimitWindow: 240,
+    rateLimitMessage: 'Too many messages in a row',
+    ipWhitelist: '',
+    allowedDomains: '',
+    sessionEncryption: true,
+    dataRetention: 90,
+    logLevel: 'info'
+  });
   const [formData, setFormData] = useState({
     requireAuth: true,
     rateLimiting: true,
@@ -66,7 +78,7 @@ export default function SecuritySettingsPage() {
         // Load security config if it exists
         const agentData = response.data as Agent & { securityConfig?: Record<string, unknown> };
         if (agentData.securityConfig) {
-          setFormData({
+          const loadedData = {
             requireAuth: agentData.securityConfig.requireAuth ?? true,
             rateLimiting: agentData.securityConfig.rateLimiting ?? true,
             rateLimit: agentData.securityConfig.rateLimit ?? 20,
@@ -77,7 +89,9 @@ export default function SecuritySettingsPage() {
             sessionEncryption: agentData.securityConfig.sessionEncryption ?? true,
             dataRetention: agentData.securityConfig.dataRetention ?? 90,
             logLevel: agentData.securityConfig.logLevel ?? 'info'
-          });
+          };
+          setOriginalFormData(loadedData);
+          setFormData(loadedData);
         }
       } else {
         console.error('Failed to load agent:', response.error);
@@ -108,6 +122,8 @@ export default function SecuritySettingsPage() {
       if (response.success) {
         toast.success('Security settings saved successfully!');
         setAgent(response.data);
+        // Update original data to reflect saved state
+        setOriginalFormData({ ...formData });
       } else {
         throw new Error(response.error || 'Failed to save settings');
       }
@@ -120,7 +136,7 @@ export default function SecuritySettingsPage() {
   };
 
   const handleReset = () => {
-    setFormData({
+    const resetData = {
       requireAuth: true,
       rateLimiting: true,
       rateLimit: 20,
@@ -131,9 +147,14 @@ export default function SecuritySettingsPage() {
       sessionEncryption: true,
       dataRetention: 90,
       logLevel: 'info'
-    });
+    };
+    setFormData(resetData);
+    setOriginalFormData(resetData);
     toast.success('Settings reset to defaults');
   };
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = JSON.stringify(formData) !== JSON.stringify(originalFormData);
 
   if (loading) {
     return (
@@ -148,16 +169,33 @@ export default function SecuritySettingsPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="max-w-4xl mx-auto px-2 sm:px-3 py-6">
         {/* Header */}
         <div className="mb-6">
-          <div className="flex items-center gap-3 mb-4">
+          <div className="flex items-center justify-between gap-3 mb-4">
             <Link href={`/dashboard/${workspaceSlug}/agents/${agentId}/settings`}>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="border-border hover:bg-accent">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
             </Link>
+            <Button 
+              onClick={handleSave} 
+              disabled={saving || !hasUnsavedChanges} 
+              className="bg-primary hover:bg-primary/90 shadow-lg"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </Button>
           </div>
           <h1 className="text-2xl font-semibold text-foreground mb-2">Security</h1>
           <p className="text-muted-foreground">Configure security settings and access control for your agent</p>
@@ -165,7 +203,7 @@ export default function SecuritySettingsPage() {
 
         <div className="space-y-6">
           {/* Rate Limit */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Clock className="w-5 h-5" />
@@ -186,39 +224,39 @@ export default function SecuritySettingsPage() {
                   <Switch 
                     checked={formData.rateLimiting}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, rateLimiting: checked }))}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                    className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                   />
                 </div>
               </div>
               
               {formData.rateLimiting && (
                 <>
-                  <Separator />
+                  <Separator className="bg-border" />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium">Limit to</Label>
-                      <div className="flex items-center gap-2 mt-1">
+                      <Label className="text-sm font-medium mb-2 block">Limit to</Label>
+                      <div className="flex items-center gap-2">
                         <Input 
                           type="number" 
                           min="1" 
                           max="1000"
                           value={formData.rateLimit}
                           onChange={(e) => setFormData(prev => ({ ...prev, rateLimit: parseInt(e.target.value) || 20 }))}
-                          className="w-20 rounded-md"
+                          className="w-20 border-border focus-visible:ring-ring"
                         />
                         <span className="text-sm text-muted-foreground">messages</span>
                       </div>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Every</Label>
-                      <div className="flex items-center gap-2 mt-1">
+                      <Label className="text-sm font-medium mb-2 block">Every</Label>
+                      <div className="flex items-center gap-2">
                         <Input 
                           type="number" 
                           min="1" 
                           max="3600"
                           value={formData.rateLimitWindow}
                           onChange={(e) => setFormData(prev => ({ ...prev, rateLimitWindow: parseInt(e.target.value) || 240 }))}
-                          className="w-20 rounded-md"
+                          className="w-20 border-border focus-visible:ring-ring"
                         />
                         <span className="text-sm text-muted-foreground">seconds</span>
                       </div>
@@ -226,12 +264,12 @@ export default function SecuritySettingsPage() {
                   </div>
                   
                   <div>
-                    <Label className="text-sm font-medium">Message to show when limit is hit</Label>
+                    <Label className="text-sm font-medium mb-2 block">Message to show when limit is hit</Label>
                     <Input 
                       value={formData.rateLimitMessage}
                       onChange={(e) => setFormData(prev => ({ ...prev, rateLimitMessage: e.target.value }))}
                       placeholder="Too many messages in a row"
-                      className="mt-1 rounded-md"
+                      className="border-border focus-visible:ring-ring"
                     />
                   </div>
                 </>
@@ -240,7 +278,7 @@ export default function SecuritySettingsPage() {
           </Card>
 
           {/* Access Control */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Shield className="w-5 h-5" />
@@ -257,49 +295,49 @@ export default function SecuritySettingsPage() {
                   <Switch 
                     checked={formData.requireAuth}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, requireAuth: checked }))}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                    className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                   />
                 </div>
               </div>
               
-              <Separator />
+              <Separator className="bg-border" />
               
               <div>
-                <Label className="text-sm font-medium">Allowed Domains</Label>
+                <Label className="text-sm font-medium mb-2 block">Allowed Domains</Label>
                 <Textarea 
                   value={formData.allowedDomains}
                   onChange={(e) => setFormData(prev => ({ ...prev, allowedDomains: e.target.value }))}
                   placeholder="Enter allowed domains, one per line&#10;example.com&#10;*.mydomain.com"
                   rows={3}
-                  className="mt-1 rounded-md"
+                  className="border-border focus-visible:ring-ring"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Leave empty to allow all domains</p>
+                <p className="text-xs text-muted-foreground mt-2">Leave empty to allow all domains</p>
               </div>
             </CardContent>
           </Card>
 
           {/* IP Whitelist */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="text-lg">IP Whitelist</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <Label className="text-sm font-medium">Allowed IP Addresses</Label>
+                <Label className="text-sm font-medium mb-2 block">Allowed IP Addresses</Label>
                 <Textarea 
                   value={formData.ipWhitelist}
                   onChange={(e) => setFormData(prev => ({ ...prev, ipWhitelist: e.target.value }))}
                   placeholder="Enter IP addresses, one per line&#10;192.168.1.1&#10;10.0.0.0/8"
                   rows={4}
-                  className="mt-1 rounded-md"
+                  className="border-border focus-visible:ring-ring"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Leave empty to allow all IPs</p>
+                <p className="text-xs text-muted-foreground mt-2">Leave empty to allow all IPs</p>
               </div>
             </CardContent>
           </Card>
 
           {/* Data Security */}
-          <Card className="border border-border bg-card rounded-md">
+          <Card className="border border-border bg-card rounded-lg shadow-sm">
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Lock className="w-5 h-5" />
@@ -316,53 +354,36 @@ export default function SecuritySettingsPage() {
                   <Switch 
                     checked={formData.sessionEncryption}
                     onCheckedChange={(checked) => setFormData(prev => ({ ...prev, sessionEncryption: checked }))}
-                    className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-gray-300 border-2 border-gray-200 data-[state=unchecked]:border-gray-300"
+                    className="data-[state=checked]:bg-[#10b981] data-[state=unchecked]:bg-neutral-300"
                   />
                 </div>
               </div>
               
-              <Separator />
+              <Separator className="bg-border" />
               
               <div>
-                <Label className="text-sm font-medium">Data Retention (days)</Label>
+                <Label className="text-sm font-medium mb-2 block">Data Retention (days)</Label>
                 <Input 
                   type="number" 
                   min="1" 
                   max="365"
                   value={formData.dataRetention}
                   onChange={(e) => setFormData(prev => ({ ...prev, dataRetention: parseInt(e.target.value) || 90 }))}
-                  className="w-32 mt-1 rounded-md"
+                  className="w-32 border-border focus-visible:ring-ring"
                 />
-                <p className="text-xs text-muted-foreground mt-1">How long to keep conversation data</p>
+                <p className="text-xs text-muted-foreground mt-2">How long to keep conversation data</p>
               </div>
             </CardContent>
           </Card>
 
-          {/* Action Buttons */}
-          <div className="flex justify-between pt-4">
+          {/* Reset Button */}
+          <div className="flex justify-start pt-4">
             <Button 
               variant="outline" 
               onClick={handleReset}
-              className="rounded-md"
+              className="border-border rounded-lg"
             >
               Reset
-            </Button>
-            <Button 
-              onClick={handleSave} 
-              disabled={saving} 
-              className="bg-primary hover:bg-primary/90 rounded-md"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save
-                </>
-              )}
             </Button>
           </div>
         </div>

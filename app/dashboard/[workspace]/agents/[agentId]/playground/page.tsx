@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { SystemPromptSelector } from '@/components/ui/system-prompt-selector'
+import { SYSTEM_PROMPT_TEMPLATES } from '@/components/ui/system-prompt-selector'
 import { Send, RotateCcw, Loader2, Smile, Copy, Check, ExternalLink, CheckCircle, Calendar, Clock, ChevronLeft, ChevronRight, ChevronDown, X, ThumbsUp, ThumbsDown, RotateCw } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
@@ -634,7 +634,7 @@ export default function PlaygroundPage() {
   const [agentConfig, setAgentConfig] = useState<AgentConfig>({
     name: '',
     status: 'draft',
-    model: 'gpt-4o-mini',
+    model: 'gpt-5-mini',
     temperature: 0.7,
     systemPrompt: '',
     actions: []
@@ -828,12 +828,13 @@ export default function PlaygroundPage() {
     const setDefaultModels = () => {
       // Fallback to default models if fetch fails
       const defaultModels = [
-        { id: 'gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast and affordable', provider: 'openai' },
-        { id: 'gpt-4o', name: 'GPT-4o', description: 'Most capable', provider: 'openai' },
-        { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', description: 'High performance', provider: 'openai' },
-        { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash', description: 'Latest - Fast', provider: 'google' },
-        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash', description: 'Fast', provider: 'google' },
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro', description: 'Most capable', provider: 'google' }
+        { id: 'gpt-5-mini', name: 'GPT-5 Mini', description: 'Latest OpenAI model - Mini', provider: 'openai' },
+        { id: 'gpt-5-nano', name: 'GPT-5 Nano', description: 'Latest OpenAI model - Nano', provider: 'openai' },
+        { id: 'gpt-4.1-mini', name: 'GPT-4.1 Mini', description: 'Fast and affordable', provider: 'openai' },
+        { id: 'gpt-4.1-nano', name: 'GPT-4.1 Nano', description: 'Ultra-fast and efficient', provider: 'openai' },
+        { id: 'gemini-2.5-flash-lite', name: 'Gemini 2.5 Flash-Lite', description: 'Ultra-fast Gemini model', provider: 'google' },
+        { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', description: 'Fast and efficient', provider: 'google' },
+        { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', description: 'Most capable Gemini', provider: 'google' }
       ]
       setAvailableModels(defaultModels)
     }
@@ -889,19 +890,38 @@ export default function PlaygroundPage() {
 
         if (agentDoc.exists()) {
           const data = agentDoc.data()
-          const savedModel = data.model || 'gpt-4o-mini'
+          const savedModel = data.model || 'gpt-5-mini'
+
+          // List of valid new models
+          const validNewModels = [
+            'gpt-5-mini',
+            'gpt-5-nano',
+            'gpt-4.1-mini',
+            'gpt-4.1-nano',
+            'gemini-2.5-flash-lite',
+            'gemini-2.5-flash',
+            'gemini-2.5-pro'
+          ]
 
           // Map old model names to new ones if needed
           const modelMapping: Record<string, string> = {
-            'gpt-4o': 'gpt-4o',
-            'gpt-4o-mini': 'gpt-4o-mini',
-            'gpt-4-turbo': 'gpt-4-turbo',
-            'openai/gpt-4o': 'gpt-4o',
-            'openai/gpt-4o-mini': 'gpt-4o-mini',
-            'x-ai/grok-4-fast:free': 'gpt-4o-mini', // Fallback to gpt-4o-mini
+            'gpt-4o': 'gpt-5-mini',
+            'gpt-4o-mini': 'gpt-4.1-mini',
+            'gpt-4-turbo': 'gpt-5-mini',
+            'openai/gpt-4o': 'gpt-5-mini',
+            'openai/gpt-4o-mini': 'gpt-4.1-mini',
+            'x-ai/grok-4-fast:free': 'gpt-4.1-mini',
+            'gemini-2.0-flash-exp': 'gemini-2.5-flash',
+            'gemini-1.5-flash': 'gemini-2.5-flash',
+            'gemini-1.5-pro': 'gemini-2.5-pro',
           }
 
-          const mappedModel = modelMapping[savedModel] || 'gpt-4o-mini'
+          // If saved model is already a valid new model, use it directly
+          // Otherwise, check if it's an old model that needs mapping
+          // If neither, fall back to default
+          const mappedModel = validNewModels.includes(savedModel) 
+            ? savedModel 
+            : (modelMapping[savedModel] || 'gpt-5-mini')
 
           const loadedConfig: AgentConfig = {
             name: data.name || '',
@@ -1641,9 +1661,62 @@ REMEMBER:
       <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
       <div className="flex h-screen bg-background overflow-hidden">
         {/* Left Sidebar - Agent Configuration */}
-        <div className="w-80 border-r border-border bg-background flex flex-col h-screen overflow-hidden">
+        <div className="w-[400px] border-r border-border bg-background flex flex-col h-screen overflow-hidden">
           {/* Scrollable Configuration Content */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 playground-scrollbar" style={{ scrollbarWidth: 'auto', scrollbarColor: 'rgba(0,0,0,0.4) rgba(0,0,0,0.1)' }}>
+          <div 
+            className="flex-1 overflow-y-auto px-6 pt-6 pb-6 space-y-6 playground-scrollbar"
+            style={{ scrollbarWidth: 'auto', scrollbarColor: 'rgba(0,0,0,0.4) rgba(0,0,0,0.1)' }}
+          >
+            {/* Unsaved Changes Alert */}
+            {hasUnsavedChanges && (
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 rounded-lg p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 mt-0.5">
+                    <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                      Unsaved Changes
+                    </p>
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                      You have unsaved changes to your agent configuration.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 border-amber-300 dark:border-amber-800 hover:bg-amber-100 dark:hover:bg-amber-900/30"
+                    onClick={() => {
+                      // Reload original config to discard changes
+                      if (originalAgentConfig) {
+                        setAgentConfig({ ...originalAgentConfig })
+                        toast.success('Changes discarded')
+                      }
+                    }}
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="flex-1"
+                    disabled={isSaving}
+                    onClick={handleSaveAgent}
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save to agent'
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+            
             {/* Agent Status */}
             <div className="space-y-3">
               <Label className="text-sm font-medium text-foreground">Agent Status</Label>
@@ -1770,57 +1843,68 @@ REMEMBER:
                       })}
                     </>
                   ) : (
-                    <SelectItem value="gpt-4o-mini" disabled>Loading models...</SelectItem>
+                    <SelectItem value="gpt-5-mini" disabled>Loading models...</SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
 
             {/* System Prompt */}
-            <SystemPromptSelector
-              value={agentConfig.systemPrompt}
-              onChange={(value) => setAgentConfig({ ...agentConfig, systemPrompt: value })}
-              label="System Prompt"
-              placeholder="Enter system prompt for your agent..."
-            />
-          </div>
-          
-          {/* Fixed Bottom - Unsaved Changes Prompt (only show when there are unsaved changes) */}
-          {hasUnsavedChanges && (
-            <div className="border-t border-border px-6 py-4 bg-background flex-shrink-0 space-y-3">
-              <p className="text-sm text-muted-foreground text-center">
-                You have unsaved changes. Do you wish to save them?
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => {
-                    // Reload original config to discard changes
-                    if (originalAgentConfig) {
-                      setAgentConfig({ ...originalAgentConfig })
-                    }
-                  }}
-                >
-                  Discard
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={isSaving}
-                  onClick={handleSaveAgent}
-                >
-                  {isSaving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save'
-                  )}
-                </Button>
+            <div className="space-y-3">
+              <div className="space-y-3">
+                <Label className="text-sm font-medium text-foreground">Instructions (System prompt)</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={agentConfig.systemPrompt === '' ? 'custom' : 
+                      SYSTEM_PROMPT_TEMPLATES.find(t => t.prompt.trim() === agentConfig.systemPrompt.trim())?.id || 'custom'}
+                    onValueChange={(templateId) => {
+                      if (templateId === 'custom') {
+                        setAgentConfig({ ...agentConfig, systemPrompt: '' })
+                      } else {
+                        const template = SYSTEM_PROMPT_TEMPLATES.find(t => t.id === templateId)
+                        if (template) {
+                          setAgentConfig({ ...agentConfig, systemPrompt: template.prompt })
+                        }
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="w-[200px] h-9 bg-background">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-background">
+                      {SYSTEM_PROMPT_TEMPLATES.map((template) => (
+                        <SelectItem key={template.id} value={template.id}>
+                          {template.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => {
+                      if (originalAgentConfig) {
+                        setAgentConfig({ ...agentConfig, systemPrompt: originalAgentConfig.systemPrompt })
+                      }
+                    }}
+                    title="Reset to saved"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-foreground">Instructions</Label>
+                <Textarea
+                  placeholder="Enter system prompt for your agent..."
+                  className="min-h-[200px] text-sm border-border rounded-lg resize-none"
+                  value={agentConfig.systemPrompt}
+                  onChange={(e) => setAgentConfig({ ...agentConfig, systemPrompt: e.target.value })}
+                />
               </div>
             </div>
-          )}
+          </div>
         </div>
 
       {/* Right Side - Fixed Chat Interface */}

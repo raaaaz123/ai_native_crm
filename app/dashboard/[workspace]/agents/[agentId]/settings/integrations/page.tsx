@@ -5,6 +5,16 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from '@/components/ui/dialog';
 import {
   ArrowLeft,
   Loader2,
@@ -37,6 +47,12 @@ interface CalendlyEventType {
   active: boolean;
 }
 
+interface ZendeskConnectionInfo {
+  subdomain: string;
+  accountName?: string;
+  accountEmail?: string;
+}
+
 interface Integration {
   id: string;
   name: string;
@@ -60,6 +76,12 @@ export default function IntegrationsPage() {
     userInfo?: CalendlyUserInfo;
     eventTypes?: CalendlyEventType[];
   }>({ connected: false });
+  const [zendeskStatus, setZendeskStatus] = useState<{
+    connected: boolean;
+    connectionInfo?: ZendeskConnectionInfo;
+  }>({ connected: false });
+  const [showZendeskSubdomainDialog, setShowZendeskSubdomainDialog] = useState(false);
+  const [zendeskSubdomain, setZendeskSubdomain] = useState('');
 
   // Available integrations
   const integrations: Integration[] = [
@@ -92,8 +114,8 @@ export default function IntegrationsPage() {
       name: 'Zendesk',
       description: 'Create and manage support tickets',
       icon: <div className="w-6 h-6 flex items-center justify-center text-lg">📋</div>,
-      available: false,
-      comingSoon: true
+      available: true,
+      comingSoon: false
     },
     {
       id: 'hubspot',
@@ -116,6 +138,7 @@ export default function IntegrationsPage() {
   useEffect(() => {
     loadAgent();
     checkCalendlyStatus();
+    checkZendeskStatus();
   }, [agentId, workspaceContext]);
 
   const loadAgent = async () => {
@@ -313,6 +336,201 @@ export default function IntegrationsPage() {
     }
   };
 
+  const checkZendeskStatus = async () => {
+    if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
+
+    try {
+      const fetchResponse = await fetch(
+        `/api/zendesk/status?workspace_id=${workspaceContext?.currentWorkspace?.id}&agent_id=${agentId}`
+      );
+      const responseData = await fetchResponse.json();
+      const response = {
+        success: responseData.success,
+        data: responseData.data || responseData,
+        error: responseData.error
+      };
+      if (response.success && response.data && response.data.connected) {
+        setZendeskStatus({
+          connected: true,
+          connectionInfo: response.data.connection_info
+        });
+      } else {
+        setZendeskStatus({ connected: false });
+      }
+    } catch (error) {
+      console.error('Error checking Zendesk status:', error);
+      setZendeskStatus({ connected: false });
+    }
+  };
+
+  const handleZendeskConnect = async (subdomain?: string) => {
+    if (!workspaceContext?.currentWorkspace?.id || !agentId) {
+      toast.error('Missing workspace or agent information');
+      return;
+    }
+
+    // If subdomain not provided, show dialog
+    if (!subdomain) {
+      setShowZendeskSubdomainDialog(true);
+      return;
+    }
+
+    setConnecting(true);
+    setShowZendeskSubdomainDialog(false);
+
+    try {
+      console.log('🔗 Initiating Zendesk connection...', {
+        workspaceId: workspaceContext?.currentWorkspace?.id,
+        agentId: agentId,
+        subdomain: subdomain
+      });
+
+      const fetchResponse = await fetch('/api/zendesk/connect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workspaceId: workspaceContext?.currentWorkspace?.id,
+          agentId: agentId,
+          subdomain: subdomain
+        }),
+      });
+
+      let responseData;
+      try {
+        responseData = await fetchResponse.json();
+      } catch (jsonError) {
+        console.error('❌ Failed to parse response JSON:', jsonError);
+        const textResponse = await fetchResponse.text();
+        console.error('❌ Raw response:', textResponse);
+        toast.error(`Failed to connect: ${fetchResponse.status} ${fetchResponse.statusText}`);
+        setConnecting(false);
+        return;
+      }
+
+      const response = {
+        success: responseData.success,
+        data: responseData.data || responseData,
+        error: responseData.error || responseData.detail,
+        status: fetchResponse.status
+      };
+
+      console.log('📥 Zendesk connection response:', response);
+      console.log('📥 Full response data:', JSON.stringify(responseData, null, 2));
+
+      const backendData = response.data?.data || response.data;
+      const authorizationUrl = backendData?.authorization_url || backendData?.oauth_url;
+
+      if (response.success && authorizationUrl) {
+        console.log('✅ Got authorization URL:', authorizationUrl);
+
+        const authWindow = window.open(
+          authorizationUrl,
+          'zendesk-auth',
+          'width=600,height=700,scrollbars=yes,resizable=yes'
+        );
+
+        if (!authWindow) {
+          toast.error('Please allow popups to connect with Zendesk');
+          setConnecting(false);
+          return;
+        }
+
+        const handleMessage = (event: MessageEvent) => {
+          if (event.data?.type === 'ZENDESK_CONNECTED') {
+            console.log('✅ Received Zendesk connected message');
+            window.removeEventListener('message', handleMessage);
+            setConnecting(false);
+            setTimeout(() => {
+              checkZendeskStatus();
+            }, 1000);
+          }
+        };
+
+        window.addEventListener('message', handleMessage);
+
+        const checkClosed = setInterval(() => {
+          if (authWindow?.closed) {
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            setConnecting(false);
+            setTimeout(() => {
+              checkZendeskStatus();
+            }, 1000);
+          }
+        }, 1000);
+
+        setTimeout(() => {
+          clearInterval(checkClosed);
+          if (authWindow && !authWindow.closed) {
+            authWindow.close();
+          }
+          setConnecting(false);
+        }, 300000);
+
+      } else {
+        const backendData = response.data?.data || response.data;
+        const errorMsg = response.error || backendData?.error || backendData?.detail || responseData?.detail || 'Failed to initiate Zendesk connection';
+        console.error('❌ Zendesk connection failed:', {
+          success: response.success,
+          status: response.status,
+          statusText: fetchResponse.statusText,
+          data: response.data,
+          backendData: backendData,
+          error: response.error,
+          responseData: responseData,
+          hasAuthUrl: !!authorizationUrl
+        });
+        toast.error(errorMsg || `Failed to initiate Zendesk connection (${response.status || 'Unknown error'})`);
+        setConnecting(false);
+      }
+    } catch (error: unknown) {
+      console.error('❌ Error connecting to Zendesk:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      toast.error(`Connection error: ${errorMessage}`);
+      setConnecting(false);
+    }
+  };
+
+  const handleZendeskDisconnect = async () => {
+    if (!workspaceContext?.currentWorkspace?.id || !agentId) return;
+
+    setConnecting(true);
+
+    try {
+      const fetchResponse = await fetch('/api/zendesk/disconnect', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          workspaceId: workspaceContext?.currentWorkspace?.id,
+          agentId: agentId
+        }),
+      });
+
+      const responseData = await fetchResponse.json();
+      const response = {
+        success: responseData.success,
+        data: responseData.data || responseData,
+        error: responseData.error
+      };
+
+      if (response.success) {
+        toast.success('Zendesk disconnected successfully');
+        setZendeskStatus({ connected: false });
+      } else {
+        toast.error('Failed to disconnect Zendesk');
+      }
+    } catch (error) {
+      console.error('Error disconnecting Zendesk:', error);
+      toast.error('Failed to disconnect Zendesk');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -331,7 +549,7 @@ export default function IntegrationsPage() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <Link href={`/dashboard/${workspaceSlug}/agents/${agentId}/settings`}>
-              <Button variant="outline" size="sm">
+              <Button variant="outline" size="sm" className="border-border">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </Button>
@@ -346,24 +564,24 @@ export default function IntegrationsPage() {
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">Available Now</h2>
 
           {/* Calendly Card - Featured */}
-          <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+          <Card className="border-2 border-primary/20 bg-card">
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-lg bg-blue-500 flex items-center justify-center text-white shadow-md">
+                  <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-md">
                     <Calendar className="w-6 h-6" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <CardTitle className="text-xl">Calendly</CardTitle>
+                      <CardTitle className="text-xl text-foreground">Calendly</CardTitle>
                       {calendlyStatus.connected && (
-                        <Badge variant="default" className="bg-green-500">
+                        <Badge variant="default" className="bg-success">
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Connected
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="text-base">
+                    <CardDescription className="text-base text-muted-foreground">
                       Enable AI-powered meeting scheduling with your Calendly account
                     </CardDescription>
                   </div>
@@ -374,14 +592,14 @@ export default function IntegrationsPage() {
               {calendlyStatus.connected && calendlyStatus.userInfo ? (
                 <div className="space-y-4">
                   {/* Connected Status */}
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="bg-success/10 border border-success/20 rounded-lg p-4">
                     <div className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-green-600 mt-0.5" />
+                      <CheckCircle className="w-5 h-5 text-success mt-0.5" />
                       <div className="flex-1">
-                        <p className="font-medium text-green-900">Connected as {calendlyStatus.userInfo.name}</p>
-                        <p className="text-sm text-green-700 mt-1">{calendlyStatus.userInfo.email}</p>
+                        <p className="font-medium text-foreground">Connected as {calendlyStatus.userInfo.name}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{calendlyStatus.userInfo.email}</p>
                         {calendlyStatus.eventTypes && calendlyStatus.eventTypes.length > 0 && (
-                          <div className="flex items-center gap-2 mt-2 text-sm text-green-700">
+                          <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
                             <Clock className="w-4 h-4" />
                             <span>{calendlyStatus.eventTypes.length} event type{calendlyStatus.eventTypes.length !== 1 ? 's' : ''} available</span>
                           </div>
@@ -395,7 +613,7 @@ export default function IntegrationsPage() {
                     onClick={handleCalendlyDisconnect}
                     disabled={connecting}
                     variant="outline"
-                    className="w-full sm:w-auto"
+                    className="w-full sm:w-auto border-border"
                   >
                     {connecting ? (
                       <>
@@ -414,7 +632,99 @@ export default function IntegrationsPage() {
                 <Button
                   onClick={handleCalendlyConnect}
                   disabled={connecting}
-                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90"
+                >
+                  {connecting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Connecting...
+                    </>
+                  ) : (
+                    <>
+                      <ExternalLink className="w-4 h-4 mr-2" />
+                      Connect with OAuth
+                    </>
+                  )}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Zendesk Card - Featured */}
+          <Card className="border-2 border-primary/20 bg-card mt-4">
+            <CardHeader>
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-md">
+                    <div className="text-xl">📋</div>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <CardTitle className="text-xl text-foreground">Zendesk</CardTitle>
+                      {zendeskStatus.connected && (
+                        <Badge variant="default" className="bg-success">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Connected
+                        </Badge>
+                      )}
+                    </div>
+                    <CardDescription className="text-base text-muted-foreground">
+                      Create and manage support tickets in Zendesk
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {zendeskStatus.connected && zendeskStatus.connectionInfo ? (
+                <div className="space-y-4">
+                  {/* Connected Status */}
+                  <div className="bg-success/10 border border-success/20 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle className="w-5 h-5 text-success mt-0.5" />
+                      <div className="flex-1">
+                        <p className="font-medium text-foreground">
+                          Connected to {zendeskStatus.connectionInfo.subdomain}.zendesk.com
+                        </p>
+                        {zendeskStatus.connectionInfo.accountName && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {zendeskStatus.connectionInfo.accountName}
+                          </p>
+                        )}
+                        {zendeskStatus.connectionInfo.accountEmail && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {zendeskStatus.connectionInfo.accountEmail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Disconnect Button */}
+                  <Button
+                    onClick={handleZendeskDisconnect}
+                    disabled={connecting}
+                    variant="outline"
+                    className="w-full sm:w-auto border-border"
+                  >
+                    {connecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Disconnecting...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Disconnect
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  onClick={() => handleZendeskConnect()}
+                  disabled={connecting}
+                  className="w-full sm:w-auto bg-primary hover:bg-primary/90"
                 >
                   {connecting ? (
                     <>
@@ -437,21 +747,21 @@ export default function IntegrationsPage() {
         <div>
           <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-4">Coming Soon</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {integrations.filter(i => i.comingSoon).map((integration) => (
-              <Card key={integration.id} className="opacity-60 hover:opacity-80 transition-opacity">
+            {integrations.filter(i => i.comingSoon && i.id !== 'zendesk').map((integration) => (
+              <Card key={integration.id} className="opacity-60 hover:opacity-80 transition-opacity border-border bg-card">
                 <CardHeader className="pb-3">
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-200 flex items-center justify-center text-gray-600">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground">
                       {integration.icon}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <CardTitle className="text-base">{integration.name}</CardTitle>
-                        <Badge variant="secondary" className="text-xs">
+                        <CardTitle className="text-base text-foreground">{integration.name}</CardTitle>
+                        <Badge variant="secondary" className="text-xs border-border">
                           Coming Soon
                         </Badge>
                       </div>
-                      <CardDescription className="text-sm">
+                      <CardDescription className="text-sm text-muted-foreground">
                         {integration.description}
                       </CardDescription>
                     </div>
@@ -469,6 +779,76 @@ export default function IntegrationsPage() {
           </p>
         </div>
       </div>
+
+      {/* Zendesk Subdomain Dialog */}
+      <Dialog open={showZendeskSubdomainDialog} onOpenChange={setShowZendeskSubdomainDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Connect to Zendesk</DialogTitle>
+            <DialogDescription>
+              Enter your Zendesk subdomain to continue. This is the part before &quot;.zendesk.com&quot; in your Zendesk URL.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="zendesk-subdomain" className="text-foreground">Zendesk Subdomain</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="zendesk-subdomain"
+                  placeholder="yourcompany"
+                  value={zendeskSubdomain}
+                  onChange={(e) => setZendeskSubdomain(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && zendeskSubdomain.trim()) {
+                      handleZendeskConnect(zendeskSubdomain.trim());
+                    }
+                  }}
+                  className="border-border"
+                />
+                <span className="text-sm text-muted-foreground whitespace-nowrap">.zendesk.com</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Example: If your Zendesk URL is &quot;yourcompany.zendesk.com&quot;, enter &quot;yourcompany&quot;
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowZendeskSubdomainDialog(false);
+                setZendeskSubdomain('');
+              }}
+              className="border-border"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (zendeskSubdomain.trim()) {
+                  handleZendeskConnect(zendeskSubdomain.trim());
+                } else {
+                  toast.error('Please enter your Zendesk subdomain');
+                }
+              }}
+              disabled={!zendeskSubdomain.trim() || connecting}
+              className="bg-primary hover:bg-primary/90"
+            >
+              {connecting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Connecting...
+                </>
+              ) : (
+                <>
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Connect
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
