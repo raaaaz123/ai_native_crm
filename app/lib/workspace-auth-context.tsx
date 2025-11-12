@@ -7,7 +7,12 @@ import {
   signInWithPopup, 
   signOut as firebaseSignOut,
   createUserWithEmailAndPassword,
-  signInWithEmailAndPassword
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  sendSignInLinkToEmail as firebaseSendSignInLinkToEmail,
+  isSignInWithEmailLink,
+  signInWithEmailLink as firebaseSignInWithEmailLink,
+  ActionCodeSettings
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from './firebase';
@@ -17,6 +22,7 @@ import {
   getWorkspace
 } from './workspace-firestore-utils';
 import { Workspace } from './workspace-types';
+import { events, identifyUser, resetUser } from './posthog';
 
 interface UserData {
   uid: string;
@@ -50,7 +56,9 @@ interface AuthContextType {
   loading: boolean;
   signInWithGoogle: () => Promise<{ user: User; isNewUser: boolean }>;
   signInWithEmail: (email: string, password: string) => Promise<User>;
-  signUpWithEmail: (email: string, password: string, additionalData?: Partial<UserData>) => Promise<User>;
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<User>;
+  sendSignInLinkToEmail: (email: string) => Promise<void>;
+  signInWithEmailLink: (email: string, emailLink: string) => Promise<User>;
   signOut: () => Promise<void>;
   updateUserData: (data: Partial<UserData>) => Promise<void>;
   createWorkspace: (name: string, url: string, description?: string) => Promise<{ success: boolean; error?: string }>;
@@ -95,7 +103,89 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.log('📋 [Auth State] User document found in Firestore');
             const userData = userDoc.data() as UserData;
             console.log('📊 [Auth State] User data from Firestore:', userData);
-            setUserData(userData);
+            
+            // Check if user has verified email but data is incomplete
+            if ((userData as any).pendingVerification && user.emailVerified) {
+              console.log('✅ [Auth State] Email verified! Completing user setup...');
+              
+              // Parse the temporary name
+              const tempName = (userData as any).tempName || '';
+              let firstName = '';
+              let lastName = '';
+              let displayName = '';
+              
+              if (tempName && tempName.trim()) {
+                const nameParts = tempName.trim().split(' ');
+                firstName = nameParts[0] || '';
+                lastName = nameParts.slice(1).join(' ') || '';
+                displayName = tempName.trim();
+              } else {
+                displayName = user.email?.split('@')[0] || 'User';
+                firstName = displayName;
+              }
+              
+              // Complete user data
+              const now = new Date();
+              const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+              
+              const completeUserData: UserData = {
+                uid: user.uid,
+                email: user.email || '',
+                displayName: displayName,
+                firstName: firstName,
+                lastName: lastName,
+                ...(user.photoURL && { photoURL: user.photoURL }),
+                createdAt: userData.createdAt || serverTimestamp(),
+                lastLoginAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+                subscriptionPlan: 'free_trial',
+                subscriptionStatus: 'active',
+                trialStartDate: serverTimestamp(),
+                trialEndDate: trialEnd
+              };
+              
+              console.log('💾 [Auth State] Saving complete user data:', completeUserData);
+              await setDoc(doc(db, 'users', user.uid), completeUserData);
+              
+              setUserData(completeUserData);
+              
+              // Identify user in PostHog
+              identifyUser(user.uid, {
+                email: user.email || '',
+                name: displayName,
+                firstName: firstName,
+                lastName: lastName,
+                uid: user.uid,
+                emailVerified: true
+              });
+              
+              // Send welcome email
+              import('./email-client').then(({ sendWelcomeEmailToUser }) => {
+                sendWelcomeEmailToUser({
+                  email: user.email || '',
+                  name: displayName
+                }).then(result => {
+                  if (result.success) {
+                    console.log('✅ [Auth State] Welcome email sent successfully!');
+                  } else {
+                    console.warn('⚠️ [Auth State] Failed to send welcome email:', result.error);
+                  }
+                }).catch(err => {
+                  console.warn('⚠️ [Auth State] Error sending welcome email:', err);
+                });
+              });
+              
+              console.log('✅ [Auth State] User setup completed after verification');
+            } else {
+              setUserData(userData);
+              
+              // Identify user in PostHog with email
+              identifyUser(user.uid, {
+                email: user.email || userData.email,
+                name: user.displayName || userData.displayName,
+                uid: user.uid,
+              });
+            }
           } else {
             console.log('🆕 [Auth State] User document not found, creating basic user data...');
             
@@ -104,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               uid: user.uid,
               email: user.email || '',
               displayName: user.displayName || '',
-              photoURL: user.photoURL || undefined,
+              ...(user.photoURL && { photoURL: user.photoURL }),
               createdAt: serverTimestamp(),
               lastLoginAt: serverTimestamp(),
               updatedAt: serverTimestamp()
@@ -122,6 +212,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             
             console.log('🔄 [Auth State] Setting user data state:', stateData);
             setUserData(stateData);
+            
+            // Identify user in PostHog with email
+            identifyUser(user.uid, {
+              email: user.email || '',
+              name: user.displayName || '',
+              uid: user.uid,
+            });
           }
 
           // Load workspace context
@@ -248,7 +345,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           uid: user.uid,
           email: user.email || '',
           displayName: user.displayName || '',
-          photoURL: user.photoURL || undefined,
+          ...(user.photoURL && { photoURL: user.photoURL }),
           firstName: firstName,
           lastName: lastName,
           createdAt: serverTimestamp(),
@@ -273,6 +370,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           lastLoginAt: new Date(),
           updatedAt: new Date()
         });
+        
+        // Identify user in PostHog with email (before tracking events)
+        identifyUser(user.uid, {
+          email: user.email || '',
+          name: user.displayName || '',
+          uid: user.uid,
+          method: 'google'
+        });
+        
+        // Track sign up event
+        events.signUp('google');
         
         console.log('🔄 [State] User data state updated');
         
@@ -320,6 +428,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updatedAt: new Date()
         });
         
+        // Identify user in PostHog with email (before tracking events)
+        identifyUser(user.uid, {
+          email: user.email || '',
+          name: user.displayName || '',
+          uid: user.uid,
+          method: 'google'
+        });
+        
+        // Track sign in event
+        events.signIn('google');
+        
         console.log('🔄 [State] User data state updated');
       }
       
@@ -349,9 +468,200 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp()
       }, { merge: true });
       
+      // Identify user in PostHog with email (before tracking events)
+      identifyUser(result.user.uid, {
+        email: result.user.email || '',
+        uid: result.user.uid,
+        method: 'email'
+      });
+      
+      // Track sign in event
+      events.signIn('email');
+      
       return result.user;
     } catch (error) {
       console.error('Error signing in with email:', error);
+      events.errorOccurred('Sign in failed', 'authentication_error', { method: 'email' });
+      throw error;
+    }
+  };
+
+  const sendSignInLinkToEmail = async (email: string): Promise<void> => {
+    try {
+      console.log('📧 [Email Link] Sending sign-in link to:', email);
+      
+      // Get the current origin
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+      const callbackUrl = `${origin}/auth/callback`;
+      
+      console.log('🔗 [Email Link] Callback URL:', callbackUrl);
+      console.log('🌐 [Email Link] Origin:', origin);
+      
+      const actionCodeSettings: ActionCodeSettings = {
+        // URL to redirect back to after clicking the link
+        url: callbackUrl,
+        // This must be true for email link sign-in
+        handleCodeInApp: true,
+      };
+      
+      console.log('⚙️ [Email Link] Action code settings:', actionCodeSettings);
+      
+      await firebaseSendSignInLinkToEmail(auth, email, actionCodeSettings);
+      
+      // Save the email locally so we don't need to ask for it again
+      // if the user opens the link on the same device
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('emailForSignIn', email);
+      }
+      
+      console.log('✅ [Email Link] Sign-in link sent successfully');
+      console.log('📬 [Email Link] Check your inbox at:', email);
+      console.log('💡 [Email Link] Note: Email may take a few minutes to arrive. Check spam folder if not in inbox.');
+      
+      // Track event
+      events.buttonClicked('email_link_signin_requested', 'signin_page');
+    } catch (error: any) {
+      console.error('❌ [Email Link] Error sending sign-in link:', error);
+      console.error('❌ [Email Link] Error code:', error?.code);
+      console.error('❌ [Email Link] Error message:', error?.message);
+      
+      // Provide user-friendly error messages
+      let errorMessage = 'Failed to send sign-in link';
+      if (error?.code === 'auth/invalid-email') {
+        errorMessage = 'Invalid email address. Please check and try again.';
+      } else if (error?.code === 'auth/user-disabled') {
+        errorMessage = 'This account has been disabled. Please contact support.';
+      } else if (error?.code === 'auth/user-not-found') {
+        // This is actually OK for sign-up flow
+        errorMessage = 'Failed to send link. Please try again.';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      events.errorOccurred('Email link send failed', 'authentication_error', { 
+        error: error?.message || 'Unknown error',
+        code: error?.code
+      });
+      
+      throw new Error(errorMessage);
+    }
+  };
+
+  const signInWithEmailLink = async (email: string, emailLink: string): Promise<User> => {
+    try {
+      console.log('🔗 [Email Link] Completing sign-in with email link');
+      
+      const result = await firebaseSignInWithEmailLink(auth, email, emailLink);
+      const user = result.user;
+      
+      console.log('✅ [Email Link] Sign-in successful:', user.uid);
+      
+      // Clear email from storage
+      if (typeof window !== 'undefined') {
+        window.localStorage.removeItem('emailForSignIn');
+      }
+      
+      // Check if this is a new user
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      const isNewUser = !userDoc.exists();
+      
+      // Get pending full name from localStorage if available (from signup page)
+      let pendingFullName = '';
+      if (typeof window !== 'undefined') {
+        pendingFullName = window.localStorage.getItem('pendingFullName') || '';
+        if (pendingFullName) {
+          window.localStorage.removeItem('pendingFullName');
+        }
+      }
+      
+      // Parse name: use pendingFullName if available, otherwise use email username
+      let firstName = '';
+      let lastName = '';
+      let displayName = '';
+      
+      if (pendingFullName && pendingFullName.trim()) {
+        const nameParts = pendingFullName.trim().split(' ');
+        firstName = nameParts[0] || '';
+        lastName = nameParts.slice(1).join(' ') || '';
+        displayName = pendingFullName.trim();
+      } else {
+        // Fallback to email username
+        const emailUsername = email.split('@')[0];
+        displayName = emailUsername.charAt(0).toUpperCase() + emailUsername.slice(1);
+        firstName = displayName;
+      }
+      
+      if (isNewUser) {
+        console.log('🆕 [Email Link] New user detected, creating user document...');
+        console.log('👤 [Email Link] Using name:', { firstName, lastName, displayName });
+        
+        // Create user document
+        const now = new Date();
+        const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+        
+        const newUserData: UserData = {
+          uid: user.uid,
+          email: user.email || '',
+          displayName: displayName,
+          firstName: firstName,
+          lastName: lastName,
+          createdAt: serverTimestamp(),
+          lastLoginAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          subscriptionPlan: 'free_trial',
+          subscriptionStatus: 'active',
+          trialStartDate: serverTimestamp(),
+          trialEndDate: trialEnd
+        };
+        
+        await setDoc(doc(db, 'users', user.uid), newUserData);
+        setUserData({
+          ...newUserData,
+          createdAt: new Date(),
+          lastLoginAt: new Date(),
+          updatedAt: new Date()
+        });
+        
+        // Track sign up event
+        events.signUp('email_link');
+        
+        // Send welcome email
+        import('./email-client').then(({ sendWelcomeEmailToUser }) => {
+          sendWelcomeEmailToUser({
+            email: user.email || '',
+            name: displayName
+          }).catch(err => {
+            console.warn('⚠️ [Email Link] Failed to send welcome email:', err);
+          });
+        });
+      } else {
+        // Update last login time for existing user
+        await setDoc(doc(db, 'users', user.uid), {
+          lastLoginAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+        
+        // Track sign in event
+        events.signIn('email_link');
+      }
+      
+      // Identify user in PostHog
+      const userData = userDoc.exists() ? userDoc.data() as UserData : null;
+      const finalDisplayName = userData?.displayName || displayName;
+      identifyUser(user.uid, {
+        email: user.email || '',
+        name: finalDisplayName,
+        uid: user.uid,
+        method: 'email_link',
+        emailVerified: user.emailVerified
+      });
+      
+      return user;
+    } catch (error) {
+      console.error('❌ [Email Link] Error completing sign-in:', error);
+      events.errorOccurred('Email link sign-in failed', 'authentication_error', {
+        error: (error as Error).message
+      });
       throw error;
     }
   };
@@ -359,69 +669,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUpWithEmail = async (
     email: string, 
     password: string, 
-    additionalData?: Partial<UserData>
+    fullName?: string
   ): Promise<User> => {
     try {
+      console.log('📝 [Email Signup] Starting email signup...');
+      console.log('📊 [Email Signup] Email:', email, 'Full Name:', fullName);
+      
+      // Create Firebase auth user
       const result = await createUserWithEmailAndPassword(auth, email, password);
       const user = result.user;
       
-      // Create user document in Firestore
-      const now = new Date();
-      const trialEnd = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000); // 14 days from now
+      console.log('✅ [Email Signup] Firebase auth user created:', user.uid);
       
-      const newUserData: UserData = {
+      // Send email verification FIRST before saving any data
+      try {
+        console.log('📧 [Email Signup] Sending verification email to:', user.email);
+        await sendEmailVerification(user, {
+          url: `${window.location.origin}/verify-email?continue=/dashboard`,
+          handleCodeInApp: false
+        });
+        console.log('✅ [Email Signup] Verification email sent successfully');
+      } catch (verificationError) {
+        console.error('❌ [Email Signup] Failed to send verification email:', verificationError);
+        // Delete the user if we can't send verification email
+        await user.delete();
+        throw new Error('Failed to send verification email. Please try again.');
+      }
+      
+      // Store minimal data temporarily (will be completed after verification)
+      const tempUserData = {
         uid: user.uid,
         email: user.email || '',
-        displayName: user.displayName || '',
-        photoURL: user.photoURL || undefined,
-        createdAt: serverTimestamp(),
-        lastLoginAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        // Initialize 14-day free trial
-        subscriptionPlan: 'free_trial',
-        subscriptionStatus: 'active',
-        trialStartDate: serverTimestamp(),
-        trialEndDate: trialEnd,
-        ...additionalData
+        emailVerified: false,
+        pendingVerification: true,
+        tempName: fullName, // Store temporarily
+        createdAt: serverTimestamp()
       };
       
-      await setDoc(doc(db, 'users', user.uid), newUserData);
-      setUserData({
-        ...newUserData,
-        createdAt: new Date(),
-        lastLoginAt: new Date(),
-        updatedAt: new Date()
-      });
+      console.log('💾 [Email Signup] Saving temporary user data:', tempUserData);
+      await setDoc(doc(db, 'users', user.uid), tempUserData);
       
-      // Send welcome email asynchronously (don't block signup flow)
-      const userName = newUserData.displayName || `${newUserData.firstName || ''} ${newUserData.lastName || ''}`.trim() || 'User';
-      console.log('📧 Triggering welcome email for:', userName);
+      // Track sign up event
+      events.signUp('email');
       
-      // Import and send welcome email (async, non-blocking)
-      import('./email-client').then(({ sendWelcomeEmailToUser }) => {
-        sendWelcomeEmailToUser({
-          email: user.email || '',
-          name: userName
-        }).then(result => {
-          if (result.success) {
-            console.log('✅ Welcome email sent successfully!');
-          } else {
-            console.warn('⚠️ Failed to send welcome email:', result.error);
-          }
-        }).catch(err => {
-          console.warn('⚠️ Error sending welcome email:', err);
-        });
-      });
+      console.log('🎉 [Email Signup] Signup completed, awaiting verification');
       
       return user;
     } catch (error) {
-      console.error('Error signing up with email:', error);
+      console.error('❌ [Email Signup] Error during signup:', error);
       throw error;
     }
   };
 
   const signOut = async (): Promise<void> => {
     try {
+      // Track sign out event
+      events.signOut();
+      resetUser();
+      
       await firebaseSignOut(auth);
       setUserData(null);
       setWorkspaceContext({
@@ -431,6 +736,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
     } catch (error) {
       console.error('Error signing out:', error);
+      events.errorOccurred('Sign out failed', 'authentication_error');
       throw error;
     }
   };
@@ -503,6 +809,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('✅ [Create Workspace] Workspace created successfully, reloading context...');
       
+      // Track workspace creation
+      if (result.data) {
+        events.workspaceCreated(result.data.id, result.data.name);
+        
+        // Send workspace created email notification
+        try {
+          const { sendWorkspaceCreatedEmail } = await import('./email-utils');
+          const userName = user.displayName || user.email || 'User';
+          await sendWorkspaceCreatedEmail(
+            user.email || '',
+            userName,
+            result.data.name
+          );
+        } catch (emailError) {
+          // Don't fail workspace creation if email fails
+          console.error('❌ [Create Workspace] Failed to send workspace created email:', emailError);
+        }
+      }
+      
       // Reload workspace context
       await loadWorkspaceContext(user.uid);
       
@@ -530,6 +855,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw new Error(result.error || 'Workspace not found');
     }
 
+    // Track workspace switch
+    events.workspaceSwitched(result.data.id, result.data.name);
+
     setWorkspaceContext(prev => ({
       ...prev,
       currentWorkspace: result.data!
@@ -555,6 +883,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signInWithGoogle,
     signInWithEmail,
     signUpWithEmail,
+    sendSignInLinkToEmail,
+    signInWithEmailLink,
     signOut,
     updateUserData,
     createWorkspace: createWorkspaceHandler,
@@ -581,6 +911,8 @@ export function useAuth() {
       signInWithGoogle: async () => { throw new Error('Auth not available'); },
       signInWithEmail: async () => { throw new Error('Auth not available'); },
       signUpWithEmail: async () => { throw new Error('Auth not available'); },
+      sendSignInLinkToEmail: async () => { throw new Error('Auth not available'); },
+      signInWithEmailLink: async () => { throw new Error('Auth not available'); },
       signOut: async () => {},
       updateUserData: async () => {},
       createWorkspace: async () => ({ success: false, error: 'Auth not available' }),

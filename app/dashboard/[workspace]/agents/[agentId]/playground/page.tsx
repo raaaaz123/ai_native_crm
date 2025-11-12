@@ -1,24 +1,28 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/app/lib/workspace-auth-context'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/app/lib/firebase'
 import { DEFAULT_SYSTEM_PROMPT } from '@/app/lib/agent-constants'
-import { getActiveCustomButtonActions, getAgentActions, AgentAction, CustomButtonConfig, CollectLeadsConfig, CalendlyConfig, submitCollectLeadsForm } from '@/app/lib/action-utils'
+import { getActiveCustomButtonActions, getAgentActions, AgentAction, CustomButtonConfig, CollectLeadsConfig, CalendlyConfig, ZendeskConfig, submitCollectLeadsForm, updateAgentAction } from '@/app/lib/action-utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
-import { Send, RotateCcw, Loader2, Smile, Copy, Check, ExternalLink, CheckCircle, Calendar, Clock, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { SystemPromptSelector } from '@/components/ui/system-prompt-selector'
+import { Send, RotateCcw, Loader2, Smile, Copy, Check, ExternalLink, CheckCircle, Calendar, Clock, ChevronLeft, ChevronRight, ChevronDown, X, ThumbsUp, ThumbsDown, RotateCw } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeHighlight from 'rehype-highlight'
-import EmojiPicker, { EmojiClickData } from 'emoji-picker-react'
 import 'highlight.js/styles/github-dark.css'
+import EmojiPicker from '@/app/components/ui/emoji-picker'
 
 // Custom scrollbar styles and markdown styling
 const scrollbarStyles = `
@@ -213,6 +217,15 @@ interface Message {
     eventTypeName: string
     duration: number
     schedulingUrl?: string
+  }
+  zendeskTicket?: {
+    actionId: string
+    ticketId?: string
+    subject: string
+    description: string
+    requesterEmail: string
+    requesterName?: string
+    status?: string
   }
 }
 
@@ -419,11 +432,11 @@ function CalendlyBookingWidget({
 
   return (
     <div className="mt-2 max-w-[80%]">
-      <Card className="border border-gray-200 shadow-sm">
+      <Card className="border border-gray-100">
         <CardContent className="p-3">
           <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="p-1.5 bg-blue-100 rounded-lg">
+              <div className="p-1.5 bg-blue-100 rounded">
                 <Calendar className="w-4 h-4 text-blue-600" />
               </div>
               <div>
@@ -482,10 +495,10 @@ function CalendlyBookingWidget({
                           key={index}
                           onClick={() => setSelectedTime(timeStr)}
                           className={`
-                            w-full px-3 py-2 rounded-lg text-xs font-medium transition-colors text-center
+                            w-full px-3 py-2 rounded text-xs font-medium transition-colors text-center
                             ${isSelected
-                              ? 'bg-blue-600 text-white shadow-md'
-                              : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-white border border-gray-100 text-gray-700 hover:bg-gray-50'
                             }
                           `}
                         >
@@ -561,7 +574,7 @@ function CalendlyBookingWidget({
                               : isToday
                               ? 'bg-blue-50 text-blue-700 font-semibold border border-blue-600'
                               : dayInfo.hasSlots && dayInfo.isCurrentMonth && !isPast
-                              ? 'bg-white text-gray-900 hover:bg-gray-100 border border-gray-200'
+                              ? 'bg-white text-gray-900 hover:bg-gray-50 border border-gray-100'
                               : 'bg-gray-50 text-gray-400 cursor-not-allowed'
                             }
                           `}
@@ -593,14 +606,24 @@ export default function PlaygroundPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isSending, setIsSending] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [loadingAgent, setLoadingAgent] = useState(true)
   const [statusMessage, setStatusMessage] = useState<string>('')
   const [availableModels, setAvailableModels] = useState<Array<{ id: string; name: string; provider?: string; description?: string }>>([])
   const [copiedCode, setCopiedCode] = useState<string>('')
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const [likedMessages, setLikedMessages] = useState<Set<string>>(new Set())
+  const [dislikedMessages, setDislikedMessages] = useState<Set<string>>(new Set())
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [customButtonActions, setCustomButtonActions] = useState<AgentAction[]>([])
   const [collectLeadsActions, setCollectLeadsActions] = useState<AgentAction[]>([])
   const [calendlyActions, setCalendlyActions] = useState<AgentAction[]>([])
+  const [zendeskActions, setZendeskActions] = useState<AgentAction[]>([])
+  const [allActions, setAllActions] = useState<AgentAction[]>([])
+  const [creatingTicket, setCreatingTicket] = useState<string | null>(null)
+  const [isActionsOpen, setIsActionsOpen] = useState(false)
   const [leadFormData, setLeadFormData] = useState<Record<string, string>>({})
   const [submittingForm, setSubmittingForm] = useState<string | null>(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
@@ -616,6 +639,20 @@ export default function PlaygroundPage() {
     systemPrompt: '',
     actions: []
   })
+  
+  // Track original config to detect unsaved changes
+  const [originalAgentConfig, setOriginalAgentConfig] = useState<AgentConfig | null>(null)
+  
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = useMemo(() => {
+    if (!originalAgentConfig) return false
+    
+    const modelChanged = agentConfig.model !== originalAgentConfig.model
+    const tempChanged = Math.abs(agentConfig.temperature - originalAgentConfig.temperature) > 0.01
+    const promptChanged = agentConfig.systemPrompt.trim() !== originalAgentConfig.systemPrompt.trim()
+    
+    return modelChanged || tempChanged || promptChanged
+  }, [agentConfig, originalAgentConfig])
 
   // Prevent body scrolling when playground is mounted
   useEffect(() => {
@@ -646,10 +683,89 @@ export default function PlaygroundPage() {
     }
   }
 
+  // Handler functions for message interactions
+  const handleCopyMessage = async (messageId: string, content: string) => {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedMessageId(messageId)
+      setTimeout(() => setCopiedMessageId(null), 2000)
+      toast.success('Message copied to clipboard!')
+    } catch (error) {
+      console.error('Failed to copy message:', error)
+      toast.error('Failed to copy message')
+    }
+  }
+
+  const handleLikeMessage = (messageId: string) => {
+    setLikedMessages(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId)
+      } else {
+        newSet.add(messageId)
+        dislikedMessages.delete(messageId)
+      }
+      return newSet
+    })
+    setDislikedMessages(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(messageId)
+      return newSet
+    })
+  }
+
+  const handleDislikeMessage = (messageId: string) => {
+    setDislikedMessages(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(messageId)) {
+        newSet.delete(messageId)
+      } else {
+        newSet.add(messageId)
+        likedMessages.delete(messageId)
+      }
+      return newSet
+    })
+    setLikedMessages(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(messageId)
+      return newSet
+    })
+  }
+
+  // Toggle action enable/disable and persist status
+  const handleToggleActionStatus = async (action: AgentAction, isActive: boolean) => {
+    const previousStatus = action.status
+    // Optimistic UI update
+    setAllActions(prev => prev.map(a => a.id === action.id ? { ...a, status: isActive ? 'active' : 'inactive' } : a))
+    const res = await updateAgentAction(action.id, { status: isActive ? 'active' : 'inactive' })
+    if (!res.success) {
+      // Rollback on failure
+      setAllActions(prev => prev.map(a => a.id === action.id ? { ...a, status: previousStatus } : a))
+      toast.error('Failed to update action status')
+    } else {
+      toast.success(isActive ? 'Action enabled' : 'Action disabled')
+    }
+  }
+
+  const handleRegenerateResponse = async (messageId: string) => {
+    setRegeneratingMessageId(messageId)
+    // Find the user message before this assistant message
+    const messageIndex = messages.findIndex(m => m.id === messageId)
+    if (messageIndex > 0) {
+      const userMessage = messages[messageIndex - 1]
+      if (userMessage.role === 'user') {
+        // Remove the assistant message and regenerate
+        setMessages(prev => prev.filter(m => m.id !== messageId))
+        setInput(userMessage.content)
+        await handleSendMessage()
+      }
+    }
+    setRegeneratingMessageId(null)
+  }
+
   // Emoji picker functions
-  const handleEmojiClick = (emojiData: EmojiClickData) => {
-    setInput(prev => prev + emojiData.emoji)
-    setShowEmojiPicker(false)
+  const handleEmojiClick = (emoji: string) => {
+    setInput(prev => prev + emoji)
   }
 
   // Close emoji picker when clicking outside
@@ -787,14 +903,17 @@ export default function PlaygroundPage() {
 
           const mappedModel = modelMapping[savedModel] || 'gpt-4o-mini'
 
-          setAgentConfig({
+          const loadedConfig: AgentConfig = {
             name: data.name || '',
             status: data.status || 'draft',
             model: mappedModel,
             temperature: data.temperature ?? 0.7,
             systemPrompt: data.systemPrompt || DEFAULT_SYSTEM_PROMPT,
             actions: data.actions || []
-          })
+          }
+          
+          setAgentConfig(loadedConfig)
+          setOriginalAgentConfig(loadedConfig) // Store original for comparison
         }
 
         // Load active custom button actions
@@ -804,21 +923,33 @@ export default function PlaygroundPage() {
           console.log('Loaded custom button actions:', buttonActionsResponse.data)
         }
 
-        // Load active collect leads actions
+        // Load all actions
         const allActionsResponse = await getAgentActions(agentId)
         if (allActionsResponse.success) {
+          // Store all actions for sidebar display
+          setAllActions(allActionsResponse.data)
+          console.log('Loaded all actions:', allActionsResponse.data)
+
+          // Filter active collect leads actions
           const activeCollectLeads = allActionsResponse.data.filter(
             action => action.type === 'collect-leads' && action.status === 'active'
           )
           setCollectLeadsActions(activeCollectLeads)
           console.log('Loaded collect leads actions:', activeCollectLeads)
 
-          // Load active Calendly actions
+          // Filter active Calendly actions
           const activeCalendly = allActionsResponse.data.filter(
             action => action.type === 'calendly-slots' && action.status === 'active'
           )
           setCalendlyActions(activeCalendly)
           console.log('Loaded Calendly actions:', activeCalendly)
+
+          // Filter active Zendesk actions
+          const activeZendesk = allActionsResponse.data.filter(
+            action => action.type === 'zendesk-create-ticket' && action.status === 'active'
+          )
+          setZendeskActions(activeZendesk)
+          console.log('Loaded Zendesk actions:', activeZendesk)
         }
       } catch (error) {
         console.error('Error loading agent:', error)
@@ -843,6 +974,9 @@ export default function PlaygroundPage() {
         systemPrompt: agentConfig.systemPrompt,
         updatedAt: new Date()
       })
+      
+      // Update original config after successful save
+      setOriginalAgentConfig({ ...agentConfig })
       toast.success('Agent configuration saved!')
     } catch (error) {
       console.error('Error saving agent:', error)
@@ -859,6 +993,7 @@ export default function PlaygroundPage() {
     console.log('🚀 SENDING MESSAGE:', input)
     console.log('📱 Custom button actions available:', customButtonActions.length)
     console.log('📋 Collect leads actions available:', collectLeadsActions.length)
+    console.log('🎫 Zendesk actions available:', zendeskActions.length)
 
     if (customButtonActions.length > 0) {
       console.log('📱 Custom button actions details:')
@@ -880,8 +1015,8 @@ export default function PlaygroundPage() {
     setMessages(prev => [...prev, userMessage])
     const userInput = input
     setInput('')
-    setIsLoading(true)
-    setStatusMessage('Starting...')
+    setIsSending(true) // Show sending state immediately
+    setStatusMessage('Sending...')
 
     // Create assistant message that we'll stream into
     const assistantMessageId = (Date.now() + 1).toString()
@@ -890,7 +1025,9 @@ export default function PlaygroundPage() {
     let detectedButton: { text: string; url: string; openInNewTab?: boolean } | undefined
     let detectedForm: Message['collectLeadsForm'] | undefined
     let detectedCalendly: Message['calendlyBooking'] | undefined
+    let detectedZendesk: Message['zendeskTicket'] | undefined
 
+    setStreamingMessageId(assistantMessageId) // Mark as streaming
     setMessages(prev => [...prev, {
       id: assistantMessageId,
       role: 'assistant',
@@ -1017,6 +1154,101 @@ CALENDLY BOOKING ACTION: ${action.name}
       actionsContext += calendlyActionsText
     }
 
+    if (zendeskActions.length > 0) {
+      const zendeskActionsContext = zendeskActions.map(action => {
+        const config = action.configuration as ZendeskConfig
+        return `
+ZENDESK TICKET CREATION ACTION: ${action.name}
+- When to use: ${config.general.whenToUse}
+- Description: ${config.general.description}
+- To trigger ticket creation, include in your response: [ZENDESK:${action.id}|email:USER_EMAIL|name:USER_NAME|subject:TICKET_SUBJECT|description:TICKET_DESCRIPTION]
+`
+      }).join('\n')
+
+      const zendeskActionsText = `\n\n## Available Zendesk Ticket Creation Actions\n${zendeskActionsContext}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎫 ZENDESK TICKET CREATION RULES 🎫
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When the user needs support or reports an issue:
+1. CONVERSATIONALLY collect the following information:
+   - User's email address (REQUIRED)
+   - User's name (optional, use "Customer" if not provided)
+   - Issue/problem description (REQUIRED)
+
+2. Once you have the required information:
+   - Create a clear, concise subject line (3-5 words, no punctuation at end)
+   - Format the description as a FORMAL SUPPORT EMAIL with this EXACT structure:
+
+   Dear Support Team,
+
+   I am writing regarding [brief issue category].
+
+   [Detailed description of the issue - 2-3 sentences explaining what happens, when it happens, and the impact]
+
+   Thank you for your assistance.
+
+   Best regards,
+   [User's Name]
+
+3. Include the trigger code in this EXACT format:
+   [ZENDESK:actionId|email:user@example.com|name:John Doe|subject:Brief issue summary|description:Full formal email text]
+
+4. CRITICAL FORMATTING RULES:
+   - Subject: Keep it SHORT (3-5 words), descriptive, NO quotes, NO punctuation at end
+   - Description: MUST be a complete formal email with greeting, body, closing, and signature
+   - Use the pipe character (|) to separate fields
+   - Email and description are REQUIRED
+   - Put the trigger code on a NEW LINE after your message
+
+5. After creating the ticket, inform the user that a support ticket has been created and the team will reach out.
+
+GOOD EXAMPLES:
+
+Example 1:
+User: "The chat button vanishes when I click it"
+You collect: email=john@example.com, name=John
+Trigger code:
+[ZENDESK:actionId|email:john@example.com|name:John|subject:Chat button UI issue|description:Dear Support Team,
+
+I am writing regarding an issue with the chat button UI.
+
+When I click the chat button, it vanishes and becomes dim, making it difficult to interact with the chat feature. This issue occurs consistently every time I attempt to use the chat functionality.
+
+Thank you for your assistance.
+
+Best regards,
+John]
+
+Example 2:
+User: "I can't log in, getting password error"
+You collect: email=sarah@example.com, name=Sarah
+Trigger code:
+[ZENDESK:actionId|email:sarah@example.com|name:Sarah|subject:Login authentication error|description:Dear Support Team,
+
+I am writing regarding a login authentication issue.
+
+I am unable to log into my account as I keep receiving an error message stating that my password is incorrect. However, I am confident that I am entering the correct password. This is preventing me from accessing my account.
+
+Thank you for your assistance.
+
+Best regards,
+Sarah]
+
+BAD EXAMPLES (DO NOT DO THIS):
+❌ Subject: "Chat button issue - 'chat no' message" (too long, has quotes and punctuation)
+❌ Description: "User reports that clicking the chat button results in a 'chat no' message." (not a formal email)
+
+REMEMBER: 
+- Subject = SHORT, clear, professional (like "Chat button UI issue")
+- Description = FULL formal email with proper greeting, detailed explanation, and signature
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`
+
+      // Prepend to actions context
+      actionsContext += zendeskActionsText
+    }
+
     // Build final prompt: Actions FIRST (highest priority), then base prompt
     if (actionsContext) {
       enhancedSystemPrompt = actionsContext + agentConfig.systemPrompt
@@ -1034,8 +1266,31 @@ CALENDLY BOOKING ACTION: ${action.name}
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001'
       console.log('🚀 Streaming to:', apiUrl)
 
+      // Prepare conversation history (limit to last 20 messages)
+      const conversationHistory = messages
+        .slice(-20) // Get last 20 messages only
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+      // Add the current user message to history
+      conversationHistory.push({
+        role: 'user',
+        content: userInput
+      });
+
+      // Switch from sending to loading (AI thinking)
+      setIsSending(false);
+      setIsLoading(true);
+      setStatusMessage('AI is thinking...');
+
+      // Small delay to ensure typing animation is visible
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const requestBody = {
         message: userInput,
+        conversationHistory: conversationHistory, // Include full conversation context
         agentId: agentId,
         aiConfig: {
           enabled: true,
@@ -1055,6 +1310,7 @@ CALENDLY BOOKING ACTION: ${action.name}
 
       console.log('📤 Request body:', requestBody)
       console.log('📋 System prompt length:', enhancedSystemPrompt.length, 'characters')
+      console.log('📋 Conversation history length:', conversationHistory.length, 'messages')
 
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 60000) // 60 second timeout
@@ -1181,9 +1437,93 @@ CALENDLY BOOKING ACTION: ${action.name}
                   }
                 }
 
+                // Check for Zendesk triggers in the content
+                const zendeskMatch = assistantContent.match(/\[ZENDESK:([^\]]+)\]/)
+                if (zendeskMatch) {
+                  console.log('🎫 Zendesk trigger detected:', zendeskMatch[0])
+                  const zendeskData = zendeskMatch[1]
+                  const parts = zendeskData.split('|')
+                  const zendeskActionId = parts[0]
+                  
+                  // Parse the data fields
+                  let email = ''
+                  let name = 'Customer'
+                  let subject = ''
+                  let description = ''
+                  
+                  parts.slice(1).forEach(part => {
+                    const [key, ...valueParts] = part.split(':')
+                    const value = valueParts.join(':').trim()
+                    if (key === 'email') email = value
+                    else if (key === 'name') {
+                      // Only set name if it's not empty after trimming
+                      name = value && value.trim() ? value : 'Customer'
+                    }
+                    else if (key === 'subject') subject = value
+                    else if (key === 'description') description = value
+                  })
+
+                  console.log('🎫 Parsed Zendesk data:', { email, name, subject, description })
+
+                  const zendeskAction = zendeskActions.find(a => a.id === zendeskActionId)
+
+                  if (zendeskAction && email && description) {
+                    console.log('✅ Creating Zendesk ticket...')
+                    setCreatingTicket(assistantMessageId)
+                    
+                    // Create ticket via API
+                    try {
+                      const response = await fetch('/api/zendesk/create-ticket', {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                          workspaceId: workspaceContext?.currentWorkspace?.id,
+                          agentId: agentId,
+                          subject: subject || 'Support Request',
+                          commentBody: description,
+                          requesterEmail: email,
+                          requesterName: name || 'Customer',
+                          tags: ['ai-agent', 'playground']
+                        })
+                      })
+
+                      const result = await response.json()
+                      
+                      if (result.success && result.data?.ticket) {
+                        console.log('✅ Ticket created successfully:', result.data.ticket)
+                        detectedZendesk = {
+                          actionId: zendeskAction.id,
+                          ticketId: result.data.ticket.id?.toString(),
+                          subject: subject || 'Support Request',
+                          description: description,
+                          requesterEmail: email,
+                          requesterName: name,
+                          status: result.data.ticket.status || 'open'
+                        }
+                        toast.success('Support ticket created successfully!')
+                      } else {
+                        console.error('❌ Failed to create ticket:', result.error)
+                        toast.error('Failed to create support ticket')
+                      }
+                    } catch (error) {
+                      console.error('❌ Error creating ticket:', error)
+                      toast.error('Failed to create support ticket')
+                    } finally {
+                      setCreatingTicket(null)
+                    }
+
+                    // Remove the Zendesk trigger from the content
+                    assistantContent = assistantContent.replace(/\[ZENDESK:[^\]]+\]\s*/g, '').trim()
+                  } else {
+                    console.warn('⚠️ Zendesk action not found or missing required data:', { zendeskActionId, email, description })
+                  }
+                }
+
                 setMessages(prev => prev.map(msg =>
                   msg.id === assistantMessageId
-                    ? { ...msg, content: assistantContent, metrics, customButton: detectedButton, collectLeadsForm: detectedForm, calendlyBooking: detectedCalendly }
+                    ? { ...msg, content: assistantContent, metrics, customButton: detectedButton, collectLeadsForm: detectedForm, calendlyBooking: detectedCalendly, zendeskTicket: detectedZendesk }
                     : msg
                 ))
                 setStatusMessage('')
@@ -1214,7 +1554,9 @@ CALENDLY BOOKING ACTION: ${action.name}
       ))
       toast.error('Failed to get AI response')
     } finally {
+      setIsSending(false)
       setIsLoading(false)
+      setStreamingMessageId(null) // Clear streaming state
       setStatusMessage('')
     }
   }
@@ -1288,8 +1630,8 @@ CALENDLY BOOKING ACTION: ${action.name}
 
   if (loadingAgent) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     )
   }
@@ -1299,373 +1641,241 @@ CALENDLY BOOKING ACTION: ${action.name}
       <style dangerouslySetInnerHTML={{ __html: scrollbarStyles }} />
       <div className="flex h-screen bg-background overflow-hidden">
         {/* Left Sidebar - Agent Configuration */}
-        <div className="w-80 border-r border-border bg-white flex flex-col h-screen overflow-hidden">
+        <div className="w-80 border-r border-border bg-background flex flex-col h-screen overflow-hidden">
           {/* Scrollable Configuration Content */}
-          <div className="flex-1 overflow-y-scroll p-6 space-y-6 playground-scrollbar" style={{ scrollbarWidth: 'auto', scrollbarColor: 'rgba(0,0,0,0.4) rgba(0,0,0,0.1)' }}>
-          {/* Agent Status */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Agent Status</Label>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                agentConfig.status === 'active' ? 'bg-green-500' :
-                agentConfig.status === 'training' ? 'bg-yellow-500' :
-                'bg-gray-400'
-              }`}></div>
-              <span className="text-sm text-muted-foreground capitalize">{agentConfig.status}</span>
-            </div>
-          </div>
-
-          {/* Save Button */}
-          <Button
-            className="w-full"
-            disabled={isSaving}
-            onClick={handleSaveAgent}
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              'Save Configuration'
-            )}
-          </Button>
-
-          {/* Model Selection */}
-          <div className="space-y-3">
-            <Label htmlFor="model" className="text-sm font-medium text-foreground">Model</Label>
-            <select
-              id="model"
-              value={agentConfig.model}
-              onChange={(e) => setAgentConfig({ ...agentConfig, model: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded-lg bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              {availableModels.length > 0 ? (
-                <>
-                  {/* Group by provider */}
-                  {['openai', 'google'].map(provider => {
-                    const providerModels = availableModels.filter(m => m.provider === provider)
-                    if (providerModels.length === 0) return null
-
-                    const providerName = provider === 'openai' ? 'OpenAI' : 'Google Gemini'
-                    return (
-                      <optgroup key={provider} label={providerName}>
-                        {providerModels.map(model => (
-                          <option key={model.id} value={model.id}>
-                            {model.name} - {model.description}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )
-                  })}
-                </>
-              ) : (
-                <option value="gpt-4o-mini">Loading models...</option>
-              )}
-            </select>
-          </div>
-
-          {/* Temperature */}
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <Label className="text-sm font-medium text-foreground">Temperature</Label>
-              <span className="text-sm font-medium text-foreground">{agentConfig.temperature.toFixed(1)}</span>
-            </div>
-            <input
-              type="range"
-              min="0"
-              max="2"
-              step="0.1"
-              value={agentConfig.temperature}
-              onChange={(e) => setAgentConfig({ ...agentConfig, temperature: parseFloat(e.target.value) })}
-              className="w-full accent-primary"
-            />
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>Reserved</span>
-              <span>Creative</span>
-            </div>
-          </div>
-
-          {/* AI Actions */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">AI Actions</Label>
-            {agentConfig.actions && agentConfig.actions.length > 0 ? (
-              <div className="space-y-2">
-                {agentConfig.actions.map((action, index) => (
-                  <Card key={index} className="border border-border">
-                    <CardContent className="p-3">
-                      <p className="text-sm font-medium text-foreground">{action.name}</p>
-                      <p className="text-xs text-muted-foreground">{action.description}</p>
-                    </CardContent>
-                  </Card>
-                ))}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 playground-scrollbar" style={{ scrollbarWidth: 'auto', scrollbarColor: 'rgba(0,0,0,0.4) rgba(0,0,0,0.1)' }}>
+            {/* Agent Status */}
+            <div className="space-y-3">
+              <Label className="text-sm font-medium text-foreground">Agent Status</Label>
+              <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${
+                  agentConfig.status === 'active' ? 'bg-success' :
+                  agentConfig.status === 'training' ? 'bg-warning' :
+                  'bg-muted-foreground'
+                }`}></div>
+                <span className="text-sm text-muted-foreground capitalize">{agentConfig.status}</span>
               </div>
-            ) : (
-              <Card className="border border-dashed border-border">
-                <CardContent className="p-4 text-center">
-                  <p className="text-sm text-muted-foreground">No actions found</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* System Prompt */}
-          <div className="space-y-3">
-            <Label htmlFor="instructions" className="text-sm font-medium text-foreground">Instructions</Label>
-            <Textarea
-              id="instructions"
-              placeholder="Enter system prompt for your agent..."
-              className="min-h-[120px] text-sm border-border"
-              value={agentConfig.systemPrompt}
-              onChange={(e) => setAgentConfig({ ...agentConfig, systemPrompt: e.target.value })}
-            />
-          </div>
-
-          {/* Response Settings */}
-          <div className="space-y-4">
-            <Label className="text-sm font-medium text-foreground">Response Settings</Label>
-            
-            {/* Max Tokens */}
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label className="text-xs text-muted-foreground">Max Tokens</Label>
-                <span className="text-xs text-muted-foreground">2048</span>
-              </div>
-              <input
-                type="range"
-                min="100"
-                max="4000"
-                step="100"
-                defaultValue="2048"
-                className="w-full accent-primary"
-              />
             </div>
 
-            {/* Top P */}
-            <div className="space-y-2">
+            {/* Temperature */}
+            <div className="space-y-3">
               <div className="flex justify-between">
-                <Label className="text-xs text-muted-foreground">Top P</Label>
-                <span className="text-xs text-muted-foreground">0.9</span>
-              </div>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.1"
-                defaultValue="0.9"
-                className="w-full accent-primary"
-              />
-            </div>
-
-            {/* Frequency Penalty */}
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label className="text-xs text-muted-foreground">Frequency Penalty</Label>
-                <span className="text-xs text-muted-foreground">0.0</span>
+                <Label className="text-sm font-medium text-foreground">Temperature</Label>
+                <span className="text-sm font-medium text-foreground">{agentConfig.temperature.toFixed(1)}</span>
               </div>
               <input
                 type="range"
                 min="0"
                 max="2"
                 step="0.1"
-                defaultValue="0"
+                value={agentConfig.temperature}
+                onChange={(e) => setAgentConfig({ ...agentConfig, temperature: parseFloat(e.target.value) })}
                 className="w-full accent-primary"
               />
-            </div>
-          </div>
-
-          {/* Knowledge Base Settings */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Knowledge Base</Label>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">RAG Enabled</Label>
-                <input type="checkbox" defaultChecked className="rounded" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Similarity Threshold</Label>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  defaultValue="0.7"
-                  className="w-full accent-primary"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Max Documents</Label>
-                <select className="w-full px-2 py-1 text-xs border border-border rounded bg-card" defaultValue="5">
-                  <option value="3">3 documents</option>
-                  <option value="5">5 documents</option>
-                  <option value="10">10 documents</option>
-                </select>
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Reserved</span>
+                <span>Creative</span>
               </div>
             </div>
-          </div>
 
-          {/* Memory Settings */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Memory & Context</Label>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Remember Conversations</Label>
-                <input type="checkbox" defaultChecked className="rounded" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Context Window</Label>
-                <select className="w-full px-2 py-1 text-xs border border-border rounded bg-card" defaultValue="8000">
-                  <option value="4000">4K tokens</option>
-                  <option value="8000">8K tokens</option>
-                  <option value="16000">16K tokens</option>
-                  <option value="32000">32K tokens</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Safety & Moderation */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Safety & Moderation</Label>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Content Filter</Label>
-                <input type="checkbox" defaultChecked className="rounded" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">PII Detection</Label>
-                <input type="checkbox" className="rounded" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Safety Level</Label>
-                <select className="w-full px-2 py-1 text-xs border border-border rounded bg-card" defaultValue="medium">
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Advanced Options */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Advanced Options</Label>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Stream Responses</Label>
-                <input type="checkbox" defaultChecked className="rounded" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">Function Calling</Label>
-                <input type="checkbox" className="rounded" />
-              </div>
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">JSON Mode</Label>
-                <input type="checkbox" className="rounded" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Response Format</Label>
-                <select className="w-full px-2 py-1 text-xs border border-border rounded bg-card" defaultValue="text">
-                  <option value="text">Text</option>
-                  <option value="json">JSON</option>
-                  <option value="markdown">Markdown</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Performance Metrics */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Performance Metrics</Label>
+            {/* AI Actions */}
             <div className="space-y-2">
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Avg Response Time</span>
-                <span className="text-foreground">1.2s</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Success Rate</span>
-                <span className="text-green-600">98.5%</span>
-              </div>
-              <div className="flex justify-between text-xs">
-                <span className="text-muted-foreground">Total Conversations</span>
-                <span className="text-foreground">247</span>
-              </div>
-            </div>
-          </div>
+              <button
+                type="button"
+                onClick={() => setIsActionsOpen(!isActionsOpen)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium text-foreground">AI Actions</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {allActions.filter(a => a.status === 'active').length} enabled
+                  </span>
+                </div>
+                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isActionsOpen ? 'rotate-180' : ''}`} />
+              </button>
 
-          {/* Export/Import */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium text-foreground">Configuration</Label>
-            <div className="space-y-2">
-              <Button variant="outline" size="sm" className="w-full text-xs">
-                Export Config
-              </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs">
-                Import Config
-              </Button>
-              <Button variant="outline" size="sm" className="w-full text-xs text-red-600 hover:text-red-700">
-                Reset to Default
-              </Button>
+              {isActionsOpen && (
+                <>
+                  {allActions.length > 0 ? (
+                    <div className="space-y-1">
+                      {allActions.map((action) => (
+                        <div
+                          key={action.id}
+                          className="flex items-center justify-between px-3 py-1.5 rounded border border-border bg-card"
+                        >
+                          <p className="text-sm font-medium text-foreground truncate">{action.name}</p>
+                          <Switch
+                            checked={action.status === 'active'}
+                            onCheckedChange={(checked) => handleToggleActionStatus(action, checked)}
+                          />
+                        </div>
+                      ))}
+                      <Button
+                        variant="link"
+                        size="sm"
+                        className="mt-1"
+                        onClick={() => window.location.href = `/dashboard/${params.workspace}/agents/${agentId}/actions`}
+                      >
+                        Manage Actions
+                      </Button>
+                    </div>
+                  ) : (
+                    <Card className="border border-dashed border-border">
+                      <CardContent className="p-3 text-center">
+                        <p className="text-sm text-muted-foreground">No actions found</p>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="mt-1"
+                          onClick={() => window.location.href = `/dashboard/${params.workspace}/agents/${agentId}/actions`}
+                        >
+                          Create Action
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </>
+              )}
             </div>
+
+            {/* Model Selection */}
+            <div className="space-y-3">
+              <Label htmlFor="model" className="text-sm font-medium text-foreground">Model</Label>
+              <Select
+                value={agentConfig.model}
+                onValueChange={(value) => setAgentConfig({ ...agentConfig, model: value })}
+              >
+                <SelectTrigger id="model" className="w-full bg-background">
+                  <SelectValue placeholder={availableModels.length > 0 ? "Select a model" : "Loading models..."} />
+                </SelectTrigger>
+                <SelectContent className="bg-background">
+                  {availableModels.length > 0 ? (
+                    <>
+                      {/* Group by provider */}
+                      {['openai', 'google'].map(provider => {
+                        const providerModels = availableModels.filter(m => m.provider === provider)
+                        if (providerModels.length === 0) return null
+
+                        const providerName = provider === 'openai' ? 'OpenAI' : 'Google Gemini'
+                        return (
+                          <SelectGroup key={provider}>
+                            <SelectLabel>{providerName}</SelectLabel>
+                            {providerModels.map(model => (
+                              <SelectItem key={model.id} value={model.id}>
+                                {model.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        )
+                      })}
+                    </>
+                  ) : (
+                    <SelectItem value="gpt-4o-mini" disabled>Loading models...</SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* System Prompt */}
+            <SystemPromptSelector
+              value={agentConfig.systemPrompt}
+              onChange={(value) => setAgentConfig({ ...agentConfig, systemPrompt: value })}
+              label="System Prompt"
+              placeholder="Enter system prompt for your agent..."
+            />
           </div>
+          
+          {/* Fixed Bottom - Unsaved Changes Prompt (only show when there are unsaved changes) */}
+          {hasUnsavedChanges && (
+            <div className="border-t border-border px-6 py-4 bg-background flex-shrink-0 space-y-3">
+              <p className="text-sm text-muted-foreground text-center">
+                You have unsaved changes. Do you wish to save them?
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    // Reload original config to discard changes
+                    if (originalAgentConfig) {
+                      setAgentConfig({ ...originalAgentConfig })
+                    }
+                  }}
+                >
+                  Discard
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={isSaving}
+                  onClick={handleSaveAgent}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
 
       {/* Right Side - Fixed Chat Interface */}
-      <div className="flex-1 flex items-center justify-center p-4 relative"
+      <div className="flex-1 flex items-center justify-center p-4 relative bg-muted/30"
         style={{
           height: '100vh',
           overflow: 'hidden',
-          backgroundColor: '#ffffff',
-          backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px)',
-          backgroundSize: '20px 20px'
+          backgroundImage: 'radial-gradient(circle, hsl(var(--muted-foreground) / 0.1) 1px, transparent 1px)',
+          backgroundSize: '16px 16px'
         }}
       >
-        {/* Chat Container - Fixed Layout (Portrait Style) */}
-        <div className="w-full max-w-lg relative z-10"
+        {/* Chat Container - Fixed Layout (Compact Style) */}
+        <div className="w-full max-w-md relative z-10"
           style={{
-            height: 'calc(100vh - 4rem)',
-            maxHeight: '800px'
+            height: '600px',
+            maxHeight: '600px'
           }}
         >
-          <div className="h-full bg-white/95 backdrop-blur-xl rounded-2xl shadow-2xl flex flex-col border border-white/20 overflow-hidden">
+          <div className="h-full bg-card rounded-lg flex flex-col border border-border overflow-hidden shadow-sm">
           {/* Chat Header */}
-          <div className="px-4 py-3 border-b border-gray-200/50 flex-shrink-0 bg-white/50 backdrop-blur-sm">
+          <div className="px-4 py-2.5 border-b border-border flex-shrink-0 bg-card">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-white font-bold text-base">AI</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                  <span className="text-primary-foreground font-semibold text-sm">AI</span>
                 </div>
                 <div>
-                  <div className="text-sm font-semibold text-gray-900">{agentConfig.name || 'Agent Playground'}</div>
-                  <div className="text-xs text-gray-500 flex items-center gap-1">
-                    <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <div className="text-sm font-medium text-foreground">{agentConfig.name || 'Agent Playground'}</div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <div className="w-1.5 h-1.5 bg-success rounded-full"></div>
                     Online
                   </div>
                 </div>
               </div>
               <button
-                className="p-2 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                className="p-1.5 hover:bg-muted rounded-lg transition-colors"
                 onClick={handleReset}
                 title="Reset conversation"
               >
-                <RotateCcw className="w-3.5 h-3.5 text-gray-600" />
+                <RotateCcw className="w-4 h-4 text-muted-foreground" />
               </button>
             </div>
           </div>
 
           {/* Chat Messages - Scrollable */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 chat-scrollbar bg-gray-50/50" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
+          <div className="flex-1 overflow-y-auto p-3 space-y-2.5 chat-scrollbar bg-background" style={{ scrollbarWidth: 'thin', scrollbarColor: 'rgba(0,0,0,0.2) transparent' }}>
             {messages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="w-16 h-16 bg-blue-600 rounded-xl flex items-center justify-center mb-3 shadow-lg">
-                  <span className="text-white font-bold text-2xl">AI</span>
+              <div className="h-full flex flex-col items-center justify-center text-center px-4">
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center mb-3">
+                  <span className="text-primary-foreground font-semibold text-lg">AI</span>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-base font-medium text-foreground mb-1.5">
                   {agentConfig.name || 'AI Agent'}
                 </h3>
-                <p className="text-sm text-gray-600 mb-1">Hi! What can I help you with?</p>
-                <p className="text-xs text-gray-400">Start a conversation to test your agent</p>
+                <p className="text-sm text-muted-foreground">Hi! What can I help you with?</p>
               </div>
             ) : (
               <>
@@ -1675,10 +1885,10 @@ CALENDLY BOOKING ACTION: ${action.name}
                     className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} group animate-in fade-in slide-in-from-bottom-2 duration-300`}
                   >
                     <div
-                      className={`max-w-[80%] px-3 py-2 rounded-xl shadow-sm transition-all duration-200 ${
+                      className={`max-w-[85%] px-3 py-2 rounded-lg transition-colors ${
                         message.role === 'user'
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-gray-900 border border-gray-200'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted text-foreground'
                       }`}
                     >
                       {message.role === 'user' ? (
@@ -1695,24 +1905,54 @@ CALENDLY BOOKING ACTION: ${action.name}
                         </div>
                       )}
                       <div className="flex items-center justify-between mt-1.5">
-                        <p className={`text-[10px] ${message.role === 'user' ? 'text-blue-100' : 'text-gray-500'}`}>
+                        <p className={`text-[10px] ${message.role === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
                           {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
-                        {message.role === 'assistant' && (
-                          <button
-                            onClick={() => copyToClipboard(message.content, `msg-${message.id}`)}
-                            className="opacity-0 group-hover:opacity-100 transition-all duration-200 p-1 hover:bg-gray-100 rounded"
-                            title="Copy message"
-                          >
-                            {copiedCode === `msg-${message.id}` ? (
-                              <Check className="w-3 h-3 text-green-600" />
-                            ) : (
-                              <Copy className="w-3 h-3 text-gray-500" />
-                            )}
-                          </button>
-                        )}
                       </div>
                     </div>
+
+                    {/* Message Interaction Buttons - Only for assistant messages */}
+                    {message.role === 'assistant' && message.content && (
+                      <div className="flex items-center gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                        <button
+                          onClick={() => handleCopyMessage(message.id, message.content)}
+                          className="p-1 hover:bg-muted rounded-lg transition-colors"
+                          title="Copy message"
+                        >
+                          {copiedMessageId === message.id ? (
+                            <Check className="w-3 h-3 text-success" />
+                          ) : (
+                            <Copy className="w-3 h-3 text-muted-foreground" />
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleLikeMessage(message.id)}
+                          className={`p-1 hover:bg-muted rounded-lg transition-colors ${
+                            likedMessages.has(message.id) ? 'text-success' : 'text-muted-foreground'
+                          }`}
+                          title="Like message"
+                        >
+                          <ThumbsUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleDislikeMessage(message.id)}
+                          className={`p-1 hover:bg-muted rounded-lg transition-colors ${
+                            dislikedMessages.has(message.id) ? 'text-destructive' : 'text-muted-foreground'
+                          }`}
+                          title="Dislike message"
+                        >
+                          <ThumbsDown className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleRegenerateResponse(message.id)}
+                          disabled={regeneratingMessageId === message.id}
+                          className="p-1 hover:bg-muted rounded-lg transition-colors disabled:opacity-50"
+                          title="Regenerate response"
+                        >
+                          <RotateCw className={`w-3 h-3 text-muted-foreground ${regeneratingMessageId === message.id ? 'animate-spin' : ''}`} />
+                        </button>
+                      </div>
+                    )}
 
                     {/* Custom Button - Show if attached to message */}
                     {message.role === 'assistant' && message.customButton && (
@@ -1737,7 +1977,7 @@ CALENDLY BOOKING ACTION: ${action.name}
                     {/* Collect Leads Form - Show if attached to message */}
                     {message.role === 'assistant' && message.collectLeadsForm && (
                       <div className="mt-2 max-w-[80%]">
-                        <Card className="border border-gray-200 shadow-sm">
+                        <Card className="border border-gray-100">
                           <CardContent className="p-3">
                             <form
                               onSubmit={(e) => {
@@ -1806,36 +2046,97 @@ CALENDLY BOOKING ACTION: ${action.name}
                       />
                     )}
 
+                    {/* Zendesk Ticket - Show if attached to message */}
+                    {message.role === 'assistant' && message.zendeskTicket && (
+                      <div className="mt-2 max-w-[80%]">
+                        <Card className="border border-green-200 bg-green-50">
+                          <CardContent className="p-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1.5 bg-green-600 rounded">
+                                  <CheckCircle className="w-4 h-4 text-white" />
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-semibold text-green-900">
+                                    Support Ticket Created
+                                  </h3>
+                                  {message.zendeskTicket.ticketId && (
+                                    <p className="text-xs text-green-700">
+                                      Ticket #{message.zendeskTicket.ticketId}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="bg-white rounded p-2.5 space-y-2 border border-green-200">
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-700">Subject</p>
+                                  <p className="text-xs text-gray-900">{message.zendeskTicket.subject}</p>
+                                </div>
+                                
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-700 mb-1">Description</p>
+                                  <div className="text-xs text-gray-900 whitespace-pre-line bg-gray-50 p-2 rounded border border-gray-100">
+                                    {message.zendeskTicket.description}
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-green-100">
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-700">Requester</p>
+                                    <p className="text-xs text-gray-900">{message.zendeskTicket.requesterName || 'Customer'}</p>
+                                    <p className="text-xs text-gray-600">{message.zendeskTicket.requesterEmail}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-700">Status</p>
+                                    <Badge className="text-xs bg-yellow-100 text-yellow-800 border-yellow-200">
+                                      {message.zendeskTicket.status || 'Open'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="bg-green-100 rounded p-2 border border-green-200">
+                                <p className="text-xs text-green-800">
+                                  ✓ The support team has been notified and will reach out via email shortly.
+                                </p>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    )}
+
                     {/* Enhanced Performance Metrics */}
                     {message.role === 'assistant' && message.metrics && (
-                      <div className="mt-2 px-2 py-1.5 bg-gray-50/80 rounded-lg text-[10px] space-y-1.5 max-w-[80%] border border-gray-200">
-                        <div className="flex items-center gap-1.5 text-gray-600">
-                          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                      <div className="mt-1.5 px-2 py-1.5 bg-gray-50 rounded-lg text-[9px] max-w-[80%] border border-gray-100">
+                        <div className="flex items-center gap-1 text-gray-600 mb-1">
+                          <div className="w-1 h-1 bg-green-500 rounded-full"></div>
                           <span className="font-medium">Performance Metrics</span>
                         </div>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-4 gap-1.5">
                           {message.metrics.retrieval_time !== undefined && (
                             <div className="flex flex-col">
-                              <span className="text-gray-500 text-xs">Retrieval</span>
-                              <span className="font-semibold text-blue-600">{(message.metrics.retrieval_time * 1000).toFixed(0)}ms</span>
+                              <span className="text-gray-500 text-[9px]">Retrieval</span>
+                              <span className="font-semibold text-blue-600 text-[10px]">{(message.metrics.retrieval_time * 1000).toFixed(0)}ms</span>
                             </div>
                           )}
                           {message.metrics.llm_time !== undefined && (
                             <div className="flex flex-col">
-                              <span className="text-gray-500 text-xs">LLM</span>
-                              <span className="font-semibold text-purple-600">{(message.metrics.llm_time * 1000).toFixed(0)}ms</span>
+                              <span className="text-gray-500 text-[9px]">LLM</span>
+                              <span className="font-semibold text-purple-600 text-[10px]">{(message.metrics.llm_time * 1000).toFixed(0)}ms</span>
                             </div>
                           )}
                           {message.metrics.total_time !== undefined && (
                             <div className="flex flex-col">
-                              <span className="text-gray-500 text-xs">Total</span>
-                              <span className="font-semibold text-green-600">{(message.metrics.total_time * 1000).toFixed(0)}ms</span>
+                              <span className="text-gray-500 text-[9px]">Total</span>
+                              <span className="font-semibold text-green-600 text-[10px]">{(message.metrics.total_time * 1000).toFixed(0)}ms</span>
                             </div>
                           )}
                           {message.metrics.sources_count !== undefined && (
                             <div className="flex flex-col">
-                              <span className="text-gray-500 text-xs">Sources</span>
-                              <span className="font-semibold text-orange-600">{message.metrics.sources_count}</span>
+                              <span className="text-gray-500 text-[9px]">Sources</span>
+                              <span className="font-semibold text-orange-600 text-[10px]">{message.metrics.sources_count}</span>
                             </div>
                           )}
                         </div>
@@ -1843,9 +2144,9 @@ CALENDLY BOOKING ACTION: ${action.name}
                     )}
                   </div>
                 ))}
-                {isLoading && (
+                {(isSending || isLoading) && (
                   <div className="flex flex-col items-start animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="bg-white text-gray-900 px-3 py-2 rounded-xl border border-gray-200/50 shadow-sm max-w-[80%]">
+                    <div className="bg-white text-gray-900 px-3 py-2 rounded border border-gray-100 max-w-[80%]">
                       <div className="flex gap-2 items-center">
                         <div className="flex gap-1">
                           <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
@@ -1853,7 +2154,9 @@ CALENDLY BOOKING ACTION: ${action.name}
                           <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
                         </div>
                         <div className="flex flex-col">
-                          <span className="text-xs font-medium text-gray-900">AI is thinking...</span>
+                          <span className="text-xs font-medium text-gray-900">
+                            {isSending ? 'Sending...' : 'AI is thinking...'}
+                          </span>
                           {statusMessage && (
                             <span className="text-[10px] text-gray-500">{statusMessage}</span>
                           )}
@@ -1868,7 +2171,7 @@ CALENDLY BOOKING ACTION: ${action.name}
           </div>
 
           {/* Enhanced Input Area */}
-          <div className="border-t border-gray-200/50 p-3 bg-white/50 backdrop-blur-sm flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
+          <div className="border-t border-border p-3 bg-card flex-shrink-0">
             <div className="flex gap-2 items-center h-full">
               <div className="flex-1 relative flex items-center">
                 <Textarea
@@ -1880,15 +2183,15 @@ CALENDLY BOOKING ACTION: ${action.name}
                       handleSendMessage()
                     }
                   }}
-                  placeholder="Type your message... (Shift+Enter for new line)"
-                  className="h-[40px] min-h-[40px] max-h-[40px] resize-none border-gray-300 rounded-xl pr-10 pl-3 py-2 text-sm focus:border-blue-400 focus:ring-2 focus:ring-blue-200 transition-all duration-200 overflow-y-auto"
+                  placeholder="Type your message..."
+                  className="h-10 min-h-10 max-h-10 resize-none border-border rounded-lg pr-10 pl-3 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                   rows={1}
                 />
                 <div className="absolute right-2 top-1/2 -translate-y-1/2">
                   <button
                     type="button"
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-                    className="text-gray-400 hover:text-blue-600 transition-colors p-1 hover:bg-blue-50 rounded"
+                    className="text-muted-foreground hover:text-primary transition-colors p-1 hover:bg-muted rounded-lg"
                     title="Add emoji"
                   >
                     <Smile className="w-4 h-4" />
@@ -1897,21 +2200,12 @@ CALENDLY BOOKING ACTION: ${action.name}
 
                 {/* Emoji Picker Popup */}
                 {showEmojiPicker && (
-                  <div ref={emojiPickerRef} className="absolute bottom-14 right-0 z-50 shadow-2xl rounded-xl overflow-hidden border border-gray-200">
-                    <div className="flex items-center justify-between p-2 bg-white border-b border-gray-200">
-                      <span className="text-xs font-medium text-gray-700 px-2">Pick an emoji</span>
-                      <button
-                        onClick={() => setShowEmojiPicker(false)}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5 text-gray-500" />
-                      </button>
-                    </div>
+                  <div ref={emojiPickerRef} className="absolute bottom-14 right-0 z-50">
                     <EmojiPicker
-                      onEmojiClick={handleEmojiClick}
-                      width={280}
-                      height={350}
-                      previewConfig={{ showPreview: false }}
+                      onEmojiSelect={handleEmojiClick}
+                      onClose={() => setShowEmojiPicker(false)}
+                      showQuickAccess={true}
+                      width="w-[320px]"
                     />
                   </div>
                 )}
@@ -1920,21 +2214,20 @@ CALENDLY BOOKING ACTION: ${action.name}
                 onClick={handleSendMessage}
                 disabled={isLoading || !input.trim()}
                 size="icon"
-                className="h-10 w-10 rounded-xl flex-shrink-0 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 transition-all duration-200"
+                className="h-10 w-10 rounded-lg flex-shrink-0 bg-primary hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground transition-colors"
               >
                 {isLoading ? (
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <Loader2 className="w-4 h-4 animate-spin text-primary-foreground" />
                 ) : (
-                  <Send className="w-4 h-4 text-white" />
+                  <Send className="w-4 h-4 text-primary-foreground" />
                 )}
               </Button>
             </div>
 
-            {/* Enhanced Footer */}
-            <div className="flex items-center justify-center mt-2">
-              <div className="text-[10px] text-gray-400 flex items-center gap-1">
-                <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
-                Powered by Rexa AI
+            {/* Footer */}
+            <div className="flex items-center justify-center mt-1.5">
+              <div className="text-[10px] text-muted-foreground">
+                Powered by Ragzy AI
               </div>
             </div>
           </div>

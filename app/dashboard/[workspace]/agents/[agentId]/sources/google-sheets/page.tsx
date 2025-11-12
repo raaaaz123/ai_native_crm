@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent } from '@/app/components/ui/card';
 import { Button } from '@/app/components/ui/button';
@@ -19,7 +19,9 @@ import {
 } from '@/app/lib/agent-knowledge-utils';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/app/lib/firebase';
-import { Sheet, Search, Check, Loader2, ExternalLink, CheckCircle2, Database } from 'lucide-react';
+import { Sheet, Search, Check, Loader2, ExternalLink, CheckCircle2, Database, Trash2, RefreshCw } from 'lucide-react';
+import { deleteAgentKnowledgeItem } from '@/app/lib/agent-knowledge-utils';
+import { useAuth } from '@/app/lib/workspace-auth-context';
 
 interface ImportedSheet {
   id: string;
@@ -35,8 +37,12 @@ export default function GoogleSheetsSourcePage() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const workspaceId = params.workspace as string;
+  const { workspaceContext } = useAuth();
+  const workspaceSlug = params.workspace as string;
   const agentId = params.agentId as string;
+
+  // Get actual workspace ID from context (not the URL slug)
+  const workspaceId = workspaceContext?.currentWorkspace?.id || '';
 
   const [connection, setConnection] = useState<GoogleSheetsConnection | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,21 +63,34 @@ export default function GoogleSheetsSourcePage() {
   const [importing, setImporting] = useState(false);
   const [importedCount, setImportedCount] = useState(0);
 
+  // Deletion
+  const [deletingItemId, setDeletingItemId] = useState<string | null>(null);
+
   // Check for OAuth success/error in URL params
   const googleSheetsData = searchParams.get('google_sheets_data');
   const googleSheetsError = searchParams.get('google_sheets_error');
 
   useEffect(() => {
+    // Wait for workspace context to load
+    if (!workspaceId) return;
+
     checkConnection();
     loadImportedSheets();
   }, [workspaceId, agentId]);
 
+  useEffect(() => {
+    if (connection) {
+      loadSpreadsheets(connection.accessToken);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [connection]);
+
   // Handle OAuth callback with connection data
   useEffect(() => {
-    if (googleSheetsData) {
+    if (googleSheetsData && workspaceId) {
       handleGoogleSheetsCallback(googleSheetsData);
     }
-  }, [googleSheetsData]);
+  }, [googleSheetsData, workspaceId]);
 
   // Handle errors
   useEffect(() => {
@@ -84,11 +103,18 @@ export default function GoogleSheetsSourcePage() {
         'unknown': 'An unknown error occurred. Please try again.'
       };
       alert(errorMessages[googleSheetsError] || 'An error occurred during Google Sheets connection.');
-      router.replace(`/dashboard/${workspaceId}/agents/${agentId}/sources/google-sheets`);
+      router.replace(`/dashboard/${workspaceSlug}/agents/${agentId}/sources/google-sheets`);
     }
   }, [googleSheetsError]);
 
   const handleGoogleSheetsCallback = async (encodedData: string) => {
+    if (!workspaceId) {
+      console.error('Workspace ID not available when saving connection');
+      alert('Workspace not loaded. Please refresh the page and try again.');
+      router.replace(`/dashboard/${workspaceSlug}/agents/${agentId}/sources/google-sheets`);
+      return;
+    }
+
     try {
       // Decode the connection data
       const decodedData = JSON.parse(atob(encodedData));
@@ -103,23 +129,31 @@ export default function GoogleSheetsSourcePage() {
       });
 
       // Clean URL and reload connection
-      router.replace(`/dashboard/${workspaceId}/agents/${agentId}/sources/google-sheets`);
+      router.replace(`/dashboard/${workspaceSlug}/agents/${agentId}/sources/google-sheets`);
       await checkConnection();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving Google Sheets connection:', error);
-      alert('Failed to save connection data');
+      const errorMessage = error?.code === 'permission-denied' 
+        ? 'Permission denied. Please ensure you are a member of this workspace.'
+        : 'Failed to save connection data. Please try again.';
+      alert(errorMessage);
+      router.replace(`/dashboard/${workspaceSlug}/agents/${agentId}/sources/google-sheets`);
     }
   };
 
   const checkConnection = async () => {
+    if (!workspaceId) {
+      console.log('Waiting for workspace ID to load...');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('Checking Google Sheets connection for workspace:', workspaceId);
       const conn = await getGoogleSheetsConnection(workspaceId);
+      console.log('Connection result:', conn ? 'Found' : 'Not found');
       setConnection(conn);
-
-      if (conn) {
-        await loadSpreadsheets(conn.accessToken);
-      }
     } catch (error) {
       console.error('Error checking Google Sheets connection:', error);
     } finally {
@@ -159,7 +193,7 @@ export default function GoogleSheetsSourcePage() {
     }
   };
 
-  const loadSpreadsheets = async (accessToken: string) => {
+  const loadSpreadsheets = useCallback(async (accessToken: string) => {
     setLoadingSheets(true);
     try {
       const result = await listGoogleSheets(accessToken);
@@ -175,11 +209,16 @@ export default function GoogleSheetsSourcePage() {
     } finally {
       setLoadingSheets(false);
     }
-  };
+  }, []);
 
   const handleConnectGoogle = () => {
+    if (!workspaceId) {
+      alert('Workspace not loaded. Please refresh the page.');
+      return;
+    }
     setConnecting(true);
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://git-branch-m-main.onrender.com';
+    console.log('Connecting to Google Sheets with workspace ID:', workspaceId);
     window.location.href = `${backendUrl}/api/google-sheets/oauth/authorize?workspace_id=${workspaceId}&agent_id=${agentId}`;
   };
 
@@ -268,6 +307,37 @@ export default function GoogleSheetsSourcePage() {
     }
   };
 
+  const handleDeleteSheet = async (itemId: string, title: string) => {
+    if (!confirm(`Are you sure you want to delete "${title}" from your knowledge base? This will remove all vector embeddings from both Qdrant and Firestore.`)) {
+      return;
+    }
+
+    setDeletingItemId(itemId);
+    try {
+      const result = await deleteAgentKnowledgeItem(itemId);
+
+      if (result.success) {
+        // Remove from importedSheets map
+        const googleSheetId = Array.from(importedSheets.entries()).find(([_, v]) => v.id === itemId)?.[0];
+        if (googleSheetId) {
+          const newImportedSheets = new Map(importedSheets);
+          newImportedSheets.delete(googleSheetId);
+          setImportedSheets(newImportedSheets);
+        }
+        // Reload to refresh the list
+        await loadImportedSheets();
+        alert(`✅ Successfully deleted "${title}" from knowledge base`);
+      } else {
+        alert(`❌ Failed to delete: ${result.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting Google Sheet:', error);
+      alert('An error occurred while deleting the sheet');
+    } finally {
+      setDeletingItemId(null);
+    }
+  };
+
   // Filter sheets based on search query
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -281,12 +351,18 @@ export default function GoogleSheetsSourcePage() {
     }
   }, [searchQuery, spreadsheets]);
 
-  if (loading) {
+  if (loading || !workspaceId) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
+      <div className="min-h-screen bg-background">
+        <div className="flex max-w-7xl mx-auto">
+          <div className="flex-1 p-8">
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading...</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -296,277 +372,347 @@ export default function GoogleSheetsSourcePage() {
   if (connection) {
     const notImportedSheets = filteredSheets.filter(s => !importedSheets.has(s.id));
     const alreadyImportedSheets = filteredSheets.filter(s => importedSheets.has(s.id));
+    
+    // Also show imported sheets that might not be in the current Google Sheets list
+    // (e.g., if they were deleted from Google Drive but still exist in knowledge base)
+    const importedSheetIds = new Set(importedSheets.keys());
+    const currentSheetIds = new Set(filteredSheets.map(s => s.id));
+    const orphanedImportedSheets = Array.from(importedSheetIds).filter(id => !currentSheetIds.has(id));
 
     return (
       <div className="min-h-screen bg-background">
-        <div className="max-w-5xl mx-auto px-6 py-10">
-          <div className="mb-10">
+        <div className="max-w-5xl mx-auto p-8">
+          <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-3xl font-bold text-foreground">Google Sheets Sources</h1>
-                <p className="text-sm text-muted-foreground mt-2">
+                <h1 className="text-2xl font-semibold text-foreground">Google Sheets Sources</h1>
+                <p className="text-sm text-muted-foreground mt-1">
                   Connected to Google Account
                 </p>
               </div>
-              <Badge variant="default" className="bg-green-500 text-white px-3 py-1">
-                <CheckCircle2 className="w-3 h-3 mr-1" />
-                Connected
-              </Badge>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => connection && loadSpreadsheets(connection.accessToken)}
+                  disabled={loadingSheets}
+                >
+                  {loadingSheets ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Refreshing...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Refresh Sheets
+                    </>
+                  )}
+                </Button>
+                <Badge variant="default" className="bg-green-500">Connected</Badge>
+              </div>
             </div>
           </div>
 
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                <Input
-                  type="text"
-                  placeholder="Search spreadsheets..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+          {/* Search */}
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search spreadsheets..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          {selectedSheets.size > 0 && (
+            <div className="mb-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-blue-600" />
+                <span className="text-sm font-medium">
+                  {selectedSheets.size} spreadsheet{selectedSheets.size !== 1 ? 's' : ''} selected
+                </span>
               </div>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-6 mb-8">
-              <Card className="border-gray-200 shadow-sm">
-                <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-foreground mb-1">{spreadsheets.length}</div>
-                  <div className="text-sm text-muted-foreground font-medium">Total Sheets</div>
-                </CardContent>
-              </Card>
-              <Card className="border-green-200 shadow-sm bg-green-50">
-                <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-green-600 mb-1">{importedSheets.size}</div>
-                  <div className="text-sm text-green-700 font-medium">In Knowledge Base</div>
-                </CardContent>
-              </Card>
-              <Card className="border-blue-200 shadow-sm bg-blue-50">
-                <CardContent className="p-6 text-center">
-                  <div className="text-3xl font-bold text-blue-600 mb-1">{notImportedSheets.length}</div>
-                  <div className="text-sm text-blue-700 font-medium">Available to Import</div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Train RAG Button */}
-            {selectedSheets.size > 0 && (
-              <div className="mb-6">
+              <div className="flex gap-2">
                 <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedSheets(new Set())}
+                  disabled={importing}
+                >
+                  Clear Selection
+                </Button>
+                <Button
+                  size="sm"
                   onClick={handleTrainRAG}
                   disabled={importing}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
                 >
                   {importing ? (
                     <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Training RAG ({importedCount}/{selectedSheets.size})
                     </>
                   ) : (
                     <>
-                      <Database className="w-5 h-5 mr-2" />
-                      Train RAG with Selected ({selectedSheets.size})
+                      <Database className="w-4 h-4 mr-2" />
+                      Train RAG with Selected
                     </>
                   )}
                 </Button>
               </div>
-            )}
+            </div>
+          )}
 
-            {loadingSheets ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          {/* Sheets List */}
+          {loadingSheets ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="animate-spin h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Loading your Google Sheets...</p>
               </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Available to Import Section */}
-                {notImportedSheets.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-3">
-                      Available to Import ({notImportedSheets.length})
-                    </h2>
-                    <div className="grid gap-3">
-                      {notImportedSheets.map((sheet) => (
+            </div>
+          ) : filteredSheets.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center">
+                <Sheet className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">
+                  {searchQuery ? 'No spreadsheets found' : 'No spreadsheets available'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {searchQuery
+                    ? 'Try a different search term'
+                    : 'Make sure you have Google Sheets in your Google Drive'
+                  }
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {/* Available to Import Section */}
+              {notImportedSheets.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                    Available to Import ({notImportedSheets.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {notImportedSheets.map((sheet) => {
+                      const isSelected = selectedSheets.has(sheet.id);
+                      return (
                         <Card
                           key={sheet.id}
-                          className={`cursor-pointer transition-all hover:shadow-md ${
-                            selectedSheets.has(sheet.id) ? 'border-blue-500 border-2 bg-blue-50' : ''
+                          className={`cursor-pointer transition-all hover:shadow-sm ${
+                            isSelected ? 'border-blue-500 bg-blue-50' : ''
                           }`}
                           onClick={() => toggleSheetSelection(sheet.id)}
                         >
-                          <CardContent className="p-4">
-                            <div className="flex items-start gap-3">
-                              {/* Checkbox */}
-                              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-0.5 ${
-                                selectedSheets.has(sheet.id)
-                                  ? 'bg-blue-600 border-blue-600'
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 ${
+                                isSelected
+                                  ? 'border-blue-500 bg-blue-500'
                                   : 'border-gray-300'
                               }`}>
-                                {selectedSheets.has(sheet.id) && (
-                                  <Check className="w-3 h-3 text-white" />
-                                )}
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
                               </div>
-
-                              {/* Icon */}
-                              <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
-                                <Sheet className="w-5 h-5 text-green-600" />
-                              </div>
-
-                              {/* Content */}
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                  <h3 className="font-medium text-foreground truncate">{sheet.name}</h3>
-                                  <a
-                                    href={sheet.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="text-muted-foreground hover:text-foreground"
-                                  >
-                                    <ExternalLink className="w-4 h-4" />
-                                  </a>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium text-foreground text-sm truncate">{sheet.name}</h3>
                                 </div>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <div className="text-xs text-muted-foreground mt-0.5">
                                   Modified: {new Date(sheet.modifiedTime).toLocaleDateString()}
-                                </p>
+                                </div>
+                              </div>
+                              <a
+                                href={sheet.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-muted-foreground hover:text-foreground flex-shrink-0"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </a>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Already in Knowledge Base Section */}
+              {alreadyImportedSheets.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                    In Knowledge Base ({alreadyImportedSheets.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {alreadyImportedSheets.map((sheet) => {
+                      const imported = importedSheets.get(sheet.id);
+                      const isDeleting = deletingItemId === imported?.id;
+                      return (
+                        <Card
+                          key={sheet.id}
+                          className="border-green-200 bg-green-50/50"
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium text-foreground text-sm truncate">{sheet.name}</h3>
+                                  <Badge variant="outline" className="text-xs bg-green-100 text-green-700 border-green-300">
+                                    In RAG
+                                  </Badge>
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {imported?.chunksCreated || 0} chunks • {imported?.rowsCount || 0} rows • Added {imported?.createdAt ? new Date(imported.createdAt).toLocaleDateString() : 'N/A'}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <a
+                                  href={sheet.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-muted-foreground hover:text-foreground"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </a>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => imported && handleDeleteSheet(imported.id, sheet.name)}
+                                  disabled={isDeleting}
+                                  className="h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600"
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
                               </div>
                             </div>
                           </CardContent>
                         </Card>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Already in Knowledge Base Section */}
-                {alreadyImportedSheets.length > 0 && (
-                  <div>
-                    <h2 className="text-lg font-semibold text-foreground mb-3">
-                      Already in Knowledge Base ({alreadyImportedSheets.length})
-                    </h2>
-                    <div className="grid gap-3">
-                      {alreadyImportedSheets.map((sheet) => {
-                        const imported = importedSheets.get(sheet.id);
-                        return (
-                          <Card key={sheet.id} className="bg-green-50 border-green-200">
-                            <CardContent className="p-4">
-                              <div className="flex items-start gap-3">
-                                {/* Checkmark */}
-                                <div className="w-5 h-5 rounded-full bg-green-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                  <Check className="w-3 h-3 text-white" />
+              {/* Show imported sheets that are no longer in Google Drive */}
+              {orphanedImportedSheets.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-3">
+                    Previously Imported (Not in Google Drive) ({orphanedImportedSheets.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {orphanedImportedSheets.map((sheetId) => {
+                      const imported = importedSheets.get(sheetId);
+                      if (!imported) return null;
+                      const isDeleting = deletingItemId === imported.id;
+                      return (
+                        <Card
+                          key={sheetId}
+                          className="border-yellow-200 bg-yellow-50/50"
+                        >
+                          <CardContent className="p-3">
+                            <div className="flex items-center gap-3">
+                              <CheckCircle2 className="w-4 h-4 text-yellow-600 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium text-foreground text-sm truncate">{imported.title}</h3>
+                                  <Badge variant="outline" className="text-xs bg-yellow-100 text-yellow-700 border-yellow-300">
+                                    In RAG
+                                  </Badge>
                                 </div>
-
-                                {/* Icon */}
-                                <div className="w-10 h-10 bg-green-100 rounded flex items-center justify-center flex-shrink-0">
-                                  <Sheet className="w-5 h-5 text-green-600" />
-                                </div>
-
-                                {/* Content */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-center gap-2">
-                                      <h3 className="font-medium text-foreground truncate">{sheet.name}</h3>
-                                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300">
-                                        In RAG
-                                      </Badge>
-                                    </div>
-                                    <a
-                                      href={sheet.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-muted-foreground hover:text-foreground"
-                                    >
-                                      <ExternalLink className="w-4 h-4" />
-                                    </a>
-                                  </div>
-                                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                                    <span>{imported?.chunksCreated || 0} chunks created</span>
-                                    <span>•</span>
-                                    <span>{imported?.rowsCount || 0} rows</span>
-                                    <span>•</span>
-                                    <span>Added: {imported?.createdAt ? new Date(imported.createdAt).toLocaleDateString() : 'N/A'}</span>
-                                  </div>
+                                <div className="text-xs text-muted-foreground mt-0.5">
+                                  {imported.chunksCreated || 0} chunks • {imported.rowsCount || 0} rows • Added {imported.createdAt ? new Date(imported.createdAt).toLocaleDateString() : 'N/A'}
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        );
-                      })}
-                    </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteSheet(imported.id, imported.title)}
+                                  disabled={isDeleting}
+                                  className="h-8 w-8 p-0 hover:bg-red-100 hover:text-red-600"
+                                >
+                                  {isDeleting ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="w-4 h-4" />
+                                  )}
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
                   </div>
-                )}
-
-                {filteredSheets.length === 0 && (
-                  <div className="text-center py-12">
-                    <Sheet className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                    <p className="text-muted-foreground">No spreadsheets found</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
+      </div>
     );
   }
 
-  // Not connected - show connect button
+  // Not connected - show connect option
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6">
-      <div className="max-w-2xl w-full">
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-3">Google Sheets Sources</h1>
-          <p className="text-muted-foreground text-lg">
-            Connect your Google account to import spreadsheets into your agent&apos;s knowledge base
+    <div className="min-h-screen bg-background">
+      <div className="max-w-5xl mx-auto p-8">
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h1 className="text-2xl font-semibold text-foreground">Google Sheets Sources</h1>
+          </div>
+          <p className="text-muted-foreground text-sm">
+            Connect your Google account to import spreadsheets into your AI agent&apos;s knowledge base.
           </p>
         </div>
 
-        <Card className="shadow-lg border-gray-200">
-          <CardContent className="p-10">
-            <div className="text-center">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Sheet className="w-10 h-10 text-green-600" />
+        <Card className="border border-border hover:border-primary/20 transition-colors duration-200">
+          <CardContent className="p-8">
+            <div className="flex flex-col items-center justify-center text-center space-y-4">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center">
+                <Sheet className="w-8 h-8 text-muted-foreground" />
               </div>
-              <h2 className="text-2xl font-bold text-foreground mb-3">Connect Google Sheets</h2>
-              <p className="text-muted-foreground mb-8 text-base">
-                Import data from your Google Sheets to enhance your AI agent&apos;s knowledge
-              </p>
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium text-foreground">Connect Google Sheets</h3>
+                <p className="text-sm text-muted-foreground max-w-md">
+                  Import your Google Sheets to enhance your AI agent&apos;s knowledge base with spreadsheet data.
+                </p>
+              </div>
 
               <Button
                 onClick={handleConnectGoogle}
                 disabled={connecting}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                size="lg"
+                className="bg-foreground hover:bg-foreground/90 text-background px-8 py-2"
               >
                 {connecting ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Connecting...
                   </>
                 ) : (
                   <>
-                    <Sheet className="w-5 h-5 mr-2" />
+                    <Sheet className="w-4 h-4 mr-2" />
                     Connect with Google
                   </>
                 )}
               </Button>
 
-              <div className="mt-10 text-left space-y-3">
-                <h3 className="font-semibold text-foreground mb-4 text-lg">What you can do:</h3>
-                <div className="flex items-start gap-3 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Import spreadsheet data into your knowledge base</span>
-                </div>
-                <div className="flex items-start gap-3 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Enable AI to answer questions using your sheet data</span>
-                </div>
-                <div className="flex items-start gap-3 text-sm text-muted-foreground">
-                  <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                  <span>Automatically format data as searchable content</span>
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                You&apos;ll be redirected to Google to authorize access
+              </p>
             </div>
           </CardContent>
         </Card>

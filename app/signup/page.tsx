@@ -6,13 +6,21 @@ import Link from 'next/link';
 import { useAuth } from '../lib/workspace-auth-context';
 import { Button } from '@/components/ui/button';
 import { BrandLogo } from '../components/brand';
+import { Sparkles, Zap, Shield, TrendingUp, MessageSquare, Users, Bot, Clock, Globe, AlertCircle, Mail } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 function SignUpPageContent() {
   const [step, setStep] = useState<'initial' | 'complete' | 'company'>('initial');
   const [formData, setFormData] = useState({
+    fullName: '',
     email: '',
-    password: '',
-    confirmPassword: '',
     firstName: '',
     lastName: '',
     company: '',
@@ -23,7 +31,10 @@ function SignUpPageContent() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signInWithGoogle, signUpWithEmail, updateUserData, user, createWorkspace } = useAuth();
+  const [emailLinkSent, setEmailLinkSent] = useState(false);
+  const [showEmailExistsDialog, setShowEmailExistsDialog] = useState(false);
+  const [existingEmail, setExistingEmail] = useState('');
+  const { signInWithGoogle, sendSignInLinkToEmail, updateUserData, user, createWorkspace } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -50,12 +61,18 @@ function SignUpPageContent() {
       } else {
         console.log('🆕 [Signup Page] User has no workspaces, creating default workspace...');
         
-        // Create default workspace for existing user
-        const nameParts = user.displayName?.split(' ') || [];
-        const firstName = nameParts[0] || 'User';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        const defaultWorkspaceName = `${firstName} ${lastName}'s Workspace`;
-        const defaultWorkspaceUrl = `${firstName.toLowerCase()}-${lastName.toLowerCase()}-${Date.now()}`;
+        // Get user data from Firestore to get accurate name
+        const { getDoc, doc } = await import('firebase/firestore');
+        const { db } = await import('../lib/firebase');
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        const userData = userDoc.exists() ? userDoc.data() : null;
+        
+        const displayName = userData?.displayName || user.displayName || 'User';
+        const firstName = userData?.firstName || user.displayName?.split(' ')[0] || 'User';
+        const lastName = userData?.lastName || user.displayName?.split(' ').slice(1).join(' ') || '';
+        
+        const defaultWorkspaceName = `${displayName}'s Workspace`;
+        const defaultWorkspaceUrl = `${firstName.toLowerCase()}-${lastName ? lastName.toLowerCase() + '-' : ''}${Date.now()}`;
         
         try {
           await createWorkspace(defaultWorkspaceName, defaultWorkspaceUrl, 'Your default workspace');
@@ -118,44 +135,23 @@ function SignUpPageContent() {
         userDisplayName: user.displayName
       });
       
-      if (isNewUser) {
-        console.log('🆕 [Signup Page] Processing new user...');
-        
-        // For new Google users, check if we have complete profile data
-        // Google provides name and email, so we might have enough data
-        const nameParts = user.displayName?.split(' ') || [];
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
-        console.log('👤 [Signup Page] Parsed name from Google:', { firstName, lastName });
-        
-        // If we have both first and last name from Google, redirect to dashboard
-        // The workspace will be created by the checkUserWorkspaces function
-        if (firstName && lastName) {
-          console.log('✅ [Signup Page] Complete profile data available, redirecting to dashboard');
-          router.push('/dashboard');
-        } else {
-          console.log('⚠️ [Signup Page] Incomplete profile data, going to profile completion');
-          
-          // Pre-fill the form with Google data
-          const updatedFormData = {
-            ...formData,
-            firstName: firstName,
-            lastName: lastName,
-            email: user.email || ''
-          };
-          
-          console.log('📝 [Signup Page] Pre-filling form with:', updatedFormData);
-          setFormData(updatedFormData);
-          setStep('complete');
-        }
-      } else {
-        console.log('👤 [Signup Page] Existing user, redirecting to dashboard');
-        router.push('/dashboard');
-      }
+      // Always redirect to dashboard - workspace will be created automatically
+      // Google provides name and email, so user data is already complete
+      console.log('✅ [Signup Page] Account created, redirecting to dashboard');
+      router.push('/dashboard');
     } catch (error: unknown) {
       console.error('❌ [Signup Page] Error during Google signup:', error);
-      setError((error as Error).message || 'Failed to sign up with Google');
+      const firebaseError = error as { code?: string; message?: string };
+      
+      // Check if email is already in use (though unlikely with Google OAuth)
+      if (firebaseError.code === 'auth/email-already-in-use') {
+        const userEmail = (error as any).customData?.email || '';
+        setExistingEmail(userEmail);
+        setShowEmailExistsDialog(true);
+        setError(''); // Clear inline error since we're showing dialog
+      } else {
+        setError(firebaseError.message || 'Failed to sign up with Google');
+      }
     } finally {
       console.log('🏁 [Signup Page] Google signup process completed');
       setLoading(false);
@@ -165,18 +161,14 @@ function SignUpPageContent() {
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.email || !formData.password || !formData.confirmPassword) {
+    console.log('📝 [Signup Page] Form submission started');
+    console.log('📊 [Signup Page] Form data:', {
+      fullName: formData.fullName,
+      email: formData.email
+    });
+    
+    if (!formData.fullName || !formData.email) {
       setError('Please fill in all required fields');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
       return;
     }
 
@@ -184,28 +176,28 @@ function SignUpPageContent() {
       setLoading(true);
       setError('');
       
-      const additionalData = {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        company: formData.company,
-        role: formData.role,
-        displayName: `${formData.firstName} ${formData.lastName}`.trim()
-      };
+      console.log('🚀 [Signup Page] Sending email link...');
       
-      await signUpWithEmail(formData.email, formData.password, additionalData);
-      
-      // Check if we have complete profile data
-      if (formData.firstName && formData.lastName) {
-        // Profile is complete, redirect to dashboard
-        // The workspace will be created by the checkUserWorkspaces function
-        console.log('✅ [Signup Page] Profile complete, redirecting to dashboard');
-        router.push('/dashboard');
-      } else {
-        // Profile incomplete, go to complete step
-        router.push('/signup?step=complete');
+      // Store full name temporarily so we can use it when user completes sign-in
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('pendingFullName', formData.fullName);
       }
+      
+      // Send email link for passwordless sign-up/sign-in
+      await sendSignInLinkToEmail(formData.email);
+      
+      console.log('✅ [Signup Page] Email link sent successfully');
+      setEmailLinkSent(true);
     } catch (error: unknown) {
-      setError((error as Error).message || 'Failed to create account');
+      const firebaseError = error as { code?: string; message?: string };
+      
+      console.error('❌ [Signup Page] Error sending email link:', firebaseError);
+      console.error('❌ [Signup Page] Error code:', firebaseError.code);
+      console.error('❌ [Signup Page] Error message:', firebaseError.message);
+      
+      // Show user-friendly error message
+      const errorMessage = firebaseError.message || 'Failed to send sign-in link. Please check your email address and try again.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -287,30 +279,35 @@ function SignUpPageContent() {
 
   if (step === 'company') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-6">
-              <BrandLogo size="lg" />
-            </div>
-            <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-              Create your company
-            </h1>
-            <p className="text-neutral-600">
-              Set up your company to start collaborating with your team
-            </p>
-          </div>
+      <div className="h-screen bg-background flex overflow-hidden">
+        {/* Left Side - Form */}
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+          <div className="w-full max-w-md">
+            {/* Logo */}
+            <Link href="/" className="inline-flex items-center mb-8 hover:opacity-80 transition-opacity">
+              <BrandLogo size="md" showText={true} />
+            </Link>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                Create your workspace
+              </h1>
+              <p className="text-muted-foreground">
+                Set up your workspace to start collaborating with your team
+              </p>
+            </div>
+
+            {/* Error Message */}
             {error && (
-              <div className="mb-6 p-4 bg-status-error-50 border border-status-error-200 rounded-lg">
-                <p className="text-status-error-700 text-sm">{error}</p>
+              <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-destructive text-sm">{error}</p>
               </div>
             )}
 
             <form onSubmit={handleCreateWorkspace} className="space-y-4">
               <div>
-                <label htmlFor="companyName" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="companyName" className="block text-sm font-medium text-foreground mb-2">
                   Workspace name *
                 </label>
                 <input
@@ -318,7 +315,7 @@ function SignUpPageContent() {
                   type="text"
                   value={formData.companyName}
                   onChange={(e) => handleInputChange('companyName', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                   placeholder="Acme Inc."
                   disabled={loading}
                   suppressHydrationWarning
@@ -326,14 +323,14 @@ function SignUpPageContent() {
               </div>
 
               <div>
-                <label htmlFor="companyDescription" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="companyDescription" className="block text-sm font-medium text-foreground mb-2">
                   Description
                 </label>
                 <textarea
                   id="companyDescription"
                   value={formData.companyDescription}
                   onChange={(e) => handleInputChange('companyDescription', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                   placeholder="Brief description of your company..."
                   rows={3}
                   disabled={loading}
@@ -342,7 +339,7 @@ function SignUpPageContent() {
               </div>
 
               <div>
-                <label htmlFor="companyDomain" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="companyDomain" className="block text-sm font-medium text-foreground mb-2">
                   Workspace URL
                 </label>
                 <input
@@ -350,12 +347,12 @@ function SignUpPageContent() {
                   type="text"
                   value={formData.companyDomain}
                   onChange={(e) => handleInputChange('companyDomain', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                   placeholder="acme.com"
                   disabled={loading}
                   suppressHydrationWarning
                 />
-                <p className="text-xs text-neutral-500 mt-1">Optional: Your workspace URL slug</p>
+                <p className="text-xs text-muted-foreground mt-1">Optional: Your workspace URL slug</p>
               </div>
 
               <Button
@@ -369,37 +366,45 @@ function SignUpPageContent() {
             </form>
           </div>
         </div>
+
+        {/* Right Side - Feature Showcase */}
+        <FeatureShowcase />
       </div>
     );
   }
 
   if (step === 'complete') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="text-center mb-8">
-            <div className="flex justify-center mb-6">
-              <BrandLogo size="lg" />
-            </div>
-            <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-              Complete your profile
-            </h1>
-            <p className="text-neutral-600">
-              Tell us a bit about yourself to get started
-            </p>
-          </div>
+      <div className="h-screen bg-background flex overflow-hidden">
+        {/* Left Side - Form */}
+        <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+          <div className="w-full max-w-md">
+            {/* Logo */}
+            <Link href="/" className="inline-flex items-center mb-8 hover:opacity-80 transition-opacity">
+              <BrandLogo size="md" showText={true} />
+            </Link>
 
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-foreground mb-2">
+                Complete your profile
+              </h1>
+              <p className="text-muted-foreground">
+                Tell us a bit about yourself to get started
+              </p>
+            </div>
+
+            {/* Error Message */}
             {error && (
-              <div className="mb-6 p-4 bg-status-error-50 border border-status-error-200 rounded-lg">
-                <p className="text-status-error-700 text-sm">{error}</p>
+              <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+                <p className="text-destructive text-sm">{error}</p>
               </div>
             )}
 
             <form onSubmit={handleCompleteProfile} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label htmlFor="firstName" className="block text-sm font-medium text-foreground mb-2">
                     First name *
                   </label>
                   <input
@@ -407,14 +412,14 @@ function SignUpPageContent() {
                     type="text"
                     value={formData.firstName}
                     onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                     placeholder="John"
                     disabled={loading}
                     suppressHydrationWarning
                   />
                 </div>
                 <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-neutral-700 mb-2">
+                  <label htmlFor="lastName" className="block text-sm font-medium text-foreground mb-2">
                     Last name *
                   </label>
                   <input
@@ -422,7 +427,7 @@ function SignUpPageContent() {
                     type="text"
                     value={formData.lastName}
                     onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                    className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                     placeholder="Doe"
                     disabled={loading}
                     suppressHydrationWarning
@@ -431,7 +436,7 @@ function SignUpPageContent() {
               </div>
 
               <div>
-                <label htmlFor="company" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="company" className="block text-sm font-medium text-foreground mb-2">
                   Company
                 </label>
                 <input
@@ -439,7 +444,7 @@ function SignUpPageContent() {
                   type="text"
                   value={formData.company}
                   onChange={(e) => handleInputChange('company', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                   placeholder="Acme Inc."
                   disabled={loading}
                   suppressHydrationWarning
@@ -447,14 +452,14 @@ function SignUpPageContent() {
               </div>
 
               <div>
-                <label htmlFor="role" className="block text-sm font-medium text-neutral-700 mb-2">
+                <label htmlFor="role" className="block text-sm font-medium text-foreground mb-2">
                   Role
                 </label>
                 <select
                   id="role"
                   value={formData.role}
                   onChange={(e) => handleInputChange('role', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
+                  className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
                   disabled={loading}
                   suppressHydrationWarning
                 >
@@ -479,7 +484,7 @@ function SignUpPageContent() {
                 </Button>
                 
                 <div className="text-center">
-                  <p className="text-sm text-neutral-600 mb-2">
+                  <p className="text-xs text-muted-foreground">
                     You can create or join a company later from your dashboard
                   </p>
                 </div>
@@ -487,38 +492,175 @@ function SignUpPageContent() {
             </form>
           </div>
         </div>
+
+        {/* Right Side - Feature Showcase */}
+        <FeatureShowcase />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <BrandLogo size="lg" />
-          </div>
-          <h1 className="text-3xl font-bold text-neutral-900 mb-2">
-            Create your account
-          </h1>
-          <p className="text-neutral-600">
-            Get started with your free account today
+  // Feature Showcase Component
+  const FeatureShowcase = () => (
+    <div className="hidden lg:flex flex-1 bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 items-center justify-center p-8 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse delay-1000"></div>
+      </div>
+
+      <div className="relative z-10 max-w-lg">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-foreground mb-3">
+            Start Building with AI
+          </h2>
+          <p className="text-base text-muted-foreground">
+            Join thousands of businesses automating customer engagement
           </p>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-xl border border-white/20 p-8">
+        {/* Feature Cards */}
+        <div className="space-y-4">
+          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors flex-shrink-0">
+                <Bot className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-sm mb-0.5">AI-Powered Agents</h3>
+                <p className="text-xs text-muted-foreground">
+                  Create intelligent agents that learn from your data
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-success/10 rounded-lg flex items-center justify-center group-hover:bg-success/20 transition-colors flex-shrink-0">
+                <Clock className="w-5 h-5 text-success" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-sm mb-0.5">Launch in Minutes</h3>
+                <p className="text-xs text-muted-foreground">
+                  No coding required - deploy in just a few clicks
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-400">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-warning/10 rounded-lg flex items-center justify-center group-hover:bg-warning/20 transition-colors flex-shrink-0">
+                <Globe className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-sm mb-0.5">Omnichannel Ready</h3>
+                <p className="text-xs text-muted-foreground">
+                  Deploy across web, WhatsApp, and more
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="group bg-card/50 backdrop-blur border border-border rounded-lg p-4 hover:shadow-lg transition-all duration-300 hover:scale-105 animate-fade-in delay-600">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 bg-info/10 rounded-lg flex items-center justify-center group-hover:bg-info/20 transition-colors flex-shrink-0">
+                <Users className="w-5 h-5 text-info" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-foreground text-sm mb-0.5">Team Collaboration</h3>
+                <p className="text-xs text-muted-foreground">
+                  Invite your team and manage together
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Stats */}
+        <div className="mt-8 grid grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary mb-0.5">10K+</div>
+            <div className="text-xs text-muted-foreground">Active Users</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary mb-0.5">Free</div>
+            <div className="text-xs text-muted-foreground">To Start</div>
+          </div>
+          <div className="text-center">
+            <div className="text-2xl font-bold text-primary mb-0.5">24/7</div>
+            <div className="text-xs text-muted-foreground">Support</div>
+          </div>
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fade-in {
+          animation: fade-in 0.5s ease-out forwards;
+        }
+        .delay-200 {
+          animation-delay: 0.2s;
+          opacity: 0;
+        }
+        .delay-400 {
+          animation-delay: 0.4s;
+          opacity: 0;
+        }
+        .delay-600 {
+          animation-delay: 0.6s;
+          opacity: 0;
+        }
+        .delay-1000 {
+          animation-delay: 1s;
+        }
+      `}</style>
+    </div>
+  );
+
+  return (
+    <div className="h-screen bg-background flex overflow-hidden">
+      {/* Left Side - Form */}
+      <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
+        <div className="w-full max-w-md">
+          {/* Logo */}
+          <Link href="/" className="inline-flex items-center mb-8 hover:opacity-80 transition-opacity">
+            <BrandLogo size="md" showText={true} />
+          </Link>
+
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              Create your account
+            </h1>
+            <p className="text-muted-foreground">
+              No password needed. We'll send you a secure link to get started.
+            </p>
+          </div>
+
+          {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-status-error-50 border border-status-error-200 rounded-lg">
-              <p className="text-status-error-700 text-sm">{error}</p>
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <p className="text-destructive text-sm">{error}</p>
             </div>
           )}
 
+          {/* Google Sign Up */}
           <Button
             onClick={handleGoogleSignUp}
             disabled={loading}
             variant="outline"
             size="lg"
-            className="w-full mb-6 bg-white hover:bg-neutral-50 border-neutral-200 text-neutral-700 font-medium"
+            className="w-full mb-6 bg-card hover:bg-muted border-border"
           >
             <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
               <path
@@ -541,51 +683,37 @@ function SignUpPageContent() {
             {loading ? 'Creating account...' : 'Continue with Google'}
           </Button>
 
+          {/* Divider */}
           <div className="relative mb-6">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-neutral-200"></div>
+              <div className="w-full border-t border-border"></div>
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-neutral-500">Or create with email</span>
+              <span className="px-4 bg-background text-muted-foreground">Or create with email</span>
             </div>
           </div>
 
+          {/* Email Sign Up Form */}
           <form onSubmit={handleEmailSignUp} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-neutral-700 mb-2">
-                  First name
-                </label>
-                <input
-                  id="firstName"
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange('firstName', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                  placeholder="John"
-                  disabled={loading}
-                  suppressHydrationWarning
-                />
-              </div>
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-neutral-700 mb-2">
-                  Last name
-                </label>
-                <input
-                  id="lastName"
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange('lastName', e.target.value)}
-                  className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                  placeholder="Doe"
-                  disabled={loading}
-                  suppressHydrationWarning
-                />
-              </div>
+            <div>
+              <label htmlFor="fullName" className="block text-sm font-medium text-foreground mb-2">
+                Full name *
+              </label>
+              <input
+                id="fullName"
+                type="text"
+                value={formData.fullName}
+                onChange={(e) => handleInputChange('fullName', e.target.value)}
+                className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
+                placeholder="John Doe"
+                disabled={loading}
+                suppressHydrationWarning
+                required
+              />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-neutral-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
                 Email address *
               </label>
               <input
@@ -593,98 +721,30 @@ function SignUpPageContent() {
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleInputChange('email', e.target.value)}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                placeholder="john@example.com"
+                className="w-full px-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors bg-card text-foreground"
+                placeholder="you@example.com"
                 disabled={loading}
                 suppressHydrationWarning
+                required
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-neutral-700 mb-2">
-                Password *
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={formData.password}
-                onChange={(e) => handleInputChange('password', e.target.value)}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                placeholder="Create a strong password"
-                disabled={loading}
-                suppressHydrationWarning
-              />
-            </div>
-
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700 mb-2">
-                Confirm password *
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={formData.confirmPassword}
-                onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                placeholder="Confirm your password"
-                disabled={loading}
-                suppressHydrationWarning
-              />
-            </div>
-
-            <div>
-              <label htmlFor="company" className="block text-sm font-medium text-neutral-700 mb-2">
-                Company
-              </label>
-              <input
-                id="company"
-                type="text"
-                value={formData.company}
-                onChange={(e) => handleInputChange('company', e.target.value)}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                placeholder="Acme Inc."
-                disabled={loading}
-                suppressHydrationWarning
-              />
-            </div>
-
-            <div>
-              <label htmlFor="role" className="block text-sm font-medium text-neutral-700 mb-2">
-                Role
-              </label>
-              <select
-                id="role"
-                value={formData.role}
-                onChange={(e) => handleInputChange('role', e.target.value)}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-colors bg-white/50"
-                disabled={loading}
-                suppressHydrationWarning
-              >
-                <option value="">Select your role</option>
-                <option value="Sales Manager">Sales Manager</option>
-                <option value="Sales Representative">Sales Representative</option>
-                <option value="Marketing Manager">Marketing Manager</option>
-                <option value="Business Owner">Business Owner</option>
-                <option value="Customer Success">Customer Success</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
 
             <div className="flex items-start">
               <input
                 id="terms"
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-neutral-300 rounded mt-1"
+                className="h-4 w-4 text-primary focus:ring-primary border-border rounded mt-1"
                 required
                 suppressHydrationWarning
               />
-              <label htmlFor="terms" className="ml-2 block text-sm text-neutral-700">
+              <label htmlFor="terms" className="ml-2 block text-sm text-muted-foreground">
                 I agree to the{' '}
-                <Link href="/terms" className="text-primary-600 hover:text-primary-500">
+                <Link href="/terms" className="text-primary hover:text-primary/80">
                   Terms of Service
                 </Link>{' '}
                 and{' '}
-                <Link href="/privacy" className="text-primary-600 hover:text-primary-500">
+                <Link href="/privacy" className="text-primary hover:text-primary/80">
                   Privacy Policy
                 </Link>
               </label>
@@ -692,20 +752,46 @@ function SignUpPageContent() {
 
             <Button
               type="submit"
-              disabled={loading}
+              disabled={loading || emailLinkSent}
               size="lg"
-              className="w-full"
+              className="w-full mt-2"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Sending link...' : emailLinkSent ? 'Link sent!' : 'Create account'}
             </Button>
           </form>
 
+          {/* Email Link Sent Success Message */}
+          {emailLinkSent && (
+            <div className="mt-6 p-4 bg-success/10 border border-success/20 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-success font-medium text-sm mb-1">Check your email!</p>
+                  <p className="text-muted-foreground text-sm mb-2">
+                    We've sent a sign-in link to <span className="font-medium text-foreground">{formData.email}</span>. 
+                    Click the link in the email to create your account and sign in.
+                  </p>
+                  <div className="mt-3 pt-3 border-t border-success/20">
+                    <p className="text-xs text-muted-foreground font-medium mb-1">Didn't receive the email?</p>
+                    <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+                      <li>Check your spam/junk folder</li>
+                      <li>Wait a few minutes (emails can take 1-5 minutes)</li>
+                      <li>Make sure <span className="font-medium">{formData.email}</span> is correct</li>
+                      <li>Try clicking "Create account" again</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Sign In Link */}
           <div className="mt-6 text-center">
-            <p className="text-neutral-600">
+            <p className="text-muted-foreground text-sm">
               Already have an account?{' '}
               <Link
                 href="/signin"
-                className="text-primary-600 hover:text-primary-500 font-medium transition-colors"
+                className="text-primary hover:text-primary/80 font-medium transition-colors"
               >
                 Sign in
               </Link>
@@ -713,6 +799,47 @@ function SignUpPageContent() {
           </div>
         </div>
       </div>
+
+      {/* Right Side - Feature Showcase */}
+      <FeatureShowcase />
+
+      {/* Email Already Exists Dialog */}
+      <Dialog open={showEmailExistsDialog} onOpenChange={setShowEmailExistsDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 bg-warning/10 rounded-full flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-warning" />
+              </div>
+              <DialogTitle className="text-xl">Account Already Exists</DialogTitle>
+            </div>
+            <DialogDescription className="text-left pt-2">
+              An account with the email <span className="font-medium text-foreground">{existingEmail}</span> already exists.
+              <br /><br />
+              Would you like to sign in instead?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowEmailExistsDialog(false)}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                setShowEmailExistsDialog(false);
+                router.push('/signin');
+              }}
+              className="w-full sm:w-auto"
+            >
+              Sign In
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
@@ -720,10 +847,10 @@ function SignUpPageContent() {
 export default function SignUpPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-accent-50 flex items-center justify-center">
+      <div className="h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-500 mx-auto mb-4"></div>
-          <p className="text-neutral-600">Loading...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     }>
